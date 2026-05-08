@@ -1,0 +1,209 @@
+.container {
+  min-height: 100vh;
+  background: #0b1220;
+  color: #e2e8f0;
+  padding: 24px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.headerRight {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.backBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #94a3b8;
+  font-size: 14px;
+  transition: color 0.2s;
+}
+
+.backBtn:hover {
+  color: #38bdf8;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 24px;
+  font-weight: 700;
+  color: #f0f9ff;
+}
+
+.cidadeSelect {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+}
+
+.refreshBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #1d4ed8;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.refreshBtn:hover {
+  background: #2563eb;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.statCard {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-left-width: 4px;
+  border-radius: 10px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.statNum {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.statLabel {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.climaCard {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.climaCard h2 {
+  font-size: 16px;
+  color: #94a3b8;
+  margin-bottom: 16px;
+  font-weight: 600;
+}
+
+.climaGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.climaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.climaLabel {
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.climaVal {
+  font-size: 20px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.tablesRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .tablesRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tableCard {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.tableCard h2 {
+  font-size: 15px;
+  margin-bottom: 16px;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th {
+  text-align: left;
+  padding: 8px;
+  color: #64748b;
+  border-bottom: 1px solid #334155;
+  font-weight: 500;
+}
+
+.table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #1e3a5f33;
+  color: #cbd5e1;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+}
+
+.empty {
+  color: #475569;
+  font-size: 14px;
+  text-align: center;
+  padding: 20px 0;
+}

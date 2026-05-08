@@ -1,0 +1,206 @@
+.wrapper {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(11, 18, 32, 0.92);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid #1e3a5f;
+  padding: 8px 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.select {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.camadaGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 7px;
+  padding: 3px 8px 3px 6px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.camadaBtn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.camadaBtn:hover {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+.camadaBtnActive {
+  background: #1d4ed8;
+  color: white !important;
+}
+
+.desenhoBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #78350f;
+  border: 1px solid #92400e;
+  color: #fde68a;
+  padding: 6px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  transition: background 0.15s;
+}
+
+.desenhoBtn:hover {
+  background: #92400e;
+}
+
+.finalizarBtn {
+  background: #15803d;
+  border: none;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  transition: background 0.15s;
+}
+
+.finalizarBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.finalizarBtn:not(:disabled):hover {
+  background: #16a34a;
+}
+
+.cancelarBtn {
+  background: #7f1d1d;
+  border: none;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.cancelarBtn:hover {
+  background: #991b1b;
+}
+
+.limparBtn {
+  background: #1e293b;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+}
+
+.climaBtn {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #94a3b8;
+  padding: 6px 14px;
+  border-radius: 7px;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.climaBtn:hover,
+.climaBtnActive {
+  background: #1e3a5f;
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.desenhoAlert {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  background: #92400e;
+  color: #fde68a;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.coordBar {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  background: rgba(11, 18, 32, 0.85);
+  color: #94a3b8;
+  font-size: 11px;
+  padding: 5px 14px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  border: 1px solid #1e3a5f;
+}
+
+.map {
+  position: absolute;
+  inset: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.climaPanel {
+  position: absolute;
+  top: 55px;
+  right: 12px;
+  z-index: 15;
+  width: 280px;
+}

@@ -1,0 +1,20 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import Home from './pages/Home'
+import Vistoria from './pages/Vistoria'
+import Ocorrencias from './pages/Ocorrencias'
+import Imoveis from './pages/Imoveis'
+import Dashboard from './pages/Dashboard'
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path='/' element={<Home />} />
+        <Route path='/vistoria' element={<Vistoria />} />
+        <Route path='/ocorrencias' element={<Ocorrencias />} />
+        <Route path='/imoveis' element={<Imoveis />} />
+        <Route path='/dashboard' element={<Dashboard />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}

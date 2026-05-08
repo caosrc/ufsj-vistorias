@@ -1,0 +1,527 @@
+# APP DEFESA CIVIL — REPLIT + REACT + MAPLIBRE
+
+## OBJETIVO
+
+Sistema WebGIS operacional da Defesa Civil com:
+
+* mapa interativo
+* ruas
+* satélite
+* topográfico
+* cadastro de imóveis
+* cadastro de ocorrências
+* desenho de áreas de risco
+* vistoria residencial
+* clima
+* armazenamento local inicialmente
+
+---
+
+# 1. CRIAR PROJETO NO REPLIT
+
+Criar:
+
+```bash
+npm create vite@latest
+```
+
+Escolher:
+
+```txt
+React
+JavaScript
+```
+
+---
+
+# 2. INSTALAR DEPENDÊNCIAS
+
+No Shell do Replit:
+
+```bash
+npm install
+npm install maplibre-gl
+npm install react-router-dom
+npm install react-icons
+npm install @turf/turf
+npm install react-leaflet leaflet
+npm install maplibre-gl-js-amplify
+```
+
+---
+
+# 3. ESTRUTURA DE PASTAS
+
+```txt
+src/
+ ├── components/
+ ├── pages/
+ ├── data/
+ ├── styles/
+ ├── App.jsx
+ ├── main.jsx
+```
+
+---
+
+# 4. src/main.jsx
+
+```jsx
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App'
+import './styles/global.css'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+)
+```
+
+---
+
+# 5. src/styles/global.css
+
+```css
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0b1220;
+  color: white;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+}
+```
+
+---
+
+# 6. src/App.jsx
+
+```jsx
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+
+import Home from './pages/Home'
+import Vistoria from './pages/Vistoria'
+import Ocorrencias from './pages/Ocorrencias'
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path='/' element={<Home />} />
+        <Route path='/vistoria' element={<Vistoria />} />
+        <Route path='/ocorrencias' element={<Ocorrencias />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
+```
+
+---
+
+# 7. src/pages/Home.jsx
+
+```jsx
+import Sidebar from '../components/Sidebar'
+import Mapa from '../components/Mapa'
+
+export default function Home() {
+  return (
+    <div style={{ display: 'flex', width: '100%', height: '100vh' }}>
+      <Sidebar />
+      <Mapa />
+    </div>
+  )
+}
+```
+
+---
+
+# 8. src/components/Sidebar.jsx
+
+```jsx
+import { Link } from 'react-router-dom'
+
+export default function Sidebar() {
+  return (
+    <div
+      style={{
+        width: '280px',
+        background: '#111827',
+        padding: '20px',
+        borderRight: '1px solid #374151'
+      }}
+    >
+      <h2>Defesa Civil</h2>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <Link to='/'>Mapa</Link>
+        <Link to='/vistoria'>Vistoria</Link>
+        <Link to='/ocorrencias'>Ocorrências</Link>
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+# 9. src/components/Mapa.jsx
+
+```jsx
+import { useEffect, useRef } from 'react'
+import maplibregl from 'maplibre-gl'
+import 'maplibre-gl/dist/maplibre-gl.css'
+
+export default function Mapa() {
+  const mapContainer = useRef(null)
+  const map = useRef(null)
+
+  useEffect(() => {
+    if (map.current) return
+
+    map.current = new maplibregl.Map({
+      container: mapContainer.current,
+      style: {
+        version: 8,
+        sources: {
+          osm: {
+            type: 'raster',
+            tiles: [
+              'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+            ],
+            tileSize: 256
+          }
+        },
+        layers: [
+          {
+            id: 'osm',
+            type: 'raster',
+            source: 'osm'
+          }
+        ]
+      },
+      center: [-43.6919, -20.5236],
+      zoom: 13
+    })
+
+    map.current.addControl(new maplibregl.NavigationControl())
+
+    map.current.on('click', (e) => {
+      const lat = e.lngLat.lat
+      const lng = e.lngLat.lng
+
+      localStorage.setItem(
+        'ultimaCoordenada',
+        JSON.stringify({ lat, lng })
+      )
+
+      new maplibregl.Marker({ color: 'red' })
+        .setLngLat([lng, lat])
+        .addTo(map.current)
+
+      alert(`Coordenada salva:\nLat: ${lat}\nLng: ${lng}`)
+    })
+
+  }, [])
+
+  return (
+    <div
+      ref={mapContainer}
+      style={{ width: '100%', height: '100vh' }}
+    />
+  )
+}
+```
+
+---
+
+# 10. ADICIONAR CAMADA SATÉLITE
+
+Substituir em Mapa.jsx:
+
+```jsx
+sources: {
+  osm: {
+    type: 'raster',
+    tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+    tileSize: 256
+  },
+
+  satelite: {
+    type: 'raster',
+    tiles: [
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+    ],
+    tileSize: 256
+  }
+}
+```
+
+---
+
+# 11. CAMADA TOPOGRÁFICA
+
+Adicionar:
+
+```jsx
+topografico: {
+  type: 'raster',
+  tiles: [
+    'https://tile.opentopomap.org/{z}/{x}/{y}.png'
+  ],
+  tileSize: 256
+}
+```
+
+---
+
+# 12. BOTÕES DE TROCA DE MAPA
+
+Adicionar no componente:
+
+```jsx
+<button onClick={() => trocarMapa('osm')}>
+  Ruas
+</button>
+
+<button onClick={() => trocarMapa('satelite')}>
+  Satélite
+</button>
+
+<button onClick={() => trocarMapa('topografico')}>
+  Topográfico
+</button>
+```
+
+---
+
+# 13. CADASTRO DE OCORRÊNCIAS
+
+# src/pages/Ocorrencias.jsx
+
+```jsx
+import { useState } from 'react'
+
+export default function Ocorrencias() {
+  const [tipo, setTipo] = useState('')
+  const [descricao, setDescricao] = useState('')
+
+  function salvar() {
+    const ocorrencias = JSON.parse(localStorage.getItem('ocorrencias')) || []
+
+    const coordenada = JSON.parse(localStorage.getItem('ultimaCoordenada'))
+
+    ocorrencias.push({
+      tipo,
+      descricao,
+      coordenada,
+      data: new Date()
+    })
+
+    localStorage.setItem('ocorrencias', JSON.stringify(ocorrencias))
+
+    alert('Ocorrência salva!')
+  }
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h1>Ocorrências</h1>
+
+      <input
+        placeholder='Tipo'
+        value={tipo}
+        onChange={(e) => setTipo(e.target.value)}
+      />
+
+      <br /><br />
+
+      <textarea
+        placeholder='Descrição'
+        value={descricao}
+        onChange={(e) => setDescricao(e.target.value)}
+      />
+
+      <br /><br />
+
+      <button onClick={salvar}>
+        Salvar
+      </button>
+    </div>
+  )
+}
+```
+
+---
+
+# 14. MENU DE VISTORIA
+
+# src/pages/Vistoria.jsx
+
+```jsx
+import { useState } from 'react'
+
+export default function Vistoria() {
+  const [nome, setNome] = useState('')
+  const [solo, setSolo] = useState('')
+  const [risco, setRisco] = useState('')
+  const [observacao, setObservacao] = useState('')
+
+  function salvar() {
+    const dados = JSON.parse(localStorage.getItem('vistorias')) || []
+
+    const coordenada = JSON.parse(localStorage.getItem('ultimaCoordenada'))
+
+    dados.push({
+      nome,
+      solo,
+      risco,
+      observacao,
+      coordenada
+    })
+
+    localStorage.setItem('vistorias', JSON.stringify(dados))
+
+    alert('Vistoria salva!')
+  }
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h1>Vistoria Residencial</h1>
+
+      <input
+        placeholder='Responsável'
+        value={nome}
+        onChange={(e) => setNome(e.target.value)}
+      />
+
+      <br /><br />
+
+      <select
+        value={solo}
+        onChange={(e) => setSolo(e.target.value)}
+      >
+        <option>Tipo de solo</option>
+        <option>Argiloso</option>
+        <option>Arenoso</option>
+        <option>Rocha</option>
+        <option>Aterro</option>
+      </select>
+
+      <br /><br />
+
+      <select
+        value={risco}
+        onChange={(e) => setRisco(e.target.value)}
+      >
+        <option>Grau de risco</option>
+        <option>R1</option>
+        <option>R2</option>
+        <option>R3</option>
+        <option>R4</option>
+      </select>
+
+      <br /><br />
+
+      <textarea
+        placeholder='Observações'
+        value={observacao}
+        onChange={(e) => setObservacao(e.target.value)}
+      />
+
+      <br /><br />
+
+      <button onClick={salvar}>
+        Salvar Vistoria
+      </button>
+    </div>
+  )
+}
+```
+
+---
+
+# 15. ÁREAS DE RISCO
+
+Você poderá desenhar:
+
+* polígonos
+* manchas
+* áreas interditadas
+* encostas
+* erosão
+
+Depois usar:
+
+```bash
+npm install terra-draw
+```
+
+---
+
+# 16. DADOS DE EROSÃO DO GOVERNO MG
+
+Você poderá consumir:
+
+```txt
+https://geoserver.meioambiente.mg.gov.br/master/IDE/ows
+```
+
+Via GeoJSON.
+
+---
+
+# 17. CLIMA
+
+Inicialmente use:
+
+```txt
+https://api.open-meteo.com/
+```
+
+Depois integrar:
+
+* INMET
+* CEMADEN
+
+---
+
+# 18. EXECUTAR NO REPLIT
+
+```bash
+npm run dev
+```
+
+---
+
+# 19. RESULTADO
+
+Você terá:
+
+✅ mapa operacional
+✅ ruas
+✅ satélite
+✅ topográfico
+✅ cadastro de imóveis
+✅ vistoria residencial
+✅ ocorrências
+✅ coordenadas geográficas
+✅ armazenamento local
+✅ áreas de risco
+✅ sistema interativo
+
+
+* análise espacial
+* chuva 72h
+* radar meteorológico
+* IA de risco
+* geração de PDF
+* dashboard operacional
