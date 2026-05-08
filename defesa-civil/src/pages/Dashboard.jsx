@@ -2,40 +2,54 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { FiMap, FiAlertTriangle, FiHome, FiClipboard, FiArrowLeft, FiRefreshCw } from 'react-icons/fi'
 import { CIDADES } from '../data/cidades'
+import { api } from '../services/api'
 import styles from './Dashboard.module.css'
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({
-    ocorrencias: 0,
-    vistorias: 0,
-    imoveis: 0,
-    areasRisco: 0
-  })
+  const [stats, setStats] = useState({ ocorrencias: 0, vistorias: 0, imoveis: 0, areasRisco: 0 })
   const [recentOcorrencias, setRecentOcorrencias] = useState([])
   const [recentVistorias, setRecentVistorias] = useState([])
   const [clima, setClima] = useState(null)
   const [cidadeSelecionada, setCidadeSelecionada] = useState('ouro_branco')
+  const [carregando, setCarregando] = useState(false)
 
   useEffect(() => {
-    loadStats()
-    loadClima()
+    loadTudo()
   }, [cidadeSelecionada])
 
-  function loadStats() {
-    const ocorrencias = JSON.parse(localStorage.getItem('ocorrencias') || '[]')
-    const vistorias = JSON.parse(localStorage.getItem('vistorias') || '[]')
-    const imoveis = JSON.parse(localStorage.getItem('imoveis') || '[]')
-    const areasRisco = JSON.parse(localStorage.getItem('areasRisco') || '[]')
+  async function loadTudo() {
+    setCarregando(true)
+    await Promise.all([loadStats(), loadClima()])
+    setCarregando(false)
+  }
 
-    setStats({
-      ocorrencias: ocorrencias.length,
-      vistorias: vistorias.length,
-      imoveis: imoveis.length,
-      areasRisco: areasRisco.length
-    })
-
-    setRecentOcorrencias(ocorrencias.slice(-5).reverse())
-    setRecentVistorias(vistorias.slice(-5).reverse())
+  async function loadStats() {
+    try {
+      const statsApi = await api.getStats()
+      setStats({
+        ocorrencias: statsApi.ocorrencias ?? 0,
+        vistorias: statsApi.vistorias ?? 0,
+        imoveis: statsApi.imoveis ?? 0,
+        areasRisco: statsApi.areasRisco ?? statsApi.areas_risco ?? 0
+      })
+      const ocs = await api.getOcorrencias()
+      setRecentOcorrencias(ocs.slice(0, 5))
+      const vis = await api.getVistorias()
+      setRecentVistorias(vis.slice(0, 5))
+    } catch {
+      const ocorrencias = JSON.parse(localStorage.getItem('ocorrencias') || '[]')
+      const vistorias = JSON.parse(localStorage.getItem('vistorias') || '[]')
+      const imoveis = JSON.parse(localStorage.getItem('imoveis') || '[]')
+      const areasRisco = JSON.parse(localStorage.getItem('areasRisco') || '[]')
+      setStats({
+        ocorrencias: ocorrencias.length,
+        vistorias: vistorias.length,
+        imoveis: imoveis.length,
+        areasRisco: areasRisco.length
+      })
+      setRecentOcorrencias(ocorrencias.slice(-5).reverse())
+      setRecentVistorias(vistorias.slice(-5).reverse())
+    }
   }
 
   async function loadClima() {
@@ -43,12 +57,12 @@ export default function Dashboard() {
     const [lng, lat] = cidade.center
     try {
       const res = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m&hourly=precipitation&forecast_days=1&timezone=America%2FSao_Paulo`
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m&forecast_days=1&timezone=America%2FSao_Paulo`
       )
       const data = await res.json()
       setClima(data.current)
     } catch (e) {
-      console.error('Erro ao carregar clima', e)
+      console.error('Erro clima', e)
     }
   }
 
@@ -63,9 +77,24 @@ export default function Dashboard() {
     return 'Desconhecido'
   }
 
+  function getWeatherIcon(code) {
+    if (code === 0) return '☀️'
+    if (code <= 3) return '⛅'
+    if (code <= 48) return '🌫️'
+    if (code <= 67) return '🌧️'
+    if (code <= 82) return '⛈️'
+    if (code <= 99) return '🌩️'
+    return '🌡️'
+  }
+
   function getRiscoColor(risco) {
     const map = { R1: '#22c55e', R2: '#eab308', R3: '#f97316', R4: '#ef4444' }
     return map[risco] || '#64748b'
+  }
+
+  function getNivelColor(nivel) {
+    const map = { baixo: '#22c55e', medio: '#eab308', alto: '#f97316', critico: '#ef4444' }
+    return map[nivel] || '#64748b'
   }
 
   return (
@@ -89,8 +118,8 @@ export default function Dashboard() {
               <option key={c.codigo} value={c.codigo}>{c.nome}</option>
             ))}
           </select>
-          <button className={styles.refreshBtn} onClick={() => { loadStats(); loadClima() }}>
-            <FiRefreshCw /> Atualizar
+          <button className={styles.refreshBtn} onClick={loadTudo} disabled={carregando}>
+            <FiRefreshCw className={carregando ? styles.girando : ''} /> Atualizar
           </button>
         </div>
       </div>
@@ -128,7 +157,10 @@ export default function Dashboard() {
 
       {clima && (
         <div className={styles.climaCard}>
-          <h2>Condições Meteorológicas — {CIDADES[cidadeSelecionada].nome}</h2>
+          <h2>
+            <span className={styles.climaIcon}>{getWeatherIcon(clima.weather_code)}</span>
+            Condições Meteorológicas — {CIDADES[cidadeSelecionada].nome}
+          </h2>
           <div className={styles.climaGrid}>
             <div className={styles.climaItem}>
               <span className={styles.climaLabel}>Temperatura</span>
@@ -164,16 +196,20 @@ export default function Dashboard() {
               <thead>
                 <tr>
                   <th>Tipo</th>
+                  <th>Nível</th>
                   <th>Data</th>
-                  <th>Coordenadas</th>
                 </tr>
               </thead>
               <tbody>
                 {recentOcorrencias.map((oc, i) => (
-                  <tr key={i}>
-                    <td><span className={styles.badge} style={{ background: '#ef4444' }}>{oc.tipo}</span></td>
+                  <tr key={oc.id || i}>
+                    <td>{oc.tipo}</td>
+                    <td>
+                      <span className={styles.badge} style={{ background: getNivelColor(oc.nivel) }}>
+                        {oc.nivel}
+                      </span>
+                    </td>
                     <td>{oc.data ? new Date(oc.data).toLocaleDateString('pt-BR') : '-'}</td>
-                    <td>{oc.coordenada ? `${oc.coordenada.lat?.toFixed(4)}, ${oc.coordenada.lng?.toFixed(4)}` : '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -196,11 +232,11 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {recentVistorias.map((v, i) => (
-                  <tr key={i}>
+                  <tr key={v.id || i}>
                     <td>{v.nome || '-'}</td>
                     <td>
                       <span className={styles.badge} style={{ background: getRiscoColor(v.risco) }}>
-                        {v.risco}
+                        {v.risco || '-'}
                       </span>
                     </td>
                     <td>{v.solo || '-'}</td>

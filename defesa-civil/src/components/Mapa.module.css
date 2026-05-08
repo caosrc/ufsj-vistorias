@@ -2,85 +2,53 @@
   flex: 1;
   position: relative;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
 }
 
+/* ── Sem WebGL ── */
+.semWebgl {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0b1220;
+  color: #94a3b8;
+  text-align: center;
+  padding: 40px;
+}
+.semWebgl h2 { color: #f87171; margin-bottom: 10px; }
+.semWebgl p { max-width: 400px; line-height: 1.6; margin: 6px auto; }
+
+/* ── Toolbar superior ── */
 .toolbar {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
   display: flex;
   justify-content: space-between;
   align-items: center;
   background: rgba(11, 18, 32, 0.92);
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(8px);
   border-bottom: 1px solid #1e3a5f;
-  padding: 8px 16px;
-  gap: 12px;
-  flex-wrap: wrap;
+  padding: 8px 14px;
+  gap: 10px;
 }
 
-.toolbarLeft {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.toolbarRight {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+.toolbarLeft { display: flex; align-items: center; gap: 10px; }
+.toolbarRight { display: flex; align-items: center; gap: 7px; }
 
 .select {
   background: #1e293b;
   color: #e2e8f0;
   border: 1px solid #334155;
   border-radius: 7px;
-  padding: 6px 10px;
+  padding: 6px 12px;
   font-size: 13px;
 }
 
-.camadaGroup {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 7px;
-  padding: 3px 8px 3px 6px;
-  color: #64748b;
-  font-size: 13px;
-}
-
-.camadaBtn {
-  background: none;
-  border: none;
-  color: #94a3b8;
-  padding: 4px 10px;
-  border-radius: 5px;
-  font-size: 12px;
-  transition: all 0.15s;
-}
-
-.camadaBtn:hover {
-  background: #334155;
-  color: #e2e8f0;
-}
-
-.camadaBtnActive {
-  background: #1d4ed8;
-  color: white !important;
-}
+.desenhoGroup { display: flex; gap: 6px; }
 
 .desenhoBtn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  display: flex; align-items: center; gap: 5px;
   background: #78350f;
   border: 1px solid #92400e;
   color: #fde68a;
@@ -89,118 +57,217 @@
   font-size: 12px;
   transition: background 0.15s;
 }
-
-.desenhoBtn:hover {
-  background: #92400e;
-}
-
-.finalizarBtn {
-  background: #15803d;
-  border: none;
-  color: white;
-  padding: 6px 12px;
-  border-radius: 7px;
-  font-size: 12px;
-  transition: background 0.15s;
-}
-
-.finalizarBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.finalizarBtn:not(:disabled):hover {
-  background: #16a34a;
-}
+.desenhoBtn:hover { background: #92400e; }
 
 .cancelarBtn {
-  background: #7f1d1d;
-  border: none;
-  color: white;
-  padding: 6px 12px;
-  border-radius: 7px;
-  font-size: 12px;
+  display: flex; align-items: center; gap: 5px;
+  background: #7f1d1d; border: none; color: white;
+  padding: 6px 12px; border-radius: 7px; font-size: 12px;
 }
-
-.cancelarBtn:hover {
-  background: #991b1b;
-}
-
-.limparBtn {
-  background: #1e293b;
-  border: 1px solid #ef4444;
-  color: #ef4444;
-  padding: 6px 10px;
-  border-radius: 7px;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-}
+.cancelarBtn:hover { background: #991b1b; }
 
 .climaBtn {
+  display: flex; align-items: center; gap: 5px;
   background: #1e293b;
   border: 1px solid #334155;
   color: #94a3b8;
-  padding: 6px 14px;
-  border-radius: 7px;
-  font-size: 12px;
+  padding: 6px 12px; border-radius: 7px; font-size: 12px;
   transition: all 0.15s;
 }
-
-.climaBtn:hover,
-.climaBtnActive {
-  background: #1e3a5f;
-  border-color: #38bdf8;
-  color: #38bdf8;
+.climaBtn:hover, .climaBtnActive {
+  background: #1e3a5f; border-color: #38bdf8; color: #38bdf8;
 }
 
+.reloadBtn {
+  display: flex; align-items: center; justify-content: center;
+  background: #1e293b; border: 1px solid #334155; color: #64748b;
+  width: 30px; height: 30px; border-radius: 7px; font-size: 13px;
+  transition: all 0.15s;
+}
+.reloadBtn:hover { color: #e2e8f0; border-color: #475569; }
+
+/* ── Alerta modo desenho ── */
 .desenhoAlert {
   position: absolute;
-  top: 52px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 20;
-  background: #92400e;
-  color: #fde68a;
-  padding: 8px 20px;
-  border-radius: 8px;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
+  top: 48px; left: 50%; transform: translateX(-50%);
+  z-index: 1010;
+  background: #92400e; color: #fde68a;
+  padding: 7px 18px; border-radius: 8px; font-size: 13px;
+  display: flex; align-items: center; gap: 8px;
+  white-space: nowrap; pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }
 
+/* ── Modal confirmar área ── */
+.modalArea {
+  position: absolute;
+  top: 55px; left: 50%; transform: translateX(-50%);
+  z-index: 1020;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 18px 20px;
+  min-width: 300px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+.modalArea h3 {
+  font-size: 15px; font-weight: 700; color: #f0f9ff;
+  margin-bottom: 14px;
+}
+.modalArea label {
+  display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px;
+}
+
+.riscoOpcoes { display: flex; gap: 8px; margin-bottom: 14px; }
+.riscoOpcao {
+  background: #0f172a; border: 1px solid #334155; color: #94a3b8;
+  padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 700;
+  transition: all 0.15s;
+}
+.riscoOpcaoAtivo { color: white !important; }
+
+.descInput {
+  width: 100%; background: #0f172a; border: 1px solid #334155;
+  color: #e2e8f0; border-radius: 7px; padding: 8px 10px;
+  font-size: 13px; margin-bottom: 14px;
+}
+.descInput:focus { outline: none; border-color: #3b82f6; }
+
+.modalBtns { display: flex; gap: 8px; }
+
+.confirmarBtn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: #15803d; border: none; color: white;
+  padding: 9px; border-radius: 7px; font-size: 13px; font-weight: 600;
+}
+.confirmarBtn:hover { background: #16a34a; }
+
+.cancelarModalBtn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: #1e293b; border: 1px solid #334155; color: #94a3b8;
+  padding: 9px; border-radius: 7px; font-size: 13px;
+}
+.cancelarModalBtn:hover { background: #273549; color: #e2e8f0; }
+
+/* ── Coordenada bar ── */
 .coordBar {
   position: absolute;
-  bottom: 30px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  background: rgba(11, 18, 32, 0.85);
-  color: #94a3b8;
-  font-size: 11px;
-  padding: 5px 14px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  bottom: 28px; left: 50%; transform: translateX(-50%);
+  z-index: 999;
+  background: rgba(11,18,32,0.88);
+  color: #94a3b8; font-size: 11px; font-family: monospace;
+  padding: 4px 14px; border-radius: 6px;
+  display: flex; align-items: center; gap: 5px;
   pointer-events: none;
   border: 1px solid #1e3a5f;
 }
 
+/* ── Painel de camadas FLUTUANTE ── */
+.layerPanel {
+  position: absolute;
+  bottom: 46px; left: 14px;
+  z-index: 999;
+  background: rgba(11, 18, 32, 0.92);
+  backdrop-filter: blur(8px);
+  border: 1px solid #1e3a5f;
+  border-radius: 12px;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  min-width: 100px;
+}
+
+.layerPanelTitle {
+  font-size: 10px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  text-align: center;
+  padding: 0 4px 6px;
+  border-bottom: 1px solid #1e3a5f;
+  margin-bottom: 2px;
+}
+
+.layerBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.layerBtn:hover {
+  background: #1e293b;
+  border-color: #334155;
+}
+.layerBtnActive {
+  background: #1e3a5f !important;
+  border-color: #38bdf8 !important;
+}
+
+.layerIcone {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.layerLabel {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.layerBtnActive .layerLabel {
+  color: #38bdf8;
+}
+
+/* ── Painel clima ── */
+.climaPanel {
+  position: absolute;
+  top: 52px; right: 52px;
+  z-index: 1000;
+  width: 280px;
+}
+.fecharClima {
+  position: absolute;
+  top: 10px; right: 10px;
+  background: none; border: none;
+  color: #64748b; cursor: pointer; z-index: 1;
+}
+.fecharClima:hover { color: #e2e8f0; }
+
+/* ── Mapa ── */
 .map {
   position: absolute;
   inset: 0;
-  top: 0;
   width: 100%;
   height: 100%;
 }
 
-.climaPanel {
-  position: absolute;
-  top: 55px;
-  right: 12px;
-  z-index: 15;
-  width: 280px;
+/* Customizar controles do maplibre */
+:global(.maplibregl-ctrl-group) {
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+  border-radius: 8px !important;
+  overflow: hidden;
 }
+:global(.maplibregl-ctrl-group button) {
+  background: #1e293b !important;
+  color: #e2e8f0 !important;
+  border-bottom: 1px solid #334155 !important;
+}
+:global(.maplibregl-ctrl-group button:hover) {
+  background: #273549 !important;
+}
+:global(.maplibregl-ctrl-attrib) {
+  background: rgba(11,18,32,0.75) !important;
+  color: #64748b !important;
+  font-size: 10px !important;
+}
+:global(.maplibregl-ctrl-attrib a) { color: #94a3b8 !important; }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { FiArrowLeft, FiClipboard, FiSave, FiTrash2, FiMapPin } from 'react-icons/fi'
+import { api } from '../services/api'
 import styles from './Vistoria.module.css'
 
 const NIVEIS_RISCO = [
@@ -37,6 +38,7 @@ export default function Vistoria() {
   const [coordAtual, setCoordAtual] = useState(null)
   const [sucesso, setSucesso] = useState(false)
   const [abaAtiva, setAbaAtiva] = useState('form')
+  const [carregando, setCarregando] = useState(false)
 
   useEffect(() => {
     carregar()
@@ -44,8 +46,16 @@ export default function Vistoria() {
     if (coord) setCoordAtual(JSON.parse(coord))
   }, [])
 
-  function carregar() {
-    setVistorias(JSON.parse(localStorage.getItem('vistorias') || '[]'))
+  async function carregar() {
+    setCarregando(true)
+    try {
+      const dados = await api.getVistorias()
+      setVistorias(dados)
+    } catch {
+      setVistorias(JSON.parse(localStorage.getItem('vistorias') || '[]'))
+    } finally {
+      setCarregando(false)
+    }
   }
 
   function togglePatologia(p) {
@@ -54,20 +64,26 @@ export default function Vistoria() {
     )
   }
 
-  function salvar(e) {
+  async function salvar(e) {
     e.preventDefault()
     if (!nome || !risco) return alert('Preencha o responsável e o grau de risco.')
-    const dados = JSON.parse(localStorage.getItem('vistorias') || '[]')
-    dados.push({
-      id: Date.now(),
+    const payload = {
       nome, cpf, telefone, endereco,
-      solo, tipoUso, risco,
+      solo, tipo_uso: tipoUso, risco,
       patologias,
       observacao,
-      coordenada: coordAtual,
+      cidade: 'ouro_branco',
+      lat: coordAtual?.lat,
+      lng: coordAtual?.lng,
       data: new Date().toISOString()
-    })
-    localStorage.setItem('vistorias', JSON.stringify(dados))
+    }
+    try {
+      await api.createVistoria(payload)
+    } catch {
+      const dados = JSON.parse(localStorage.getItem('vistorias') || '[]')
+      dados.push({ id: Date.now(), ...payload, coordenada: coordAtual })
+      localStorage.setItem('vistorias', JSON.stringify(dados))
+    }
     setNome(''); setCpf(''); setTelefone(''); setEndereco('')
     setSolo(''); setTipoUso(''); setRisco('')
     setPatologias([]); setObservacao('')
@@ -77,10 +93,14 @@ export default function Vistoria() {
     setAbaAtiva('lista')
   }
 
-  function remover(id) {
+  async function remover(id) {
     if (!confirm('Remover esta vistoria?')) return
-    const lista = JSON.parse(localStorage.getItem('vistorias') || '[]').filter(v => v.id !== id)
-    localStorage.setItem('vistorias', JSON.stringify(lista))
+    try {
+      await api.deleteVistoria(id)
+    } catch {
+      const lista = JSON.parse(localStorage.getItem('vistorias') || '[]').filter(v => v.id !== id)
+      localStorage.setItem('vistorias', JSON.stringify(lista))
+    }
     carregar()
   }
 
@@ -106,7 +126,7 @@ export default function Vistoria() {
           className={`${styles.aba} ${abaAtiva === 'lista' ? styles.abaAtiva : ''}`}
           onClick={() => setAbaAtiva('lista')}
         >
-          Vistorias Realizadas ({vistorias.length})
+          Realizadas ({vistorias.length})
         </button>
       </div>
 
@@ -209,7 +229,7 @@ export default function Vistoria() {
             <div className={styles.section}>
               <label>Observações Técnicas</label>
               <textarea
-                placeholder='Descreva condições técnicas observadas, medidas recomendadas, etc.'
+                placeholder='Condições técnicas, medidas recomendadas, etc.'
                 value={observacao}
                 onChange={e => setObservacao(e.target.value)}
                 rows={4}
@@ -219,7 +239,6 @@ export default function Vistoria() {
             <button type='submit' className={styles.saveBtn}>
               <FiSave /> Salvar Vistoria
             </button>
-
             {sucesso && <div className={styles.sucesso}>Vistoria salva com sucesso!</div>}
           </form>
         </div>
@@ -227,7 +246,9 @@ export default function Vistoria() {
 
       {abaAtiva === 'lista' && (
         <div className={styles.listaCard}>
-          {vistorias.length === 0 ? (
+          {carregando ? (
+            <div className={styles.vazio}>Carregando...</div>
+          ) : vistorias.length === 0 ? (
             <div className={styles.vazio}>Nenhuma vistoria registrada ainda.</div>
           ) : (
             <div className={styles.lista}>
@@ -245,27 +266,24 @@ export default function Vistoria() {
                       <FiTrash2 size={14} />
                     </button>
                   </div>
-
                   <div className={styles.cardGrid}>
                     {v.endereco && <span><strong>Endereço:</strong> {v.endereco}</span>}
                     {v.solo && <span><strong>Solo:</strong> {v.solo}</span>}
-                    {v.tipoUso && <span><strong>Uso:</strong> {v.tipoUso}</span>}
+                    {(v.tipoUso || v.tipo_uso) && <span><strong>Uso:</strong> {v.tipoUso || v.tipo_uso}</span>}
                     {v.telefone && <span><strong>Tel:</strong> {v.telefone}</span>}
                   </div>
-
-                  {v.patologias?.length > 0 && (
+                  {(v.patologias?.length > 0) && (
                     <div className={styles.patologiasLista}>
-                      {v.patologias.map(p => (
+                      {(Array.isArray(v.patologias) ? v.patologias : []).map(p => (
                         <span key={p} className={styles.patTag}>{p}</span>
                       ))}
                     </div>
                   )}
-
                   {v.observacao && <div className={styles.obs}>{v.observacao}</div>}
-
-                  {v.coordenada && (
+                  {(v.lat || v.coordenada?.lat) && (
                     <div className={styles.coord}>
-                      <FiMapPin size={10} /> {v.coordenada.lat?.toFixed(4)}, {v.coordenada.lng?.toFixed(4)}
+                      <FiMapPin size={10} />
+                      {(v.lat || v.coordenada?.lat)?.toFixed(4)}, {(v.lng || v.coordenada?.lng)?.toFixed(4)}
                     </div>
                   )}
                   <div className={styles.data}>

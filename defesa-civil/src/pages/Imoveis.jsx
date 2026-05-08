@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { FiArrowLeft, FiHome, FiSave, FiTrash2, FiMapPin, FiSearch } from 'react-icons/fi'
+import { api } from '../services/api'
 import styles from './Imoveis.module.css'
 
 const TIPOS_IMOVEL = ['Casa', 'Apartamento', 'Comercial', 'Galpão', 'Terreno', 'Área rural', 'Institucional', 'Outro']
@@ -9,7 +10,7 @@ const SITUACOES = [
   { value: 'irregular', label: 'Irregular', color: '#f97316' },
   { value: 'em_risco', label: 'Em Risco', color: '#ef4444' },
   { value: 'evacuado', label: 'Evacuado', color: '#7c3aed' },
-  { value: 'interditado', label: 'Interditado', color: '#1e293b' }
+  { value: 'interditado', label: 'Interditado', color: '#334155' }
 ]
 
 export default function Imoveis() {
@@ -26,6 +27,7 @@ export default function Imoveis() {
   const [coordAtual, setCoordAtual] = useState(null)
   const [sucesso, setSucesso] = useState(false)
   const [abaAtiva, setAbaAtiva] = useState('form')
+  const [carregando, setCarregando] = useState(false)
 
   useEffect(() => {
     carregar()
@@ -33,24 +35,38 @@ export default function Imoveis() {
     if (coord) setCoordAtual(JSON.parse(coord))
   }, [])
 
-  function carregar() {
-    setImoveis(JSON.parse(localStorage.getItem('imoveis') || '[]'))
+  async function carregar() {
+    setCarregando(true)
+    try {
+      const dados = await api.getImoveis()
+      setImoveis(dados)
+    } catch {
+      setImoveis(JSON.parse(localStorage.getItem('imoveis') || '[]'))
+    } finally {
+      setCarregando(false)
+    }
   }
 
-  function salvar(e) {
+  async function salvar(e) {
     e.preventDefault()
     if (!endereco) return alert('Informe o endereço do imóvel.')
-    const lista = JSON.parse(localStorage.getItem('imoveis') || '[]')
-    lista.push({
-      id: Date.now(),
+    const payload = {
       nome, tipo, endereco, proprietario,
       contato, situacao,
       moradores: moradores ? parseInt(moradores) : null,
       obs,
-      coordenada: coordAtual,
+      cidade: 'ouro_branco',
+      lat: coordAtual?.lat,
+      lng: coordAtual?.lng,
       data: new Date().toISOString()
-    })
-    localStorage.setItem('imoveis', JSON.stringify(lista))
+    }
+    try {
+      await api.createImovel(payload)
+    } catch {
+      const lista = JSON.parse(localStorage.getItem('imoveis') || '[]')
+      lista.push({ id: Date.now(), ...payload, coordenada: coordAtual })
+      localStorage.setItem('imoveis', JSON.stringify(lista))
+    }
     setNome(''); setTipo(''); setEndereco(''); setProprietario('')
     setContato(''); setSituacao('regular'); setMoradores(''); setObs('')
     setSucesso(true)
@@ -59,10 +75,14 @@ export default function Imoveis() {
     setAbaAtiva('lista')
   }
 
-  function remover(id) {
+  async function remover(id) {
     if (!confirm('Remover este imóvel?')) return
-    const lista = JSON.parse(localStorage.getItem('imoveis') || '[]').filter(i => i.id !== id)
-    localStorage.setItem('imoveis', JSON.stringify(lista))
+    try {
+      await api.deleteImovel(id)
+    } catch {
+      const lista = JSON.parse(localStorage.getItem('imoveis') || '[]').filter(i => i.id !== id)
+      localStorage.setItem('imoveis', JSON.stringify(lista))
+    }
     carregar()
   }
 
@@ -73,7 +93,7 @@ export default function Imoveis() {
       im.proprietario?.toLowerCase().includes(filtro.toLowerCase()) ||
       im.tipo?.toLowerCase().includes(filtro.toLowerCase())
     )
-    .reverse()
+    .slice().reverse()
 
   function getSituacaoColor(s) {
     return SITUACOES.find(x => x.value === s)?.color || '#64748b'
@@ -95,7 +115,7 @@ export default function Imoveis() {
           Novo Imóvel
         </button>
         <button className={`${styles.aba} ${abaAtiva === 'lista' ? styles.abaAtiva : ''}`} onClick={() => setAbaAtiva('lista')}>
-          Imóveis Cadastrados ({imoveis.length})
+          Cadastrados ({imoveis.length})
         </button>
       </div>
 
@@ -104,7 +124,7 @@ export default function Imoveis() {
           {coordAtual ? (
             <div className={styles.coordInfo}>
               <FiMapPin size={14} />
-              Localização salva: {coordAtual.lat?.toFixed(5)}, {coordAtual.lng?.toFixed(5)}
+              Localização: {coordAtual.lat?.toFixed(5)}, {coordAtual.lng?.toFixed(5)}
             </div>
           ) : (
             <div className={styles.coordWarning}>
@@ -139,7 +159,7 @@ export default function Imoveis() {
               <h3>Proprietário</h3>
               <div className={styles.row}>
                 <div className={styles.field}>
-                  <label>Nome do Proprietário</label>
+                  <label>Nome</label>
                   <input placeholder='Nome completo' value={proprietario} onChange={e => setProprietario(e.target.value)} />
                 </div>
                 <div className={styles.field}>
@@ -183,7 +203,6 @@ export default function Imoveis() {
             <button type='submit' className={styles.saveBtn}>
               <FiSave /> Cadastrar Imóvel
             </button>
-
             {sucesso && <div className={styles.sucesso}>Imóvel cadastrado com sucesso!</div>}
           </form>
         </div>
@@ -199,7 +218,9 @@ export default function Imoveis() {
               onChange={e => setFiltro(e.target.value)}
             />
           </div>
-          {imoveisFiltrados.length === 0 ? (
+          {carregando ? (
+            <div className={styles.vazio}>Carregando...</div>
+          ) : imoveisFiltrados.length === 0 ? (
             <div className={styles.vazio}>Nenhum imóvel cadastrado.</div>
           ) : (
             <div className={styles.lista}>
@@ -226,9 +247,10 @@ export default function Imoveis() {
                     {im.moradores != null && <span><strong>Moradores:</strong> {im.moradores}</span>}
                   </div>
                   {im.obs && <div className={styles.cardObs}>{im.obs}</div>}
-                  {im.coordenada && (
+                  {(im.lat || im.coordenada?.lat) && (
                     <div className={styles.cardCoord}>
-                      <FiMapPin size={10} /> {im.coordenada.lat?.toFixed(4)}, {im.coordenada.lng?.toFixed(4)}
+                      <FiMapPin size={10} />
+                      {(im.lat || im.coordenada?.lat)?.toFixed(4)}, {(im.lng || im.coordenada?.lng)?.toFixed(4)}
                     </div>
                   )}
                 </div>
