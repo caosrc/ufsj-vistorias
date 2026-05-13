@@ -42,9 +42,38 @@ function classifySlope(pct) {
 
 function detectContourInterval(elevations) {
   const range = Math.max(...elevations) - Math.min(...elevations)
-  if (range < 30)  return 5
   if (range < 200) return 10
   return 20
+}
+
+// ── Triângulo de declividade (SVG) ────────────────────────────
+function TrianguloSlope({ interval, distHoriz, slopePct, slopeGrau, cor }) {
+  const H_px = Math.min(Math.max((slopePct / 100) * 90, 14), 62)
+  const BLx = 15, BLy = 82
+  const BRx = 155, BRy = 82
+  const TRx = 155, TRy = 82 - H_px
+  const hypLen = Math.sqrt((BRx - BLx) ** 2 + H_px ** 2)
+  const midHypX = (BLx + TRx) / 2
+  const midHypY = (BLy + TRy) / 2
+  const arcR = 18
+  const angleRad = Math.atan2(H_px, BRx - BLx)
+  const arcEndX = BLx + arcR * Math.cos(-angleRad)
+  const arcEndY = BLy + arcR * Math.sin(-angleRad)
+  return (
+    <svg viewBox="0 0 210 100" style={{ width: '100%', maxHeight: 95 }}>
+      <polygon points={`${BLx},${BLy} ${BRx},${BRy} ${TRx},${TRy}`} fill={cor + '18'} />
+      <line x1={BLx} y1={BLy} x2={TRx} y2={TRy} stroke={cor} strokeWidth="2" strokeDasharray="6,3" />
+      <line x1={BLx} y1={BLy} x2={BRx} y2={BRy} stroke="#334155" strokeWidth="1.5" />
+      <line x1={TRx} y1={TRy} x2={BRx} y2={BRy} stroke={cor} strokeWidth="2.5" />
+      <path d={`M ${BLx + arcR},${BLy} A ${arcR},${arcR} 0 0,0 ${arcEndX},${arcEndY}`} fill="none" stroke={cor} strokeWidth="1.3" />
+      <text x={arcEndX + 3} y={BLy - 5} fontSize="9" fill={cor}>{slopeGrau.toFixed(1)}°</text>
+      <text x={TRx + 5} y={(TRy + BRy) / 2 + 4} fontSize="10" fontWeight="bold" fill={cor}>H={interval}m</text>
+      <text x={(BLx + BRx) / 2} y={BRy + 13} fontSize="9" fill="#64748b" textAnchor="middle">{distHoriz >= 1000 ? (distHoriz/1000).toFixed(2)+'km' : distHoriz+'m'}</text>
+      <text x={midHypX - 6} y={midHypY - 3} fontSize="10" fontWeight="bold" fill={cor} textAnchor="middle">{slopePct.toFixed(1)}%</text>
+      <text x={BLx - 2} y={BLy + 13} fontSize="8" fill="#475569">Lim. inf.</text>
+      <text x={TRx - 38} y={TRy - 4} fontSize="8" fill="#475569">Lim. sup.</text>
+    </svg>
+  )
 }
 
 async function fetchElevations(points) {
@@ -184,12 +213,34 @@ export default function Declividade() {
   }, [cidade])
 
   useEffect(() => {
-    if (!mapRef.current) return
+    if (!mapRef.current || !leafletRef.current) return
+    const map = leafletRef.current
     const drawing = modoDesenho === 'A' || modoDesenho === 'B'
     mapRef.current.style.cursor = drawing ? 'crosshair' : ''
     drawStateRef.current.ativo = drawing
-    if (!drawing) limparDesenhoPreview()
+    if (drawing) {
+      map.dragging.disable()
+      map.boxZoom.disable()
+    } else {
+      map.dragging.enable()
+      map.boxZoom.enable()
+      limparDesenhoPreview()
+    }
   }, [modoDesenho])
+
+  useEffect(() => {
+    if (!mapRef.current || !leafletRef.current) return
+    const map = leafletRef.current
+    if (modoMedir) {
+      map.dragging.disable()
+      map.boxZoom.disable()
+      mapRef.current.style.cursor = 'crosshair'
+    } else {
+      map.dragging.enable()
+      map.boxZoom.enable()
+      mapRef.current.style.cursor = ''
+    }
+  }, [modoMedir])
 
   // ── Eventos de mapa ────────────────────────────────────────
   function handleClick(e) {
@@ -394,6 +445,7 @@ export default function Declividade() {
 
       const classCounts = Object.fromEntries(SLOPE_CLASSES.map(c => [c.label, 0]))
       let drawnCount = 0
+      const segmentos = []
 
       for (let i = 0; i < cotas.length - 1; i++) {
         const E1 = cotas[i], E2 = cotas[i + 1]
@@ -414,8 +466,17 @@ export default function Declividade() {
 
         if (horizDist < 0.5) continue // evita divisão por zero em terreno plano
         const slopePct = (interval / horizDist) * 100
+        const slopeGrau = Math.atan(interval / horizDist) * (180 / Math.PI)
         const classif  = classifySlope(slopePct)
         classCounts[classif.label] = (classCounts[classif.label] || 0) + 1
+
+        segmentos.push({
+          E1, E2,
+          horizDist: Math.round(horizDist),
+          slopePct,
+          slopeGrau,
+          classif,
+        })
 
         // Polígono: A1 → B1 → B2 → A2 (sentido horário)
         const polygon = L.polygon(
@@ -425,7 +486,7 @@ export default function Declividade() {
             fillOpacity: 0.60, weight: 1.2, opacity: 0.4,
           }
         ).bindTooltip(
-          `<b>${classif.label}</b><br>${E1}→${E2} m · ${slopePct.toFixed(1)}%`,
+          `<b>${classif.label}</b><br>${E1}→${E2} m · ${slopePct.toFixed(1)}% · ${slopeGrau.toFixed(1)}°<br>Dist: ${Math.round(horizDist)} m`,
           { sticky: true }
         )
 
@@ -434,22 +495,21 @@ export default function Declividade() {
         drawnCount++
       }
 
-      // Marcadores nas linhas
-      const eleMinA = Math.min(...elevsA), eleMaxA = Math.max(...elevsA)
-      const eleMinB = Math.min(...elevsB), eleMaxB = Math.max(...elevsB)
       const allElevsArr = [...elevsA, ...elevsB]
       const minElev = Math.min(...allElevsArr), maxElev = Math.max(...allElevsArr)
-
       const totalCells = Object.values(classCounts).reduce((s, v) => s + v, 0)
-      const maxSlope = drawnCount > 0
-        ? SLOPE_CLASSES.find(c => classCounts[c.label] > 0 && c.max !== Infinity)?.max || 0
-        : 0
+
+      // segmento de maior declividade para o triângulo
+      const segMaxSlope = segmentos.length > 0
+        ? segmentos.reduce((a, b) => a.slopePct > b.slopePct ? a : b)
+        : null
 
       setModoAtivo('corredor')
       setResultado({
         type: 'corredor',
         minElev: Math.round(minElev), maxElev: Math.round(maxElev),
         interval, drawnCount, cotas: cotas.length, classCounts, totalCells,
+        segmentos, segMaxSlope,
       })
     } catch (e) {
       setResultado({ erro: e.message })
@@ -947,15 +1007,29 @@ export default function Declividade() {
             {/* ── Stats corredor ───────────────────────── */}
             {!isLoading && modoAtivo === 'corredor' && resultado && !resultado.erro && (
               <>
+                {/* Triângulo do pior segmento */}
+                {resultado.segMaxSlope && (
+                  <div>
+                    <div className={styles.chartTitle}>
+                      Maior declividade encontrada — curvas {resultado.segMaxSlope.E1}→{resultado.segMaxSlope.E2} m
+                    </div>
+                    <div style={{ background: '#1e293b', border: `1px solid ${resultado.segMaxSlope.classif.cor}55`, borderRadius: 8, padding: '10px 10px 4px' }}>
+                      <TrianguloSlope
+                        interval={resultado.interval}
+                        distHoriz={resultado.segMaxSlope.horizDist}
+                        slopePct={resultado.segMaxSlope.slopePct}
+                        slopeGrau={resultado.segMaxSlope.slopeGrau}
+                        cor={resultado.segMaxSlope.classif.cor}
+                      />
+                      <div style={{ textAlign: 'center', fontSize: 11, color: resultado.segMaxSlope.classif.cor, fontWeight: 700, marginTop: 2, paddingBottom: 6 }}>
+                        {resultado.segMaxSlope.classif.label} — {resultado.segMaxSlope.classif.desc}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Stats resumo */}
                 <div className={styles.statsGrid}>
-                  <div className={styles.statCard}>
-                    <div className={styles.statLabel}>Cotas cruzadas</div>
-                    <div className={styles.statValue}>{resultado.cotas}<span className={styles.statUnit}> ×{resultado.interval}m</span></div>
-                  </div>
-                  <div className={styles.statCard}>
-                    <div className={styles.statLabel}>Polígonos</div>
-                    <div className={styles.statValue}>{resultado.drawnCount}</div>
-                  </div>
                   <div className={styles.statCard}>
                     <div className={styles.statLabel}>Alt. mín</div>
                     <div className={styles.statValue}>{resultado.minElev}<span className={styles.statUnit}> m</span></div>
@@ -964,8 +1038,43 @@ export default function Declividade() {
                     <div className={styles.statLabel}>Alt. máx</div>
                     <div className={styles.statValue}>{resultado.maxElev}<span className={styles.statUnit}> m</span></div>
                   </div>
+                  <div className={styles.statCard}>
+                    <div className={styles.statLabel}>Intervalo</div>
+                    <div className={styles.statValue}>{resultado.interval}<span className={styles.statUnit}> m</span></div>
+                  </div>
+                  <div className={styles.statCard}>
+                    <div className={styles.statLabel}>Segmentos</div>
+                    <div className={styles.statValue}>{resultado.drawnCount}</div>
+                  </div>
                 </div>
 
+                {/* Tabela de segmentos */}
+                {resultado.segmentos?.length > 0 && (
+                  <div>
+                    <div className={styles.chartTitle}>Cálculo por curva de nível (Δh = {resultado.interval} m cada)</div>
+                    <div className={styles.segTable}>
+                      <div className={styles.segHeader}>
+                        <span>Cotas</span>
+                        <span>Dist. horiz.</span>
+                        <span>Decliv.</span>
+                        <span>Ângulo</span>
+                      </div>
+                      {resultado.segmentos.map((seg, i) => (
+                        <div key={i} className={styles.segRow}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: seg.classif.cor, display: 'inline-block', flexShrink: 0 }} />
+                            {seg.E1}→{seg.E2} m
+                          </span>
+                          <span>{seg.horizDist >= 1000 ? (seg.horizDist/1000).toFixed(2)+' km' : seg.horizDist+' m'}</span>
+                          <span style={{ color: seg.classif.cor, fontWeight: 700 }}>{seg.slopePct.toFixed(1)}%</span>
+                          <span style={{ color: seg.classif.cor }}>{seg.slopeGrau.toFixed(1)}°</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Distribuição de risco */}
                 <div>
                   <div className={styles.chartTitle}>Distribuição de risco no corredor</div>
                   <div className={styles.riskBars}>
