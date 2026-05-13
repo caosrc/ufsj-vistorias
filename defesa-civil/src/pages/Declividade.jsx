@@ -289,7 +289,7 @@ export default function Declividade() {
       const W = bounds.getWest(),  E = bounds.getEast()
       const GRID = 10
 
-      // Grade 10×10 = 100 pontos
+      // ── 1. Grade 10×10 = 100 pontos de elevação bruta (limite da API)
       const gridPts = []
       for (let row = 0; row < GRID; row++) {
         for (let col = 0; col < GRID; col++) {
@@ -298,92 +298,140 @@ export default function Declividade() {
           gridPts.push({ lat, lng, row, col })
         }
       }
-
-      const coords    = gridPts.map(p => [p.lng, p.lat])
-      const elevations = await fetchElevations(coords)
+      const rawCoords  = gridPts.map(p => [p.lng, p.lat])
+      const elevations = await fetchElevations(rawCoords)
       gridPts.forEach((p, i) => { p.elev = elevations[i] })
 
-      // Dimensões de célula em metros
+      // ── 2. Calcular declividade em cada ponto bruto (diferenças centrais)
       const cellH = turf.distance([gridPts[0].lng, gridPts[0].lat], [gridPts[GRID].lng, gridPts[GRID].lat], { units: 'meters' })
       const cellW = turf.distance([gridPts[0].lng, gridPts[0].lat], [gridPts[1].lng, gridPts[1].lat], { units: 'meters' })
 
-      // Calcular declividade e desenhar retângulos
-      const cells = []
-      const classCounts = Object.fromEntries(SLOPE_CLASSES.map(c => [c.label, 0]))
+      const slopeAtPt = gridPts.map((p) => {
+        const { row, col } = p
+        const Lv = col > 0       ? gridPts[row * GRID + (col - 1)].elev : p.elev
+        const Rv = col < GRID-1  ? gridPts[row * GRID + (col + 1)].elev : p.elev
+        const Uv = row > 0       ? gridPts[(row - 1) * GRID + col].elev : p.elev
+        const Dv = row < GRID-1  ? gridPts[(row + 1) * GRID + col].elev : p.elev
+        const dx = (col > 0 && col < GRID-1) ? 2 * cellW : cellW
+        const dy = (row > 0 && row < GRID-1) ? 2 * cellH : cellH
+        return Math.sqrt(((Rv - Lv) / dx) ** 2 + ((Dv - Uv) / dy) ** 2) * 100
+      })
 
-      for (let row = 0; row < GRID - 1; row++) {
-        for (let col = 0; col < GRID - 1; col++) {
-          const p00 = gridPts[row * GRID + col]
-          const p01 = gridPts[row * GRID + (col + 1)]
-          const p10 = gridPts[(row + 1) * GRID + col]
-          const p11 = gridPts[(row + 1) * GRID + (col + 1)]
+      // FeatureCollection com declividade por ponto (para consulta por isoband)
+      const slopeTurfPts = turf.featureCollection(
+        gridPts.map((p, i) => turf.point([p.lng, p.lat], { slope: slopeAtPt[i] }))
+      )
 
-          // Gradiente por diferenças centrais
-          const dz_x = ((p01.elev + p11.elev) - (p00.elev + p10.elev)) / (2 * cellW)
-          const dz_y = ((p10.elev + p11.elev) - (p00.elev + p01.elev)) / (2 * cellH)
-          const slopePct = Math.sqrt(dz_x ** 2 + dz_y ** 2) * 100
-          const classif = classifySlope(slopePct)
-          classCounts[classif.label] = (classCounts[classif.label] || 0) + 1
+      // ── 3. Interpolar superfície densa (~25 colunas) para isobands suaves
+      const lonKm  = (E - W) * Math.cos(((N + S) / 2) * Math.PI / 180) * 111.32
+      const latKm  = (N - S) * 111.32
+      const cellKm = Math.max(Math.min(lonKm, latKm) / 25, 0.15)
 
-          const avgElev = (p00.elev + p01.elev + p10.elev + p11.elev) / 4
-          cells.push({ slopePct, classif, avgElev })
+      const rawTurfPts = turf.featureCollection(
+        gridPts.map(p => turf.point([p.lng, p.lat], { elevation: p.elev }))
+      )
 
-          // Retângulo colorido
-          L.polygon(
-            [[p00.lat, p00.lng], [p01.lat, p01.lng], [p11.lat, p11.lng], [p10.lat, p10.lng]],
-            {
-              color: classif.cor, fillColor: classif.cor,
-              fillOpacity: 0.42, weight: 0.8, opacity: 0.25,
-            }
-          ).bindTooltip(
-            `<b>${classif.label}</b><br>${slopePct.toFixed(1)}% · ${Math.round(avgElev)} m`,
-            { sticky: true }
-          ).addTo(autoLayerRef.current)
-        }
-      }
+      let densePts = rawTurfPts
+      try {
+        densePts = turf.interpolate(rawTurfPts, cellKm, {
+          gridType: 'point', property: 'elevation', units: 'kilometers', weight: 3,
+        })
+      } catch (_) { /* usa grade bruta se interpolação falhar */ }
 
-      // Curvas de nível a partir da grade (turf.isolines)
-      const interval = detectContourInterval(elevations)
-      const minElev  = Math.min(...elevations)
-      const maxElev  = Math.max(...elevations)
-      const breaks   = []
+      // ── 4. Intervalos de cota e breaks
+      const minElev = Math.min(...elevations)
+      const maxElev = Math.max(...elevations)
+      const range   = maxElev - minElev
+      let interval  = 5
+      if (range > 80)  interval = 10
+      if (range > 200) interval = 20
+      if (range > 400) interval = 50
+
+      const breaks = []
       for (let e = Math.ceil(minElev / interval) * interval; e <= Math.floor(maxElev / interval) * interval; e += interval) {
         breaks.push(e)
       }
+      if (breaks.length < 2) { breaks.length = 0; breaks.push(Math.round(minElev), Math.round(maxElev)) }
 
+      // ── 5. isobands — polígonos entre as curvas de nível
+      let bands = null
       try {
-        const turfGrid = turf.featureCollection(
-          gridPts.map(p => turf.point([p.lng, p.lat], { elevation: p.elev }))
-        )
-        const isoLines = turf.isolines(turfGrid, breaks, { zProperty: 'elevation' })
+        bands = turf.isobands(densePts, breaks, { zProperty: 'elevation' })
+      } catch (_) {
+        try { bands = turf.isobands(rawTurfPts, breaks, { zProperty: 'elevation' }) } catch (_2) { bands = null }
+      }
+
+      // ── 6. Desenhar cada isoband colorido pela declividade média do band
+      const classCounts = Object.fromEntries(SLOPE_CLASSES.map(c => [c.label, 0]))
+      let drawnBands = 0
+
+      if (bands && bands.features.length > 0) {
+        bands.features.forEach((feature) => {
+          try {
+            // Declividade do band = média dos pontos brutos dentro dele (ou mais próximo)
+            let avgSlope = 20
+            try {
+              const inside = turf.pointsWithinPolygon(slopeTurfPts, feature)
+              if (inside.features.length > 0) {
+                avgSlope = inside.features.reduce((s, f) => s + f.properties.slope, 0) / inside.features.length
+              } else {
+                const centroid = turf.centroid(feature)
+                const nearest  = turf.nearestPoint(centroid, slopeTurfPts)
+                avgSlope = nearest.properties.slope
+              }
+            } catch (_) { /* mantém default */ }
+
+            const classif = classifySlope(avgSlope)
+            classCounts[classif.label] = (classCounts[classif.label] || 0) + 1
+            drawnBands++
+
+            // Tooltip com intervalo de elevação
+            const lv = feature.properties?.['fill-min-value'] ?? feature.properties?.lowerValue ?? ''
+            const uv = feature.properties?.['fill-max-value'] ?? feature.properties?.upperValue ?? ''
+            const elevLabel = (lv !== '' && uv !== '') ? `${lv}–${uv} m · ` : ''
+
+            L.geoJSON(feature, {
+              style: () => ({
+                color:       classif.cor,
+                fillColor:   classif.cor,
+                fillOpacity: 0.52,
+                weight:      0.6,
+                opacity:     0.2,
+              }),
+            })
+              .bindTooltip(`<b>${classif.label}</b><br>${elevLabel}${avgSlope.toFixed(1)}%`, { sticky: true })
+              .addTo(autoLayerRef.current)
+          } catch (_) { /* pula band inválido */ }
+        })
+      }
+
+      // ── 7. Curvas de nível (isolines) sobre os bands — linhas escuras finas
+      try {
+        const isoLines = turf.isolines(densePts, breaks, { zProperty: 'elevation' })
         L.geoJSON(isoLines, {
           style: f => {
-            const elev = f.properties.elevation
+            const elev   = f.properties.elevation
             const master = elev % (interval * 5) === 0
-            return { color: '#1e1e1e', weight: master ? 2 : 1, opacity: master ? 0.8 : 0.45, dashArray: master ? null : '3,2' }
+            return { color: '#0f172a', weight: master ? 2 : 0.9, opacity: master ? 0.9 : 0.55 }
           },
           onEachFeature: (f, layer) => {
-            layer.bindTooltip(`${f.properties.elevation} m`, { sticky: true })
+            layer.bindTooltip(`⛰ ${f.properties.elevation} m`, { sticky: true })
           },
         }).addTo(autoLayerRef.current)
-      } catch (_) { /* isolines opcional */ }
+      } catch (_) { /* isolines opcionais */ }
 
-      // Caminho de maior declive (steepest descent)
+      // ── 8. Caminho de maior declive (steepest descent nos pontos brutos)
       let maxIdx = 0
       elevations.forEach((e, i) => { if (e > elevations[maxIdx]) maxIdx = i })
-      const path = [gridPts[maxIdx]]
+      const path    = [gridPts[maxIdx]]
       const visited = new Set([maxIdx])
       while (true) {
         const curr = path[path.length - 1]
         const neighbors = [
-          { row: curr.row - 1, col: curr.col },
-          { row: curr.row + 1, col: curr.col },
-          { row: curr.row,     col: curr.col - 1 },
-          { row: curr.row,     col: curr.col + 1 },
-          { row: curr.row - 1, col: curr.col - 1 },
-          { row: curr.row - 1, col: curr.col + 1 },
-          { row: curr.row + 1, col: curr.col - 1 },
-          { row: curr.row + 1, col: curr.col + 1 },
+          { row: curr.row-1, col: curr.col   }, { row: curr.row+1, col: curr.col   },
+          { row: curr.row,   col: curr.col-1 }, { row: curr.row,   col: curr.col+1 },
+          { row: curr.row-1, col: curr.col-1 }, { row: curr.row-1, col: curr.col+1 },
+          { row: curr.row+1, col: curr.col-1 }, { row: curr.row+1, col: curr.col+1 },
         ].filter(n => n.row >= 0 && n.row < GRID && n.col >= 0 && n.col < GRID)
         let best = null, bestElev = curr.elev
         for (const n of neighbors) {
@@ -398,7 +446,7 @@ export default function Declividade() {
 
       if (path.length >= 2) {
         const pathCoords = path.map(p => [p.lat, p.lng])
-        L.polyline(pathCoords, { color: '#fff', weight: 4, opacity: 0.95, dashArray: '10,5' })
+        L.polyline(pathCoords, { color: '#ffffff', weight: 4, opacity: 0.95, dashArray: '10,5' })
           .bindTooltip('📍 Caminho de maior declive').addTo(autoLayerRef.current)
         L.circleMarker(pathCoords[0], { radius: 9, color: '#fff', fillColor: '#ef4444', fillOpacity: 1, weight: 2.5 })
           .bindTooltip(`▲ Topo: ${Math.round(path[0].elev)} m`).addTo(autoLayerRef.current)
@@ -406,9 +454,10 @@ export default function Declividade() {
           .bindTooltip(`▼ Base: ${Math.round(path[path.length - 1].elev)} m`).addTo(autoLayerRef.current)
       }
 
-      const totalCells = cells.length
-      const maxSlopePct = Math.max(...cells.map(c => c.slopePct))
-      const avgSlopePct = cells.reduce((s, c) => s + c.slopePct, 0) / totalCells
+      // ── 9. Estatísticas
+      const totalCells   = Object.values(classCounts).reduce((s, v) => s + v, 0)
+      const maxSlopePct  = Math.max(...slopeAtPt)
+      const avgSlopePct  = slopeAtPt.reduce((s, v) => s + v, 0) / slopeAtPt.length
       const pathDesnivel = path.length > 1 ? Math.abs(path[0].elev - path[path.length - 1].elev) : 0
       const pathDistLine = path.length > 1
         ? turf.length(turf.lineString(path.map(p => [p.lng, p.lat])), { units: 'kilometers' }) * 1000
@@ -416,7 +465,14 @@ export default function Declividade() {
       const pathSlope = pathDistLine > 0 ? (pathDesnivel / pathDistLine) * 100 : 0
 
       setModoAtivo('auto')
-      setAutoResultado({ minElev: Math.round(minElev), maxElev: Math.round(maxElev), interval, breaks, cells, classCounts, totalCells, maxSlopePct, avgSlopePct, pathDesnivel: Math.round(pathDesnivel), pathDist: Math.round(pathDistLine), pathSlope })
+      setAutoResultado({
+        minElev: Math.round(minElev), maxElev: Math.round(maxElev),
+        interval, numBreaks: breaks.length, drawnBands,
+        classCounts, totalCells, maxSlopePct, avgSlopePct,
+        pathDesnivel: Math.round(pathDesnivel),
+        pathDist:     Math.round(pathDistLine),
+        pathSlope,
+      })
     } catch (e) {
       setAutoResultado({ erro: e.message })
     } finally { setCarregandoAuto(false) }
