@@ -6,7 +6,7 @@ import Chart from 'chart.js/auto'
 import { CIDADES, CIDADE_PADRAO } from '../data/cidades'
 import Sidebar from '../components/Sidebar'
 import styles from './Declividade.module.css'
-import { FiTrendingUp, FiTrash2, FiActivity, FiZap, FiEye, FiEyeOff } from 'react-icons/fi'
+import { FiTrendingUp, FiTrash2, FiActivity, FiZap, FiEye, FiEyeOff, FiMaximize2 } from 'react-icons/fi'
 
 const LAYERS = [
   {
@@ -120,6 +120,14 @@ export default function Declividade() {
   const [autoResultado,   setAutoResultado]   = useState(null)
   const [classesVisiveis, setClassesVisiveis] = useState(() => new Set(SLOPE_CLASSES.map(c => c.label)))
 
+  // ── Modo Medir: 2 cliques ──────────────────────────────────
+  const [modoMedir,       setModoMedir]       = useState(false)
+  const [carregandoMedir, setCarregandoMedir] = useState(false)
+  const [medicaoResult,   setMedicaoResult]   = useState(null)
+  const modoMedirRef = useRef(false)
+  useEffect(() => { modoMedirRef.current = modoMedir }, [modoMedir])
+  const medirStateRef = useRef({ pt1: null, pt1Marker: null, linhaMedir: null, pt2Marker: null, previewLine: null })
+
   const modoDesenhoRef = useRef(null)
   useEffect(() => { modoDesenhoRef.current = modoDesenho }, [modoDesenho])
 
@@ -184,9 +192,46 @@ export default function Declividade() {
   }, [modoDesenho])
 
   // ── Eventos de mapa ────────────────────────────────────────
-  function handleClick(e)     { if (!drawStateRef.current.ativo) return; adicionarPonto(e.latlng) }
+  function handleClick(e) {
+    // Modo medir: 1º clique = ponto inicial, 2º clique = ponto final e calcula
+    if (modoMedirRef.current) {
+      const ms = medirStateRef.current
+      if (!ms.pt1) {
+        // 1º clique: marca ponto inicial
+        ms.pt1 = e.latlng
+        ms.pt1Marker = L.circleMarker(e.latlng, {
+          radius: 7, color: '#a78bfa', fillColor: '#a78bfa', fillOpacity: 1, weight: 2
+        }).bindTooltip('Ponto A').addTo(drawLayerRef.current)
+      } else {
+        // 2º clique: finaliza e calcula
+        const pt2 = e.latlng
+        if (ms.previewLine) { drawLayerRef.current.removeLayer(ms.previewLine); ms.previewLine = null }
+        ms.linhaMedir = L.polyline([ms.pt1, pt2], {
+          color: '#a78bfa', weight: 3, opacity: 0.95, dashArray: '8,4'
+        }).addTo(drawLayerRef.current)
+        ms.pt2Marker = L.circleMarker(pt2, {
+          radius: 7, color: '#a78bfa', fillColor: '#f0abfc', fillOpacity: 1, weight: 2
+        }).bindTooltip('Ponto B').addTo(drawLayerRef.current)
+        setModoMedir(false)
+        calcularDeclividade(ms.pt1, pt2)
+      }
+      return
+    }
+    if (!drawStateRef.current.ativo) return
+    adicionarPonto(e.latlng)
+  }
   function handleDblClick(e)  { if (!drawStateRef.current.ativo) return; L.DomEvent.stop(e); finalizarLinha() }
   function handleMouseMove(e) {
+    // Preview no modo medir
+    if (modoMedirRef.current) {
+      const ms = medirStateRef.current
+      if (!ms.pt1) return
+      if (!ms.previewLine) {
+        ms.previewLine = L.polyline([], { color: '#a78bfa', weight: 1.5, dashArray: '4,4', opacity: 0.6 }).addTo(drawLayerRef.current)
+      }
+      ms.previewLine.setLatLngs([ms.pt1, e.latlng])
+      return
+    }
     const state = drawStateRef.current
     if (!state.ativo || state.pontos.length === 0) return
     const ultimo = state.pontos[state.pontos.length - 1]
@@ -249,8 +294,20 @@ export default function Declividade() {
     state.pontos = []; state.markers = []; state.activeLine = null; state.previewLine = null
   }
 
+  function limparMedicao() {
+    const ms = medirStateRef.current
+    if (ms.pt1Marker)   drawLayerRef.current?.removeLayer(ms.pt1Marker)
+    if (ms.pt2Marker)   drawLayerRef.current?.removeLayer(ms.pt2Marker)
+    if (ms.linhaMedir)  drawLayerRef.current?.removeLayer(ms.linhaMedir)
+    if (ms.previewLine) drawLayerRef.current?.removeLayer(ms.previewLine)
+    medirStateRef.current = { pt1: null, pt1Marker: null, linhaMedir: null, pt2Marker: null, previewLine: null }
+    setModoMedir(false)
+    setMedicaoResult(null)
+  }
+
   function limparTudo() {
     limparDesenhoPreview()
+    limparMedicao()
     boundaryLayerRef.current?.clearLayers()
     resultsLayerRef.current?.clearLayers()
     drawnPolygonsRef.current = []
@@ -259,6 +316,40 @@ export default function Declividade() {
     setResultado(null); setAutoResultado(null)
     if (chartInstanceRef.current) { chartInstanceRef.current.destroy(); chartInstanceRef.current = null }
     setClassesVisiveis(new Set(SLOPE_CLASSES.map(c => c.label)))
+  }
+
+  // ── Cálculo de declividade por 2 pontos ───────────────────
+  async function calcularDeclividade(pt1, pt2) {
+    setCarregandoMedir(true)
+    setMedicaoResult(null)
+    try {
+      const tLine = turf.lineString([[pt1.lng, pt1.lat], [pt2.lng, pt2.lat]])
+      const distHorizM = turf.length(tLine, { units: 'kilometers' }) * 1000
+
+      const elevs = await fetchElevations([[pt1.lng, pt1.lat], [pt2.lng, pt2.lat]])
+      const cotaA = elevs[0]
+      const cotaB = elevs[1]
+      const deltaH = Math.abs(cotaB - cotaA)
+      const slopePct = distHorizM > 0 ? (deltaH / distHorizM) * 100 : 0
+      const slopeGrau = Math.atan(deltaH / distHorizM) * (180 / Math.PI)
+      const classif = classifySlope(slopePct)
+
+      // Adiciona cotas nos marcadores
+      const ms = medirStateRef.current
+      if (ms.pt1Marker) ms.pt1Marker.setTooltipContent(`Ponto A: ${Math.round(cotaA)} m`)
+      if (ms.pt2Marker) ms.pt2Marker.setTooltipContent(`Ponto B: ${Math.round(cotaB)} m`)
+      if (ms.linhaMedir) ms.linhaMedir.bindTooltip(
+        `↕ ${Math.round(deltaH)} m · ${slopePct.toFixed(1)}% · ${classif.label}`,
+        { permanent: true, direction: 'center', className: '' }
+      ).openTooltip()
+
+      setModoAtivo('medir')
+      setMedicaoResult({ cotaA: Math.round(cotaA), cotaB: Math.round(cotaB), deltaH: Math.round(deltaH), distHorizM: Math.round(distHorizM), slopePct, slopeGrau, classif })
+    } catch (e) {
+      setMedicaoResult({ erro: e.message })
+    } finally {
+      setCarregandoMedir(false)
+    }
   }
 
   // ── Análise de corredor (duas linhas) ──────────────────────
@@ -555,23 +646,31 @@ export default function Declividade() {
     })
   }, [resultado])
 
-  const isLoading = carregando || carregandoAuto
+  const isLoading = carregando || carregandoAuto || carregandoMedir
   const linhaAFeita = !!linhaA
   const linhaBFeita = !!linhaB
 
-  const hintMsg = carregandoAuto
-    ? '⏳ Buscando grade de elevação…'
-    : carregando
-      ? '⏳ Analisando corredor entre as linhas…'
-      : modoDesenho === 'A'
-        ? '🟠 Desenhe a Linha A — clique para pontos, duplo clique para finalizar'
-        : modoDesenho === 'B'
-          ? '🔵 Desenhe a Linha B no outro lado do talude'
-          : modoAtivo === 'corredor'
-            ? 'Polígonos entre as curvas de nível coloridos por risco'
-            : modoAtivo === 'auto'
-              ? 'Isobands coloridos por declividade · linha branca = maior declive'
-              : 'Escolha Análise Auto ou desenhe Linha A + Linha B para delimitar o corredor'
+  const hintMsg = carregandoMedir
+    ? '⏳ Buscando cotas de elevação…'
+    : carregandoAuto
+      ? '⏳ Buscando grade de elevação…'
+      : carregando
+        ? '⏳ Analisando corredor entre as linhas…'
+        : modoMedir && !medirStateRef.current.pt1
+          ? '🟣 Clique no mapa para marcar o Ponto A (início da linha)'
+          : modoMedir && medirStateRef.current.pt1
+            ? '🟣 Clique para marcar o Ponto B — a declividade será calculada automaticamente'
+            : modoDesenho === 'A'
+              ? '🟠 Desenhe a Linha A — clique para pontos, duplo clique para finalizar'
+              : modoDesenho === 'B'
+                ? '🔵 Desenhe a Linha B no outro lado do talude'
+                : modoAtivo === 'medir'
+                  ? 'Linha medida · clique em Medir para nova medição'
+                  : modoAtivo === 'corredor'
+                    ? 'Polígonos entre as curvas de nível coloridos por risco'
+                    : modoAtivo === 'auto'
+                      ? 'Isobands coloridos por declividade · linha branca = maior declive'
+                      : 'Escolha Medir, Análise Auto ou Linha A + B para delimitar o corredor'
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#0f172a' }}>
@@ -596,6 +695,22 @@ export default function Declividade() {
             </div>
 
             <div className={styles.modeBtns}>
+              {/* ── Medir: 2 cliques ── */}
+              <button
+                className={`${styles.btn} ${modoMedir ? styles.btnMedirActive : styles.btnMedir}`}
+                onClick={() => {
+                  if (modoMedir) { limparMedicao(); return }
+                  limparTudo()
+                  setModoMedir(true)
+                }}
+                disabled={isLoading && !modoMedir}
+              >
+                <FiMaximize2 size={12} />
+                {carregandoMedir ? 'Calculando…' : modoMedir ? 'Cancelar' : 'Medir'}
+              </button>
+
+              <span style={{ color: '#334155', fontSize: 14 }}>|</span>
+
               {/* Análise automática */}
               <button
                 className={`${styles.btn} ${modoAtivo === 'auto' ? styles.btnAutoActive : styles.btnAuto}`}
@@ -636,8 +751,8 @@ export default function Declividade() {
               </button>
 
               {/* Limpar */}
-              {(modoAtivo || linhaAFeita || modoDesenho) && (
-                <button className={`${styles.btn} ${styles.btnClear}`} onClick={limparTudo} disabled={isLoading}>
+              {(modoAtivo || linhaAFeita || modoDesenho || modoMedir) && (
+                <button className={`${styles.btn} ${styles.btnClear}`} onClick={limparTudo} disabled={isLoading && !modoMedir}>
                   <FiTrash2 size={12} />
                 </button>
               )}
@@ -686,6 +801,21 @@ export default function Declividade() {
               </div>
             )}
 
+            {/* Instrução modo Medir */}
+            {!isLoading && modoMedir && (
+              <div className={styles.placeholder}>
+                <div className={styles.placeholderIcon}>📏</div>
+                <div style={{ fontWeight: 600, color: '#a78bfa' }}>
+                  {medirStateRef.current.pt1 ? 'Agora clique no Ponto B' : 'Clique no Ponto A'}
+                </div>
+                <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.5 }}>
+                  {medirStateRef.current.pt1
+                    ? 'Um clique encerra a linha e calcula a declividade automaticamente.'
+                    : 'Marque o início da linha no mapa com um clique.'}
+                </div>
+              </div>
+            )}
+
             {/* Instrução durante desenho */}
             {!isLoading && modoDesenho && (
               <div className={styles.placeholder}>
@@ -709,16 +839,76 @@ export default function Declividade() {
               </div>
             )}
 
+            {/* ── Resultado da Medição (2 pontos) ──────────── */}
+            {!isLoading && modoAtivo === 'medir' && medicaoResult && !medicaoResult.erro && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: medicaoResult.classif.cor, display: 'inline-block' }} />
+                  <span style={{ fontWeight: 700, color: medicaoResult.classif.cor, fontSize: 15 }}>{medicaoResult.classif.label}</span>
+                  <span style={{ fontSize: 11, color: '#64748b' }}>{medicaoResult.classif.desc}</span>
+                </div>
+
+                <div className={styles.statsGrid}>
+                  <div className={styles.statCard}>
+                    <div className={styles.statLabel}>Declividade</div>
+                    <div className={styles.statValue} style={{ color: medicaoResult.classif.cor }}>
+                      {medicaoResult.slopePct.toFixed(1)}<span className={styles.statUnit}> %</span>
+                    </div>
+                  </div>
+                  <div className={styles.statCard}>
+                    <div className={styles.statLabel}>Ângulo</div>
+                    <div className={styles.statValue} style={{ color: medicaoResult.classif.cor }}>
+                      {medicaoResult.slopeGrau.toFixed(1)}<span className={styles.statUnit}> °</span>
+                    </div>
+                  </div>
+                  <div className={styles.statCard}>
+                    <div className={styles.statLabel}>Cota A</div>
+                    <div className={styles.statValue}>{medicaoResult.cotaA}<span className={styles.statUnit}> m</span></div>
+                  </div>
+                  <div className={styles.statCard}>
+                    <div className={styles.statLabel}>Cota B</div>
+                    <div className={styles.statValue}>{medicaoResult.cotaB}<span className={styles.statUnit}> m</span></div>
+                  </div>
+                  <div className={styles.statCard}>
+                    <div className={styles.statLabel}>Desnível (Δh)</div>
+                    <div className={styles.statValue}>{medicaoResult.deltaH}<span className={styles.statUnit}> m</span></div>
+                  </div>
+                  <div className={styles.statCard}>
+                    <div className={styles.statLabel}>Dist. horizontal</div>
+                    <div className={styles.statValue}>
+                      {medicaoResult.distHorizM >= 1000
+                        ? (medicaoResult.distHorizM / 1000).toFixed(2)
+                        : medicaoResult.distHorizM}
+                      <span className={styles.statUnit}> {medicaoResult.distHorizM >= 1000 ? 'km' : 'm'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ background: medicaoResult.classif.cor + '18', border: `1px solid ${medicaoResult.classif.cor}44`, borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#e2e8f0', lineHeight: 1.5 }}>
+                  <b style={{ color: medicaoResult.classif.cor }}>Fórmula:</b> declividade = (Δh / distância) × 100<br />
+                  = ({medicaoResult.deltaH} m / {medicaoResult.distHorizM} m) × 100 = <b style={{ color: medicaoResult.classif.cor }}>{medicaoResult.slopePct.toFixed(2)}%</b>
+                </div>
+
+                <button
+                  className={`${styles.btn} ${styles.btnMedir}`}
+                  style={{ width: '100%', justifyContent: 'center' }}
+                  onClick={() => { limparMedicao(); setModoAtivo(null); setModoMedir(true) }}
+                >
+                  <FiMaximize2 size={12} /> Nova medição
+                </button>
+              </>
+            )}
+
             {/* Erro */}
-            {!isLoading && (resultado?.erro || autoResultado?.erro) && (
+            {!isLoading && (resultado?.erro || autoResultado?.erro || medicaoResult?.erro) && (
               <div className={styles.placeholder}>
                 <div className={styles.placeholderIcon}>⚠️</div>
-                <div style={{ color: '#f97316' }}>{resultado?.erro || autoResultado?.erro}</div>
+                <div style={{ color: '#f97316' }}>{resultado?.erro || autoResultado?.erro || medicaoResult?.erro}</div>
               </div>
             )}
 
-            {/* ── Legenda com toggle (mostrada em qualquer modo ativo) ─── */}
-            {!isLoading && modoAtivo && !resultado?.erro && !autoResultado?.erro && (
+            {/* ── Legenda com toggle (apenas corredor e auto) ─── */}
+            {!isLoading && modoAtivo && modoAtivo !== 'medir' && !resultado?.erro && !autoResultado?.erro && (
               <div>
                 <div className={styles.chartTitle}>Legenda — clique para mostrar/ocultar</div>
                 <div className={styles.legendToggleList}>

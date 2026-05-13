@@ -465,6 +465,21 @@
   color: #7dd3fc;
 }
 
+/* ── Botão Medir ────────────────────────────────────────────── */
+.btnMedir {
+  background: #1a1230;
+  border-color: #a78bfa;
+  color: #a78bfa;
+}
+.btnMedir:hover:not(:disabled) { background: #241840; }
+
+.btnMedirActive {
+  background: #a78bfa;
+  border-color: #a78bfa;
+  color: #0f172a;
+  font-weight: 700;
+}
+
 /* ── Legenda com toggle ─────────────────────────────────────── */
 .legendToggleList {
   display: flex;
