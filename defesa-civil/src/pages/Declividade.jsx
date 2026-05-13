@@ -57,13 +57,19 @@ function detectContourInterval(elevations) {
 }
 
 async function fetchElevations(points) {
-  const lats = points.map(p => p[1].toFixed(6)).join(',')
-  const lngs = points.map(p => p[0].toFixed(6)).join(',')
+  // API aceita no máximo 100 pontos por requisição
+  if (points.length > 100) throw new Error('Máximo 100 pontos por requisição')
+  const lats = points.map(p => p[1].toFixed(4)).join(',')
+  const lngs = points.map(p => p[0].toFixed(4)).join(',')
   const res = await fetch(
     `https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`
   )
-  if (!res.ok) throw new Error('Falha ao buscar elevação')
+  if (!res.ok) {
+    const txt = await res.text().catch(() => res.status)
+    throw new Error(`API retornou ${res.status}: ${txt}`)
+  }
   const data = await res.json()
+  if (!data.elevation) throw new Error('Resposta inválida da API de elevação')
   return data.elevation
 }
 
@@ -238,8 +244,8 @@ export default function Declividade() {
       const totalDistKm = turf.length(line, { units: 'kilometers' })
       const totalDist   = totalDistKm * 1000
 
-      // 1. Amostrar 100 pontos ao longo da linha para perfil denso
-      const AMOSTRAS = 100
+      // 1. Amostrar pontos ao longo da linha — máx. 99 intervalos = 100 pontos
+      const AMOSTRAS = 99
       const samplePoints = []
       const sampleDists  = []
       for (let i = 0; i <= AMOSTRAS; i++) {
