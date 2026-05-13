@@ -250,6 +250,8 @@ export default function Declividade() {
     if (state.pontos.length >= 2) {
       if (state.activeLine) drawLayerRef.current.removeLayer(state.activeLine)
       state.activeLine = L.polyline(state.pontos, { color: cor, weight: 2.5, opacity: 0.9 }).addTo(drawLayerRef.current)
+      // 2º ponto finaliza a linha automaticamente
+      finalizarLinha()
     }
   }
 
