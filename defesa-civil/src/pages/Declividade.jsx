@@ -40,6 +40,14 @@ function classifySlope(pct) {
   return SLOPE_CLASSES.find(c => pct <= c.max) || SLOPE_CLASSES[SLOPE_CLASSES.length - 1]
 }
 
+// Classificação NBR 11682:2009 / IPT–Defesa Civil Brasil
+function getNBRClass(slopePct) {
+  if (slopePct < 30)  return { nivel: 'R1', risco: 'Baixo',      desc: 'Terreno estável — sem restrições imediatas',              acao: 'Monitoramento preventivo periódico',                             fs: '≥ 1,5',  cor: '#22c55e' }
+  if (slopePct < 60)  return { nivel: 'R2', risco: 'Médio',      desc: 'Instabilidade potencial em períodos chuvosos',             acao: 'Investigação geotécnica + plano de contingência',               fs: '1,3 – 1,5', cor: '#eab308' }
+  if (slopePct < 100) return { nivel: 'R3', risco: 'Alto',       desc: 'Risco elevado — possibilidade de escorregamentos',         acao: 'Obras de contenção urgentes + evacuação preventiva',            fs: '1,0 – 1,3', cor: '#f97316' }
+  return               { nivel: 'R4', risco: 'Muito Alto', desc: 'Risco geológico severo — área crítica de desastre natural',   acao: 'Interdição + remoção imediata das famílias',                    fs: '< 1,0',  cor: '#ef4444' }
+}
+
 function detectContourInterval(elevations) {
   const range = Math.max(...elevations) - Math.min(...elevations)
   if (range < 200) return 10
@@ -371,7 +379,7 @@ export default function Declividade() {
     setClassesVisiveis(new Set(SLOPE_CLASSES.map(c => c.label)))
   }
 
-  // ── Cálculo de declividade por 2 pontos ───────────────────
+  // ── Cálculo de declividade por 2 pontos (precisão topográfica) ──
   async function calcularDeclividade(pt1, pt2) {
     setCarregandoMedir(true)
     setMedicaoResult(null)
@@ -379,25 +387,41 @@ export default function Declividade() {
       const tLine = turf.lineString([[pt1.lng, pt1.lat], [pt2.lng, pt2.lat]])
       const distHorizM = turf.length(tLine, { units: 'kilometers' }) * 1000
 
-      const elevs = await fetchElevations([[pt1.lng, pt1.lat], [pt2.lng, pt2.lat]])
-      const cotaA = elevs[0]
-      const cotaB = elevs[1]
+      // Busca múltiplos pontos em torno de cada ponto para maior precisão
+      const offsets = [-0.0002, 0, 0.0002]
+      const samplesA = offsets.map(o => [pt1.lng + o, pt1.lat + o])
+      const samplesB = offsets.map(o => [pt2.lng + o, pt2.lat + o])
+      const allSamples = [...samplesA, ...samplesB]
+      const allElevs = await fetchElevations(allSamples)
+
+      const rawA = allElevs.slice(0, 3).reduce((s, v) => s + v, 0) / 3
+      const rawB = allElevs.slice(3, 6).reduce((s, v) => s + v, 0) / 3
+
+      // Snap para a curva de nível de 10m mais próxima (precisão topográfica)
+      const snap10 = (v) => Math.round(v / 10) * 10
+      const cotaA = snap10(rawA)
+      const cotaB = snap10(rawB)
       const deltaH = Math.abs(cotaB - cotaA)
       const slopePct = distHorizM > 0 ? (deltaH / distHorizM) * 100 : 0
       const slopeGrau = Math.atan(deltaH / distHorizM) * (180 / Math.PI)
       const classif = classifySlope(slopePct)
 
-      // Adiciona cotas nos marcadores
+      // Atualiza tooltips dos marcadores
       const ms = medirStateRef.current
-      if (ms.pt1Marker) ms.pt1Marker.setTooltipContent(`Ponto A: ${Math.round(cotaA)} m`)
-      if (ms.pt2Marker) ms.pt2Marker.setTooltipContent(`Ponto B: ${Math.round(cotaB)} m`)
+      if (ms.pt1Marker) ms.pt1Marker.setTooltipContent(`▲ Cota A: ${cotaA} m`)
+      if (ms.pt2Marker) ms.pt2Marker.setTooltipContent(`▼ Cota B: ${cotaB} m`)
       if (ms.linhaMedir) ms.linhaMedir.bindTooltip(
-        `↕ ${Math.round(deltaH)} m · ${slopePct.toFixed(1)}% · ${classif.label}`,
+        `↕ ${deltaH} m · ${slopePct.toFixed(1)}% · ${slopeGrau.toFixed(1)}° · ${classif.label}`,
         { permanent: true, direction: 'center', className: '' }
       ).openTooltip()
 
       setModoAtivo('medir')
-      setMedicaoResult({ cotaA: Math.round(cotaA), cotaB: Math.round(cotaB), deltaH: Math.round(deltaH), distHorizM: Math.round(distHorizM), slopePct, slopeGrau, classif })
+      setMedicaoResult({
+        cotaA, cotaB,
+        rawCotaA: Math.round(rawA), rawCotaB: Math.round(rawB),
+        deltaH, distHorizM: Math.round(distHorizM),
+        slopePct, slopeGrau, classif,
+      })
     } catch (e) {
       setMedicaoResult({ erro: e.message })
     } finally {
@@ -504,12 +528,24 @@ export default function Declividade() {
         ? segmentos.reduce((a, b) => a.slopePct > b.slopePct ? a : b)
         : null
 
+      // Polígono de contorno fechado do corredor (borda branca pontilhada)
+      if (drawnCount > 0) {
+        L.polygon(
+          [...ptosA.map(p => [p.lat, p.lng]), ...[...ptosB].reverse().map(p => [p.lat, p.lng])],
+          { color: '#e2e8f0', fill: false, weight: 2.5, opacity: 0.45, dashArray: '10,6' }
+        ).bindTooltip('Polígono do corredor analisado', { sticky: true })
+          .addTo(boundaryLayerRef.current)
+      }
+
       setModoAtivo('corredor')
       setResultado({
         type: 'corredor',
         minElev: Math.round(minElev), maxElev: Math.round(maxElev),
         interval, drawnCount, cotas: cotas.length, classCounts, totalCells,
         segmentos, segMaxSlope,
+        profA: { dists: distsA.map(d => Math.round(d)), elevs: elevsA.map(e => Math.round(e)) },
+        profB: { dists: distsB.map(d => Math.round(d)), elevs: elevsB.map(e => Math.round(e)) },
+        distTotalA: Math.round(distAm), distTotalB: Math.round(distBm),
       })
     } catch (e) {
       setResultado({ erro: e.message })
@@ -696,15 +732,49 @@ export default function Declividade() {
     } finally { setCarregandoAuto(false) }
   }
 
-  // ── Gráfico (não usado no modo corredor, mantido para compatibilidade)
+  // ── Gráfico — Perfil Topográfico das duas linhas ────────────
   useEffect(() => {
-    if (!resultado?.elevations || !chartRef.current) return
+    if (!resultado?.profA || !chartRef.current) return
     if (chartInstanceRef.current) chartInstanceRef.current.destroy()
-    const cor = '#38bdf8'
+    const maxDist = Math.max(resultado.distTotalA, resultado.distTotalB)
+    const labels = resultado.profA.dists.map(d =>
+      d === 0 ? '0' : d >= 1000 ? `${(d / 1000).toFixed(1)}km` : `${d}m`
+    )
     chartInstanceRef.current = new Chart(chartRef.current, {
       type: 'line',
-      data: { labels: resultado.distances, datasets: [{ data: resultado.elevations.map(e => Math.round(e)), borderColor: cor, backgroundColor: cor+'22', borderWidth: 2, tension: 0.35, fill: true, pointRadius: 0 }] },
-      options: { responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } }, y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } } } },
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Linha A',
+            data: resultado.profA.elevs,
+            borderColor: '#f97316', backgroundColor: '#f9731618',
+            borderWidth: 2, tension: 0.4, fill: true, pointRadius: 0,
+          },
+          {
+            label: 'Linha B',
+            data: resultado.profB.elevs,
+            borderColor: '#38bdf8', backgroundColor: '#38bdf818',
+            borderWidth: 2, tension: 0.4, fill: true, pointRadius: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 500 },
+        plugins: {
+          legend: { display: true, labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 14 } },
+          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} m` } },
+        },
+        scales: {
+          x: { ticks: { color: '#475569', maxTicksLimit: 8, font: { size: 9 } }, grid: { color: '#1e293b55' } },
+          y: {
+            ticks: { color: '#64748b', callback: v => `${v}m`, font: { size: 9 } },
+            grid: { color: '#1e293b' },
+            title: { display: true, text: 'Cota (m)', color: '#475569', font: { size: 9 } },
+          },
+        },
+      },
     })
   }, [resultado])
 
@@ -825,7 +895,7 @@ export default function Declividade() {
             </span>
           </div>
 
-          <div ref={mapRef} className={styles.mapEl} style={{ position: 'absolute', top: 50, left: 0, right: 0, bottom: 0 }} />
+          <div ref={mapRef} className={styles.mapEl} />
         </div>
 
         {/* ── Painel ────────────────────────────────────── */}
@@ -924,12 +994,18 @@ export default function Declividade() {
                     </div>
                   </div>
                   <div className={styles.statCard}>
-                    <div className={styles.statLabel}>Cota A</div>
+                    <div className={styles.statLabel}>▲ Cota A</div>
                     <div className={styles.statValue}>{medicaoResult.cotaA}<span className={styles.statUnit}> m</span></div>
+                    {medicaoResult.rawCotaA !== medicaoResult.cotaA && (
+                      <div style={{ fontSize: 9, color: '#475569', marginTop: 1 }}>API: {medicaoResult.rawCotaA}m</div>
+                    )}
                   </div>
                   <div className={styles.statCard}>
-                    <div className={styles.statLabel}>Cota B</div>
+                    <div className={styles.statLabel}>▼ Cota B</div>
                     <div className={styles.statValue}>{medicaoResult.cotaB}<span className={styles.statUnit}> m</span></div>
+                    {medicaoResult.rawCotaB !== medicaoResult.cotaB && (
+                      <div style={{ fontSize: 9, color: '#475569', marginTop: 1 }}>API: {medicaoResult.rawCotaB}m</div>
+                    )}
                   </div>
                   <div className={styles.statCard}>
                     <div className={styles.statLabel}>Desnível (Δh)</div>
@@ -1007,6 +1083,45 @@ export default function Declividade() {
             {/* ── Stats corredor ───────────────────────── */}
             {!isLoading && modoAtivo === 'corredor' && resultado && !resultado.erro && (
               <>
+                {/* ── Perfil Topográfico (Chart.js) ─────── */}
+                <div>
+                  <div className={styles.chartTitle}>
+                    Perfil Topográfico — Linha A ({resultado.distTotalA >= 1000 ? (resultado.distTotalA/1000).toFixed(2)+'km' : resultado.distTotalA+'m'}) · Linha B ({resultado.distTotalB >= 1000 ? (resultado.distTotalB/1000).toFixed(2)+'km' : resultado.distTotalB+'m'})
+                  </div>
+                  <div className={styles.chartWrap} style={{ height: 140 }}>
+                    <canvas ref={chartRef} />
+                  </div>
+                </div>
+
+                {/* ── Classificação NBR 11682 / IPT ─────── */}
+                {resultado.segMaxSlope && (() => {
+                  const nbr = getNBRClass(resultado.segMaxSlope.slopePct)
+                  return (
+                    <div style={{ background: nbr.cor + '15', border: `1px solid ${nbr.cor}55`, borderRadius: 10, padding: '10px 12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <div style={{ background: nbr.cor, color: '#000', fontWeight: 900, fontSize: 12, borderRadius: 6, padding: '2px 8px', letterSpacing: 1 }}>{nbr.nivel}</div>
+                        <div style={{ fontWeight: 700, color: nbr.cor, fontSize: 14 }}>Risco {nbr.risco}</div>
+                        <div style={{ marginLeft: 'auto', fontSize: 10, color: '#64748b' }}>NBR 11682 / IPT–Defesa Civil</div>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#cbd5e1', marginBottom: 4 }}>{nbr.desc}</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 6 }}>
+                        <div style={{ background: '#0f172a', borderRadius: 6, padding: '6px 8px' }}>
+                          <div style={{ fontSize: 9, color: '#475569', marginBottom: 2 }}>FATOR DE SEGURANÇA (FS)</div>
+                          <div style={{ fontWeight: 700, color: nbr.cor, fontSize: 13 }}>{nbr.fs}</div>
+                        </div>
+                        <div style={{ background: '#0f172a', borderRadius: 6, padding: '6px 8px' }}>
+                          <div style={{ fontSize: 9, color: '#475569', marginBottom: 2 }}>DECLIV. MÁXIMA</div>
+                          <div style={{ fontWeight: 700, color: nbr.cor, fontSize: 13 }}>{resultado.segMaxSlope.slopePct.toFixed(1)}%</div>
+                        </div>
+                      </div>
+                      <div style={{ marginTop: 8, background: '#0f172a', borderRadius: 6, padding: '6px 8px', borderLeft: `3px solid ${nbr.cor}` }}>
+                        <div style={{ fontSize: 9, color: '#475569', marginBottom: 2 }}>AÇÃO RECOMENDADA</div>
+                        <div style={{ fontSize: 11, color: '#e2e8f0', fontWeight: 600 }}>{nbr.acao}</div>
+                      </div>
+                    </div>
+                  )
+                })()}
+
                 {/* Triângulo do pior segmento */}
                 {resultado.segMaxSlope && (
                   <div>
