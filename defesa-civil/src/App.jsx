@@ -4,6 +4,7 @@ import Vistoria from './pages/Vistoria'
 import Ocorrencias from './pages/Ocorrencias'
 import Imoveis from './pages/Imoveis'
 import Dashboard from './pages/Dashboard'
+import Declividade from './pages/Declividade'
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
         <Route path='/ocorrencias' element={<Ocorrencias />} />
         <Route path='/imoveis' element={<Imoveis />} />
         <Route path='/dashboard' element={<Dashboard />} />
+        <Route path='/declividade' element={<Declividade />} />
       </Routes>
     </BrowserRouter>
   )

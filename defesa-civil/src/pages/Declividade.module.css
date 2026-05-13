@@ -1,0 +1,240 @@
+.wrapper {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+
+.mapContainer {
+  flex: 1;
+  position: relative;
+}
+
+.mapEl {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Toolbar ────────────────────────────────────────────────── */
+.toolbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(9, 14, 26, 0.96);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid #1e3a5f;
+  padding: 8px 14px;
+  min-height: 50px;
+}
+
+.toolbarTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 6px;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btnDraw {
+  background: #1a3a5c;
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+.btnDraw:hover { background: #1e4a74; }
+
+.btnDrawActive {
+  background: #38bdf8;
+  border-color: #38bdf8;
+  color: #0f172a;
+}
+
+.btnClear {
+  background: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
+}
+.btnClear:hover { background: #273549; color: #e2e8f0; }
+
+.hint {
+  font-size: 11px;
+  color: #94a3b8;
+  background: #1e293b;
+  border: 1px solid #334155;
+  padding: 5px 11px;
+  border-radius: 6px;
+}
+
+.hintActive {
+  color: #fbbf24;
+  border-color: #f59e0b44;
+  background: #f59e0b11;
+}
+
+/* ── Painel lateral ─────────────────────────────────────────── */
+.panel {
+  width: 320px;
+  flex-shrink: 0;
+  background: #0f172a;
+  border-left: 1px solid #1e3a5f;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panelHeader {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panelTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.panelBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex: 1;
+  color: #475569;
+  font-size: 13px;
+  text-align: center;
+  padding: 20px;
+}
+
+.placeholderIcon {
+  font-size: 36px;
+  opacity: 0.4;
+}
+
+/* ── Stats ──────────────────────────────────────────────────── */
+.statsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.statCard {
+  background: #1e293b;
+  border: 1px solid #1e3a5f;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.statLabel {
+  font-size: 10px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 3px;
+}
+
+.statValue {
+  font-size: 16px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.statUnit {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+/* ── Classificação declividade ─────────────────────────────── */
+.classCard {
+  border-radius: 8px;
+  border: 1px solid;
+  padding: 10px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.classDot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.classInfo {}
+
+.classTitle {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.classDesc {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+/* ── Gráfico ────────────────────────────────────────────────── */
+.chartSection {}
+
+.chartTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.chartWrap {
+  background: #1e293b;
+  border: 1px solid #1e3a5f;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+/* ── Legenda curvas ─────────────────────────────────────────── */
+.legendRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.legendLine {
+  width: 24px;
+  height: 2px;
+  border-radius: 1px;
+}

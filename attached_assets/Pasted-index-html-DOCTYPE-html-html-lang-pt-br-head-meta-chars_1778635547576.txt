@@ -1,0 +1,486 @@
+index.html
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <title>Mapa Profissional de Declividade</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet"
+    href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+  <!-- Leaflet Draw -->
+  <link rel="stylesheet"
+    href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css"/>
+
+  <!-- Chart -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <link rel="stylesheet" href="style.css"/>
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<div id="panel">
+
+  <h2>Declividade</h2>
+
+  <div id="info">
+    Desenhe uma linha no mapa
+  </div>
+
+  <canvas id="profileChart"></canvas>
+
+</div>
+
+<!-- Leaflet -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<!-- Leaflet Draw -->
+<script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+
+<!-- Turf -->
+<script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
+
+<!-- geotiff -->
+<script src="https://cdn.jsdelivr.net/npm/geotiff/dist-browser/geotiff.js"></script>
+
+<script src="script.js"></script>
+
+</body>
+</html>
+style.css
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: Arial;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+}
+
+#panel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+
+  width: 340px;
+
+  background: white;
+
+  padding: 15px;
+
+  border-radius: 12px;
+
+  z-index: 999;
+
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+}
+
+#info {
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+canvas {
+  width: 100% !important;
+  height: 220px !important;
+}
+script.js
+// ===============================
+// MAPA
+// ===============================
+
+const map = L.map('map').setView([-20.66, -43.79], 13);
+
+// OpenStreetMap
+L.tileLayer(
+  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {
+    attribution: '&copy; OpenStreetMap'
+  }
+).addTo(map);
+
+// ===============================
+// CURVAS DE NÍVEL
+// ===============================
+
+let contoursData;
+
+fetch('contours.geojson')
+  .then(res => res.json())
+  .then(data => {
+
+    contoursData = data;
+
+    L.geoJSON(data, {
+
+      style: function(feature) {
+
+        return {
+          color: '#8B4513',
+          weight: 1
+        };
+      }
+
+    }).addTo(map);
+
+  });
+
+// ===============================
+// DRAW
+// ===============================
+
+const drawnItems = new L.FeatureGroup();
+
+map.addLayer(drawnItems);
+
+const drawControl = new L.Control.Draw({
+
+  draw: {
+    polygon: false,
+    rectangle: false,
+    circle: false,
+    marker: false,
+    circlemarker: false,
+    polyline: true
+  },
+
+  edit: {
+    featureGroup: drawnItems
+  }
+
+});
+
+map.addControl(drawControl);
+
+// ===============================
+// PERFIL CHART
+// ===============================
+
+let chart;
+
+// ===============================
+// EVENTO DESENHO
+// ===============================
+
+map.on(L.Draw.Event.CREATED, async function(e) {
+
+  drawnItems.clearLayers();
+
+  const layer = e.layer;
+
+  drawnItems.addLayer(layer);
+
+  await analisarLinha(layer);
+
+});
+
+// ===============================
+// ANÁLISE
+// ===============================
+
+async function analisarLinha(layer) {
+
+  const latlngs = layer.getLatLngs();
+
+  const coords = latlngs.map(p => [p.lng, p.lat]);
+
+  const line = turf.lineString(coords);
+
+  // distância total
+  const totalDist =
+    turf.length(line, { units: 'kilometers' }) * 1000;
+
+  // ===============================
+  // INTERSEÇÃO CURVAS
+  // ===============================
+
+  let elevations = [];
+
+  contoursData.features.forEach(feature => {
+
+    const inter = turf.lineIntersect(line, feature);
+
+    if (inter.features.length > 0) {
+
+      elevations.push(feature.properties.elevation);
+
+    }
+
+  });
+
+  elevations = [...new Set(elevations)];
+
+  elevations.sort((a,b)=>a-b);
+
+  if (elevations.length < 2) {
+
+    document.getElementById('info').innerHTML =
+      'Linha cruzou poucas curvas';
+
+    return;
+  }
+
+  // ===============================
+  // DESNÍVEL
+  // ===============================
+
+  const minAlt = elevations[0];
+  const maxAlt = elevations[elevations.length - 1];
+
+  const desnivel = maxAlt - minAlt;
+
+  const slope = (desnivel / totalDist) * 100;
+
+  // ===============================
+  // PERFIL ALTIMÉTRICO
+  // ===============================
+
+  let profileDistances = [];
+  let profileElevations = [];
+
+  const samples = 50;
+
+  for (let i = 0; i <= samples; i++) {
+
+    const segment = turf.along(
+      line,
+      (i / samples) * (totalDist / 1000),
+      { units: 'kilometers' }
+    );
+
+    const point = segment.geometry.coordinates;
+
+    // altitude simulada
+    // depois você pode trocar por GeoTIFF real
+
+    const elev =
+      minAlt +
+      ((maxAlt - minAlt) * (i / samples));
+
+    profileDistances.push(
+      ((i / samples) * totalDist).toFixed(0)
+    );
+
+    profileElevations.push(elev);
+  }
+
+  // ===============================
+  // MOSTRAR INFO
+  // ===============================
+
+  document.getElementById('info').innerHTML = `
+
+    <b>Distância:</b> ${totalDist.toFixed(1)} m<br>
+
+    <b>Altitude mínima:</b> ${minAlt} m<br>
+
+    <b>Altitude máxima:</b> ${maxAlt} m<br>
+
+    <b>Desnível:</b> ${desnivel} m<br>
+
+    <b>Declividade:</b> ${slope.toFixed(2)} %<br>
+
+  `;
+
+  desenharGrafico(
+    profileDistances,
+    profileElevations
+  );
+
+}
+
+// ===============================
+// GRÁFICO
+// ===============================
+
+function desenharGrafico(distances, elevations) {
+
+  const ctx =
+    document.getElementById('profileChart');
+
+  if (chart) {
+    chart.destroy();
+  }
+
+  chart = new Chart(ctx, {
+
+    type: 'line',
+
+    data: {
+
+      labels: distances,
+
+      datasets: [{
+
+        label: 'Perfil Altimétrico',
+
+        data: elevations,
+
+        borderColor: 'red',
+
+        backgroundColor:
+          'rgba(255,0,0,0.2)',
+
+        tension: 0.3,
+
+        fill: true
+
+      }]
+
+    },
+
+    options: {
+
+      responsive: true,
+
+      plugins: {
+
+        legend: {
+          display: true
+        }
+
+      },
+
+      scales: {
+
+        x: {
+
+          title: {
+            display: true,
+            text: 'Distância (m)'
+          }
+
+        },
+
+        y: {
+
+          title: {
+            display: true,
+            text: 'Altitude (m)'
+          }
+
+        }
+
+      }
+
+    }
+
+  });
+
+}
+
+// ===============================
+// ALTITUDE DO MOUSE
+// ===============================
+
+const altitudeBox = L.control({position:'bottomleft'});
+
+altitudeBox.onAdd = function() {
+
+  this._div = L.DomUtil.create('div');
+
+  this._div.style.background = 'white';
+  this._div.style.padding = '8px';
+  this._div.style.borderRadius = '6px';
+
+  this._div.innerHTML = 'Altitude';
+
+  return this._div;
+};
+
+altitudeBox.addTo(map);
+
+map.on('mousemove', function(e) {
+
+  // altitude fake
+  // depois substitui por GeoTIFF
+
+  const fakeElevation =
+    800 + Math.random() * 100;
+
+  altitudeBox._div.innerHTML =
+    `Altitude: ${fakeElevation.toFixed(1)} m`;
+
+});
+contours.geojson
+
+EXEMPLO:
+
+{
+  "type": "FeatureCollection",
+  "features": [
+
+    {
+      "type": "Feature",
+      "properties": {
+        "elevation": 800
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-43.81,-20.68],
+          [-43.80,-20.67],
+          [-43.79,-20.66]
+        ]
+      }
+    },
+
+    {
+      "type": "Feature",
+      "properties": {
+        "elevation": 810
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-43.80,-20.69],
+          [-43.79,-20.68],
+          [-43.78,-20.67]
+        ]
+      }
+    }
+
+  ]
+}
+COMO RODAR NO REPLIT
+1. criar repl HTML/CSS/JS
+
+No Replit
+:
+
+Create Repl
+HTML/CSS/JS
+2. criar arquivos
+
+Cole:
+
+index.html
+style.css
+script.js
+contours.geojson
+3. clicar RUN
+
+Pronto.
+
+O QUE ESSE SISTEMA FAZ
+
+✅ OpenStreetMap
+✅ curvas de nível
+✅ desenhar linha
+✅ cálculo de distância
+✅ desnível
+✅ declividade %
+✅ perfil altimétrico
+✅ gráfico
+✅ altitude do mouse

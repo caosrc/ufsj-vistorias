@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { FiMap, FiAlertTriangle, FiHome, FiClipboard, FiBarChart2, FiChevronLeft, FiChevronRight, FiShield } from 'react-icons/fi'
+import { FiMap, FiAlertTriangle, FiHome, FiClipboard, FiBarChart2, FiChevronLeft, FiChevronRight, FiShield, FiTrendingUp } from 'react-icons/fi'
 import styles from './Sidebar.module.css'
 
 const NAV_ITEMS = [
@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: '/vistoria', icon: <FiClipboard />, label: 'Vistoria Residencial' },
   { to: '/imoveis', icon: <FiHome />, label: 'Imóveis' },
   { to: '/dashboard', icon: <FiBarChart2 />, label: 'Painel Operacional' },
+  { to: '/declividade', icon: <FiTrendingUp />, label: 'Declividade' },
 ]
 
 export default function Sidebar() {
