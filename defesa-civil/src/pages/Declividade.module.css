@@ -312,3 +312,114 @@
 }
 .segRow:last-child { border-bottom: none; }
 .segRow:hover { background: #162035; }
+
+/* ── Mode buttons group ─────────────────────────────────────── */
+.modeBtns {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btnAuto {
+  background: #1a2e1a;
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+.btnAuto:hover:not(:disabled) { background: #2a3e1a; }
+
+.btnAutoActive {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #0f172a;
+}
+
+/* ── Caminho de maior declive ───────────────────────────────── */
+.pathCard {
+  background: #1e293b;
+  border: 1px solid #1e3a5f;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.pathTitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pathRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 12px;
+  color: #64748b;
+  border-bottom: 1px solid #162035;
+}
+.pathRow:last-child { border-bottom: none; }
+.pathRow span:last-child { color: #e2e8f0; font-weight: 600; }
+
+/* ── Risk distribution bars ─────────────────────────────────── */
+.riskBars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.riskBarRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.riskBarLabel {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #94a3b8;
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.riskBarTrack {
+  flex: 1;
+  height: 7px;
+  background: #1e293b;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.riskBarFill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.riskBarPct {
+  font-size: 10px;
+  color: #64748b;
+  width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Legend grid ────────────────────────────────────────────── */
+.legendGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  background: #1e293b;
+  border: 1px solid #1e3a5f;
+  border-radius: 6px;
+  padding: 7px 8px;
+}
