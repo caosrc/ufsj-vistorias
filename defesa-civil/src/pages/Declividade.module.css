@@ -277,3 +277,38 @@
   border-radius: 8px;
   padding: 10px 10px 6px;
 }
+
+/* ── Tabela de segmentos ────────────────────────────────────── */
+.segTable {
+  background: #1e293b;
+  border: 1px solid #1e3a5f;
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 11px;
+}
+
+.segHeader {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1.1fr 1fr;
+  gap: 4px;
+  padding: 7px 10px;
+  background: #162035;
+  color: #64748b;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #1e3a5f;
+}
+
+.segRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1.1fr 1fr;
+  gap: 4px;
+  padding: 6px 10px;
+  color: #94a3b8;
+  border-bottom: 1px solid #162035;
+  align-items: center;
+  transition: background 0.1s;
+}
+.segRow:last-child { border-bottom: none; }
+.segRow:hover { background: #162035; }
