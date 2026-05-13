@@ -6,7 +6,7 @@ import Chart from 'chart.js/auto'
 import { CIDADES, CIDADE_PADRAO } from '../data/cidades'
 import Sidebar from '../components/Sidebar'
 import styles from './Declividade.module.css'
-import { FiTrendingUp, FiEdit3, FiTrash2, FiActivity, FiZap, FiX } from 'react-icons/fi'
+import { FiTrendingUp, FiTrash2, FiActivity, FiZap, FiEye, FiEyeOff } from 'react-icons/fi'
 
 const LAYERS = [
   {
@@ -42,7 +42,7 @@ function classifySlope(pct) {
 
 function detectContourInterval(elevations) {
   const range = Math.max(...elevations) - Math.min(...elevations)
-  if (range < 30) return 5
+  if (range < 30)  return 5
   if (range < 200) return 10
   return 20
 }
@@ -74,13 +74,13 @@ function findContourCrossings(elevations, distances, interval) {
       const e1 = elevations[i], e2 = elevations[i + 1]
       if ((e1 < cv && e2 >= cv) || (e1 > cv && e2 <= cv)) {
         const t = (cv - e1) / (e2 - e1)
-        const crossDist = distances[i] + t * (distances[i + 1] - distances[i])
-        crossings.push({ elevation: cv, dist: crossDist })
+        const dist = distances[i] + t * (distances[i + 1] - distances[i])
+        crossings.push({ elevation: cv, dist })
       }
     }
   }
-  const filtered = []
   crossings.sort((a, b) => a.dist - b.dist)
+  const filtered = []
   for (const c of crossings) {
     const last = filtered[filtered.length - 1]
     if (!last || Math.abs(c.dist - last.dist) > 2) filtered.push(c)
@@ -88,25 +88,54 @@ function findContourCrossings(elevations, distances, interval) {
   return filtered
 }
 
+// Retorna coordenada [lng, lat] de um ponto a `distM` metros ao longo de uma line
+function pointAlongLine(turfLine, distM) {
+  const km = distM / 1000
+  const len = turf.length(turfLine, { units: 'kilometers' })
+  const safeDist = Math.min(Math.max(km, 0), len)
+  return turf.along(turfLine, safeDist, { units: 'kilometers' }).geometry.coordinates
+}
+
 export default function Declividade() {
   const mapRef           = useRef(null)
   const leafletRef       = useRef(null)
   const tileLayerRef     = useRef(null)
-  const drawLayerRef     = useRef(null)
-  const lineLayerRef     = useRef(null)
-  const autoLayerRef     = useRef(null)
+  const drawLayerRef     = useRef(null)   // linhas sendo desenhadas (preview)
+  const boundaryLayerRef = useRef(null)  // linhas A e B salvas
+  const resultsLayerRef  = useRef(null)  // polígonos coloridos + curvas
   const chartRef         = useRef(null)
   const chartInstanceRef = useRef(null)
+  const drawnPolygonsRef = useRef([])    // [{layer, classLabel}] para toggle
   const drawStateRef     = useRef({ ativo: false, pontos: [], markers: [], activeLine: null, previewLine: null })
 
-  const [cidade,        setCidade]        = useState(CIDADE_PADRAO)
-  const [camada,        setCamada]        = useState('topo')
-  const [desenhando,    setDesenhando]    = useState(false)
-  const [carregando,    setCarregando]    = useState(false)
-  const [carregandoAuto, setCarregandoAuto] = useState(false)
-  const [resultado,     setResultado]     = useState(null)
-  const [autoResultado, setAutoResultado] = useState(null)
-  const [modoAtivo,     setModoAtivo]     = useState(null) // 'manual' | 'auto'
+  const [cidade,          setCidade]          = useState(CIDADE_PADRAO)
+  const [camada,          setCamada]          = useState('topo')
+  const [modoDesenho,     setModoDesenho]     = useState(null)  // 'A' | 'B' | null
+  const [linhaA,          setLinhaA]          = useState(null)  // L.LatLng[]
+  const [linhaB,          setLinhaB]          = useState(null)  // L.LatLng[]
+  const [carregando,      setCarregando]      = useState(false)
+  const [carregandoAuto,  setCarregandoAuto]  = useState(false)
+  const [modoAtivo,       setModoAtivo]       = useState(null)  // 'corredor' | 'auto'
+  const [resultado,       setResultado]       = useState(null)
+  const [autoResultado,   setAutoResultado]   = useState(null)
+  const [classesVisiveis, setClassesVisiveis] = useState(() => new Set(SLOPE_CLASSES.map(c => c.label)))
+
+  const modoDesenhoRef = useRef(null)
+  useEffect(() => { modoDesenhoRef.current = modoDesenho }, [modoDesenho])
+
+  // ── Toggle visibilidade por classe ─────────────────────────
+  useEffect(() => {
+    if (!resultsLayerRef.current) return
+    drawnPolygonsRef.current.forEach(({ layer, classLabel }) => {
+      try {
+        if (classesVisiveis.has(classLabel)) {
+          if (!resultsLayerRef.current.hasLayer(layer)) resultsLayerRef.current.addLayer(layer)
+        } else {
+          if (resultsLayerRef.current.hasLayer(layer)) resultsLayerRef.current.removeLayer(layer)
+        }
+      } catch (_) {}
+    })
+  }, [classesVisiveis])
 
   // ── Init mapa ──────────────────────────────────────────────
   useEffect(() => {
@@ -120,28 +149,23 @@ export default function Declividade() {
     L.control.zoom({ position: 'topright' }).addTo(map)
     L.control.scale({ metric: true, imperial: false }).addTo(map)
 
-    const layerObj = LAYERS[0]
-    tileLayerRef.current = L.tileLayer(layerObj.url, {
-      attribution: layerObj.attribution, maxZoom: layerObj.maxZoom,
-    }).addTo(map)
-
-    drawLayerRef.current = L.layerGroup().addTo(map)
-    lineLayerRef.current = L.layerGroup().addTo(map)
-    autoLayerRef.current = L.layerGroup().addTo(map)
+    tileLayerRef.current    = L.tileLayer(LAYERS[0].url, { attribution: LAYERS[0].attribution, maxZoom: LAYERS[0].maxZoom }).addTo(map)
+    drawLayerRef.current    = L.layerGroup().addTo(map)
+    boundaryLayerRef.current = L.layerGroup().addTo(map)
+    resultsLayerRef.current = L.layerGroup().addTo(map)
 
     map.on('click',     handleClick)
     map.on('dblclick',  handleDblClick)
     map.on('mousemove', handleMouseMove)
-
     leafletRef.current = map
     return () => { map.remove(); leafletRef.current = null }
   }, [])
 
   useEffect(() => {
     if (!leafletRef.current || !tileLayerRef.current) return
-    const layerObj = LAYERS.find(l => l.id === camada)
-    tileLayerRef.current.setUrl(layerObj.url)
-    tileLayerRef.current.options.maxZoom = layerObj.maxZoom
+    const l = LAYERS.find(l => l.id === camada)
+    tileLayerRef.current.setUrl(l.url)
+    tileLayerRef.current.options.maxZoom = l.maxZoom
   }, [camada])
 
   useEffect(() => {
@@ -153,10 +177,11 @@ export default function Declividade() {
 
   useEffect(() => {
     if (!mapRef.current) return
-    mapRef.current.style.cursor = desenhando ? 'crosshair' : ''
-    drawStateRef.current.ativo = desenhando
-    if (!desenhando) limparDesenho()
-  }, [desenhando])
+    const drawing = modoDesenho === 'A' || modoDesenho === 'B'
+    mapRef.current.style.cursor = drawing ? 'crosshair' : ''
+    drawStateRef.current.ativo = drawing
+    if (!drawing) limparDesenhoPreview()
+  }, [modoDesenho])
 
   // ── Eventos de mapa ────────────────────────────────────────
   function handleClick(e)     { if (!drawStateRef.current.ativo) return; adicionarPonto(e.latlng) }
@@ -166,7 +191,7 @@ export default function Declividade() {
     if (!state.ativo || state.pontos.length === 0) return
     const ultimo = state.pontos[state.pontos.length - 1]
     if (!state.previewLine) {
-      state.previewLine = L.polyline([], { color: '#38bdf8', weight: 1.5, dashArray: '5,5', opacity: 0.7 }).addTo(drawLayerRef.current)
+      state.previewLine = L.polyline([], { color: modoDesenhoRef.current === 'A' ? '#f97316' : '#38bdf8', weight: 1.5, dashArray: '5,5', opacity: 0.7 }).addTo(drawLayerRef.current)
     }
     state.previewLine.setLatLngs([ultimo, e.latlng])
   }
@@ -174,23 +199,49 @@ export default function Declividade() {
   function adicionarPonto(latlng) {
     const state = drawStateRef.current
     state.pontos.push(latlng)
-    const m = L.circleMarker(latlng, { radius: 5, color: '#38bdf8', fillColor: '#38bdf8', fillOpacity: 1, weight: 2 }).addTo(drawLayerRef.current)
+    const cor = modoDesenhoRef.current === 'A' ? '#f97316' : '#38bdf8'
+    const m = L.circleMarker(latlng, { radius: 5, color: cor, fillColor: cor, fillOpacity: 1, weight: 2 }).addTo(drawLayerRef.current)
     state.markers.push(m)
     if (state.pontos.length >= 2) {
       if (state.activeLine) drawLayerRef.current.removeLayer(state.activeLine)
-      state.activeLine = L.polyline(state.pontos, { color: '#38bdf8', weight: 2.5, opacity: 0.9 }).addTo(drawLayerRef.current)
+      state.activeLine = L.polyline(state.pontos, { color: cor, weight: 2.5, opacity: 0.9 }).addTo(drawLayerRef.current)
     }
   }
 
   function finalizarLinha() {
     const state = drawStateRef.current
-    if (state.pontos.length < 2) { limparDesenho(); setDesenhando(false); return }
-    analisarLinhaManual([...state.pontos])
-    limparDesenho()
-    setDesenhando(false)
+    const modo  = modoDesenhoRef.current
+    const pontos = [...state.pontos]
+    limparDesenhoPreview()
+    if (pontos.length < 2) { setModoDesenho(null); return }
+
+    const cor = modo === 'A' ? '#f97316' : '#38bdf8'
+    const label = modo === 'A' ? 'Linha A' : 'Linha B'
+    // Salva linha no boundaryLayer com a cor correspondente
+    L.polyline(pontos, { color: cor, weight: 3, opacity: 0.85, dashArray: '8,4' })
+      .bindTooltip(label).addTo(boundaryLayerRef.current)
+
+    if (modo === 'A') {
+      setLinhaA(pontos)
+      setModoDesenho('B') // Automaticamente pede para desenhar linha B
+    } else if (modo === 'B') {
+      setLinhaB(pontos)
+      setModoDesenho(null)
+      // Análise é disparada pelo useEffect quando linhaB é setada
+    }
   }
 
-  function limparDesenho() {
+  // Dispara análise quando as duas linhas estão prontas
+  const linhaARef = useRef(null)
+  useEffect(() => { linhaARef.current = linhaA }, [linhaA])
+
+  useEffect(() => {
+    if (linhaB && linhaARef.current) {
+      analisarCorredor(linhaARef.current, linhaB)
+    }
+  }, [linhaB])
+
+  function limparDesenhoPreview() {
     const state = drawStateRef.current
     state.markers.forEach(m => drawLayerRef.current?.removeLayer(m))
     if (state.activeLine)  drawLayerRef.current?.removeLayer(state.activeLine)
@@ -198,309 +249,329 @@ export default function Declividade() {
     state.pontos = []; state.markers = []; state.activeLine = null; state.previewLine = null
   }
 
-  function limparManual() {
-    limparDesenho(); lineLayerRef.current?.clearLayers()
-    setResultado(null); setDesenhando(false); setModoAtivo(null)
+  function limparTudo() {
+    limparDesenhoPreview()
+    boundaryLayerRef.current?.clearLayers()
+    resultsLayerRef.current?.clearLayers()
+    drawnPolygonsRef.current = []
+    setLinhaA(null); setLinhaB(null)
+    setModoDesenho(null); setModoAtivo(null)
+    setResultado(null); setAutoResultado(null)
     if (chartInstanceRef.current) { chartInstanceRef.current.destroy(); chartInstanceRef.current = null }
+    setClassesVisiveis(new Set(SLOPE_CLASSES.map(c => c.label)))
   }
 
-  function limparAuto() {
-    autoLayerRef.current?.clearLayers(); setAutoResultado(null); setModoAtivo(null)
-  }
+  // ── Análise de corredor (duas linhas) ──────────────────────
+  async function analisarCorredor(ptosA, ptosB) {
+    setCarregando(true)
+    resultsLayerRef.current?.clearLayers()
+    drawnPolygonsRef.current = []
+    setResultado(null)
 
-  // ── Análise manual ─────────────────────────────────────────
-  async function analisarLinhaManual(latlngs) {
-    setCarregando(true); setResultado(null); lineLayerRef.current?.clearLayers()
     try {
-      const coords      = latlngs.map(p => [p.lng, p.lat])
-      const line        = turf.lineString(coords)
-      const totalDistKm = turf.length(line, { units: 'kilometers' })
-      const totalDist   = totalDistKm * 1000
-      const AMOSTRAS = 99
-      const samplePoints = [], sampleDists = []
-      for (let i = 0; i <= AMOSTRAS; i++) {
-        const pt = turf.along(line, (i / AMOSTRAS) * totalDistKm, { units: 'kilometers' })
-        samplePoints.push(pt.geometry.coordinates)
-        sampleDists.push((i / AMOSTRAS) * totalDist)
-      }
-      const elevations = await fetchElevations(samplePoints)
-      const interval   = detectContourInterval(elevations)
-      const crossings  = findContourCrossings(elevations, sampleDists, interval)
-      const startElev  = elevations[0], endElev = elevations[AMOSTRAS]
-      const marcos = [
-        { elevation: Math.round(startElev), dist: 0, tipo: 'inicio' },
-        ...crossings.map(c => ({ ...c, tipo: 'curva' })),
-        { elevation: Math.round(endElev), dist: totalDist, tipo: 'fim' },
-      ]
-      const segmentos = []
-      for (let i = 0; i < marcos.length - 1; i++) {
-        const a = marcos[i], b = marcos[i + 1]
-        const distSeg = b.dist - a.dist
-        if (distSeg < 0.5) continue
-        const elevDiff = Math.abs(b.elevation - a.elevation)
-        const slope    = distSeg > 0 ? (elevDiff / distSeg) * 100 : 0
-        segmentos.push({ de: a.elevation, para: b.elevation, dist: distSeg, elevDiff, slope, sobe: b.elevation > a.elevation, classif: classifySlope(slope), distAcum: b.dist })
-      }
-      const minAlt = Math.round(Math.min(...elevations))
-      const maxAlt = Math.round(Math.max(...elevations))
-      const desnivel    = maxAlt - minAlt
-      const slopeGlobal = totalDist > 0 ? (desnivel / totalDist) * 100 : 0
-      const classifGlobal = classifySlope(slopeGlobal)
+      const lineA = turf.lineString(ptosA.map(p => [p.lng, p.lat]))
+      const lineB = turf.lineString(ptosB.map(p => [p.lng, p.lat]))
+      const distAm = turf.length(lineA, { units: 'kilometers' }) * 1000
+      const distBm = turf.length(lineB, { units: 'kilometers' }) * 1000
 
-      lineLayerRef.current?.clearLayers()
-      segmentos.forEach((seg, idx) => {
-        const a = marcos[idx], b = marcos[idx + 1]
-        if (!b) return
-        const fracA = a.dist / totalDist, fracB = b.dist / totalDist
-        const ptA = turf.along(line, fracA * totalDistKm, { units: 'kilometers' })
-        const ptB = turf.along(line, fracB * totalDistKm, { units: 'kilometers' })
-        const [lngA, latA] = ptA.geometry.coordinates
-        const [lngB, latB] = ptB.geometry.coordinates
-        L.polyline([[latA, lngA], [latB, lngB]], { color: seg.classif.cor, weight: 5, opacity: 0.9 }).addTo(lineLayerRef.current)
-      })
-      crossings.forEach(c => {
-        const pt = turf.along(line, (c.dist / totalDist) * totalDistKm, { units: 'kilometers' })
-        const [lng, lat] = pt.geometry.coordinates
-        L.circleMarker([lat, lng], { radius: 5, color: '#fff', fillColor: '#1e293b', fillOpacity: 1, weight: 2 })
-          .bindTooltip(`⛰ ${c.elevation} m`, { direction: 'top' }).addTo(lineLayerRef.current)
-      })
-      L.circleMarker(latlngs[0], { radius: 7, color: '#fff', fillColor: '#22c55e', fillOpacity: 1, weight: 2 })
-        .bindTooltip(`Início: ${Math.round(startElev)} m`, { direction: 'top' }).addTo(lineLayerRef.current)
-      L.circleMarker(latlngs[latlngs.length - 1], { radius: 7, color: '#fff', fillColor: classifGlobal.cor, fillOpacity: 1, weight: 2 })
-        .bindTooltip(`Fim: ${Math.round(endElev)} m`, { direction: 'top' }).addTo(lineLayerRef.current)
+      // 50 amostras por linha = 100 pontos total (limite da API)
+      const N = 49 // 0..49 = 50 pts por linha
+      const ptsA = [], ptsB = [], distsA = [], distsB = []
+      for (let i = 0; i <= N; i++) {
+        ptsA.push(pointAlongLine(lineA, (i / N) * distAm))
+        distsA.push((i / N) * distAm)
+        ptsB.push(pointAlongLine(lineB, (i / N) * distBm))
+        distsB.push((i / N) * distBm)
+      }
 
-      setModoAtivo('manual')
-      setResultado({ totalDist, minAlt, maxAlt, desnivel, slopeGlobal, classifGlobal, interval, crossings, segmentos, distances: sampleDists.map(d => d.toFixed(0)), elevations })
+      const allElevs = await fetchElevations([...ptsA, ...ptsB])
+      const elevsA   = allElevs.slice(0, N + 1)
+      const elevsB   = allElevs.slice(N + 1)
+
+      const interval = detectContourInterval([...elevsA, ...elevsB])
+      const crossA   = findContourCrossings(elevsA, distsA, interval)
+      const crossB   = findContourCrossings(elevsB, distsB, interval)
+
+      // Índice rápido por cota
+      const mapA = new Map(crossA.map(c => [c.elevation, c]))
+      const mapB = new Map(crossB.map(c => [c.elevation, c]))
+
+      // Cotas presentes nas duas linhas
+      const cotas = [...mapA.keys()].filter(e => mapB.has(e)).sort((a, b) => a - b)
+
+      const classCounts = Object.fromEntries(SLOPE_CLASSES.map(c => [c.label, 0]))
+      let drawnCount = 0
+
+      for (let i = 0; i < cotas.length - 1; i++) {
+        const E1 = cotas[i], E2 = cotas[i + 1]
+        if (E2 - E1 !== interval) continue // apenas cotas consecutivas
+
+        const cA1 = mapA.get(E1), cA2 = mapA.get(E2)
+        const cB1 = mapB.get(E1), cB2 = mapB.get(E2)
+
+        const ptA1 = pointAlongLine(lineA, cA1.dist) // [lng, lat]
+        const ptA2 = pointAlongLine(lineA, cA2.dist)
+        const ptB1 = pointAlongLine(lineB, cB1.dist)
+        const ptB2 = pointAlongLine(lineB, cB2.dist)
+
+        // Distância horizontal entre as cotas (= largura do band = base da declividade)
+        const d1 = turf.distance(ptA1, ptB1, { units: 'meters' }) * 1000
+        const d2 = turf.distance(ptA2, ptB2, { units: 'meters' }) * 1000
+        const horizDist = (d1 + d2) / 2
+
+        if (horizDist < 0.5) continue // evita divisão por zero em terreno plano
+        const slopePct = (interval / horizDist) * 100
+        const classif  = classifySlope(slopePct)
+        classCounts[classif.label] = (classCounts[classif.label] || 0) + 1
+
+        // Polígono: A1 → B1 → B2 → A2 (sentido horário)
+        const polygon = L.polygon(
+          [ptA1, ptB1, ptB2, ptA2].map(([lng, lat]) => [lat, lng]),
+          {
+            color: classif.cor, fillColor: classif.cor,
+            fillOpacity: 0.60, weight: 1.2, opacity: 0.4,
+          }
+        ).bindTooltip(
+          `<b>${classif.label}</b><br>${E1}→${E2} m · ${slopePct.toFixed(1)}%`,
+          { sticky: true }
+        )
+
+        polygon.addTo(resultsLayerRef.current)
+        drawnPolygonsRef.current.push({ layer: polygon, classLabel: classif.label })
+        drawnCount++
+      }
+
+      // Marcadores nas linhas
+      const eleMinA = Math.min(...elevsA), eleMaxA = Math.max(...elevsA)
+      const eleMinB = Math.min(...elevsB), eleMaxB = Math.max(...elevsB)
+      const allElevsArr = [...elevsA, ...elevsB]
+      const minElev = Math.min(...allElevsArr), maxElev = Math.max(...allElevsArr)
+
+      const totalCells = Object.values(classCounts).reduce((s, v) => s + v, 0)
+      const maxSlope = drawnCount > 0
+        ? SLOPE_CLASSES.find(c => classCounts[c.label] > 0 && c.max !== Infinity)?.max || 0
+        : 0
+
+      setModoAtivo('corredor')
+      setResultado({
+        type: 'corredor',
+        minElev: Math.round(minElev), maxElev: Math.round(maxElev),
+        interval, drawnCount, cotas: cotas.length, classCounts, totalCells,
+      })
     } catch (e) {
-      setResultado({ erro: `Erro: ${e.message}` })
-    } finally { setCarregando(false) }
+      setResultado({ erro: e.message })
+    } finally {
+      setCarregando(false)
+    }
   }
 
-  // ── Análise automática ─────────────────────────────────────
+  // ── Análise automática (isobands + 2 chamadas paralelas) ───
   async function analisarAuto() {
     setCarregandoAuto(true); setAutoResultado(null)
-    autoLayerRef.current?.clearLayers()
-    lineLayerRef.current?.clearLayers()
-    setResultado(null)
+    resultsLayerRef.current?.clearLayers()
+    boundaryLayerRef.current?.clearLayers()
+    drawLayerRef.current?.clearLayers()
+    drawnPolygonsRef.current = []
+    setLinhaA(null); setLinhaB(null)
+    setModoDesenho(null)
+
     try {
       const map    = leafletRef.current
       const bounds = map.getBounds()
       const N = bounds.getNorth(), S = bounds.getSouth()
       const W = bounds.getWest(),  E = bounds.getEast()
-      const GRID = 10
 
-      // ── 1. Grade 10×10 = 100 pontos de elevação bruta (limite da API)
-      const gridPts = []
-      for (let row = 0; row < GRID; row++) {
-        for (let col = 0; col < GRID; col++) {
-          const lat = S + (row / (GRID - 1)) * (N - S)
-          const lng = W + (col / (GRID - 1)) * (E - W)
-          gridPts.push({ lat, lng, row, col })
+      // Grade 10×10 principal + grade 10×10 deslocada (200 pts no total, 2 chamadas paralelas)
+      const GRID = 10
+      const grid1 = [], grid2 = []
+      const stepLat = (N - S) / (GRID - 1)
+      const stepLng = (E - W) / (GRID - 1)
+
+      for (let r = 0; r < GRID; r++) {
+        for (let c = 0; c < GRID; c++) {
+          grid1.push([W + c * stepLng, S + r * stepLat])
+          // grade 2: deslocada meio passo (preenche lacunas)
+          const lat2 = S + (r + 0.5) * stepLat
+          const lng2 = W + (c + 0.5) * stepLng
+          if (lat2 < N && lng2 < E) grid2.push([lng2, lat2])
         }
       }
-      const rawCoords  = gridPts.map(p => [p.lng, p.lat])
-      const elevations = await fetchElevations(rawCoords)
-      gridPts.forEach((p, i) => { p.elev = elevations[i] })
 
-      // ── 2. Calcular declividade em cada ponto bruto (diferenças centrais)
-      const cellH = turf.distance([gridPts[0].lng, gridPts[0].lat], [gridPts[GRID].lng, gridPts[GRID].lat], { units: 'meters' })
-      const cellW = turf.distance([gridPts[0].lng, gridPts[0].lat], [gridPts[1].lng, gridPts[1].lat], { units: 'meters' })
+      // Duas chamadas paralelas à API
+      const [elevs1, elevs2] = await Promise.all([
+        fetchElevations(grid1),
+        fetchElevations(grid2.slice(0, 100)),
+      ])
 
-      const slopeAtPt = gridPts.map((p) => {
-        const { row, col } = p
-        const Lv = col > 0       ? gridPts[row * GRID + (col - 1)].elev : p.elev
-        const Rv = col < GRID-1  ? gridPts[row * GRID + (col + 1)].elev : p.elev
-        const Uv = row > 0       ? gridPts[(row - 1) * GRID + col].elev : p.elev
-        const Dv = row < GRID-1  ? gridPts[(row + 1) * GRID + col].elev : p.elev
-        const dx = (col > 0 && col < GRID-1) ? 2 * cellW : cellW
-        const dy = (row > 0 && row < GRID-1) ? 2 * cellH : cellH
-        return Math.sqrt(((Rv - Lv) / dx) ** 2 + ((Dv - Uv) / dy) ** 2) * 100
-      })
+      // Monta FeatureCollection com todos os pontos de elevação
+      const allTurfPts = turf.featureCollection([
+        ...grid1.map((c, i) => turf.point(c, { elevation: elevs1[i] })),
+        ...grid2.slice(0, elevs2.length).map((c, i) => turf.point(c, { elevation: elevs2[i] })),
+      ])
 
-      // FeatureCollection com declividade por ponto (para consulta por isoband)
-      const slopeTurfPts = turf.featureCollection(
-        gridPts.map((p, i) => turf.point([p.lng, p.lat], { slope: slopeAtPt[i] }))
-      )
+      const allElevs = [...elevs1, ...elevs2]
+      const minElev  = Math.min(...allElevs)
+      const maxElev  = Math.max(...allElevs)
+      const range    = maxElev - minElev
 
-      // ── 3. Interpolar superfície densa (~25 colunas) para isobands suaves
-      const lonKm  = (E - W) * Math.cos(((N + S) / 2) * Math.PI / 180) * 111.32
-      const latKm  = (N - S) * 111.32
-      const cellKm = Math.max(Math.min(lonKm, latKm) / 25, 0.15)
-
-      const rawTurfPts = turf.featureCollection(
-        gridPts.map(p => turf.point([p.lng, p.lat], { elevation: p.elev }))
-      )
-
-      let densePts = rawTurfPts
-      try {
-        densePts = turf.interpolate(rawTurfPts, cellKm, {
-          gridType: 'point', property: 'elevation', units: 'kilometers', weight: 3,
-        })
-      } catch (_) { /* usa grade bruta se interpolação falhar */ }
-
-      // ── 4. Intervalos de cota e breaks
-      const minElev = Math.min(...elevations)
-      const maxElev = Math.max(...elevations)
-      const range   = maxElev - minElev
-      let interval  = 5
+      let interval = 5
       if (range > 80)  interval = 10
       if (range > 200) interval = 20
       if (range > 400) interval = 50
 
+      // Calcular slope na grade principal (para colorir os isobands)
+      const cellH = turf.distance(grid1[0], grid1[GRID], { units: 'meters' }) * 1000
+      const cellW = turf.distance(grid1[0], grid1[1],    { units: 'meters' }) * 1000
+      const slopeAtPt = grid1.map((_, idx) => {
+        const row = Math.floor(idx / GRID), col = idx % GRID
+        const Lv = col > 0       ? elevs1[row*GRID+(col-1)] : elevs1[idx]
+        const Rv = col < GRID-1  ? elevs1[row*GRID+(col+1)] : elevs1[idx]
+        const Uv = row > 0       ? elevs1[(row-1)*GRID+col] : elevs1[idx]
+        const Dv = row < GRID-1  ? elevs1[(row+1)*GRID+col] : elevs1[idx]
+        const dx = (col > 0 && col < GRID-1) ? 2*cellW : cellW
+        const dy = (row > 0 && row < GRID-1) ? 2*cellH : cellH
+        return Math.sqrt(((Rv-Lv)/dx)**2 + ((Dv-Uv)/dy)**2) * 100
+      })
+      const slopeTurfPts = turf.featureCollection(
+        grid1.map((c, i) => turf.point(c, { slope: slopeAtPt[i] }))
+      )
+
+      // Interpolar superfície densa
+      const lonKm  = (E - W) * Math.cos(((N+S)/2) * Math.PI/180) * 111.32
+      const latKm  = (N - S) * 111.32
+      const cellKm = Math.max(Math.min(lonKm, latKm) / 30, 0.1)
+      let densePts = allTurfPts
+      try {
+        densePts = turf.interpolate(allTurfPts, cellKm, {
+          gridType: 'point', property: 'elevation', units: 'kilometers', weight: 3,
+        })
+      } catch (_) {}
+
+      // Breaks de cota
       const breaks = []
-      for (let e = Math.ceil(minElev / interval) * interval; e <= Math.floor(maxElev / interval) * interval; e += interval) {
+      for (let e = Math.ceil(minElev/interval)*interval; e <= Math.floor(maxElev/interval)*interval; e += interval) {
         breaks.push(e)
       }
-      if (breaks.length < 2) { breaks.length = 0; breaks.push(Math.round(minElev), Math.round(maxElev)) }
+      if (breaks.length < 2) { breaks.push(Math.round(minElev), Math.round(maxElev)) }
 
-      // ── 5. isobands — polígonos entre as curvas de nível
+      // isobands
       let bands = null
-      try {
-        bands = turf.isobands(densePts, breaks, { zProperty: 'elevation' })
-      } catch (_) {
-        try { bands = turf.isobands(rawTurfPts, breaks, { zProperty: 'elevation' }) } catch (_2) { bands = null }
+      try { bands = turf.isobands(densePts, breaks, { zProperty: 'elevation' }) }
+      catch (_) {
+        try { bands = turf.isobands(allTurfPts, breaks, { zProperty: 'elevation' }) } catch (_2) {}
       }
 
-      // ── 6. Desenhar cada isoband colorido pela declividade média do band
       const classCounts = Object.fromEntries(SLOPE_CLASSES.map(c => [c.label, 0]))
-      let drawnBands = 0
 
-      if (bands && bands.features.length > 0) {
+      if (bands?.features?.length) {
         bands.features.forEach((feature) => {
           try {
-            // Declividade do band = média dos pontos brutos dentro dele (ou mais próximo)
             let avgSlope = 20
             try {
               const inside = turf.pointsWithinPolygon(slopeTurfPts, feature)
               if (inside.features.length > 0) {
                 avgSlope = inside.features.reduce((s, f) => s + f.properties.slope, 0) / inside.features.length
               } else {
-                const centroid = turf.centroid(feature)
-                const nearest  = turf.nearestPoint(centroid, slopeTurfPts)
-                avgSlope = nearest.properties.slope
+                avgSlope = turf.nearestPoint(turf.centroid(feature), slopeTurfPts).properties.slope
               }
-            } catch (_) { /* mantém default */ }
+            } catch (_) {}
 
             const classif = classifySlope(avgSlope)
             classCounts[classif.label] = (classCounts[classif.label] || 0) + 1
-            drawnBands++
 
-            // Tooltip com intervalo de elevação
-            const lv = feature.properties?.['fill-min-value'] ?? feature.properties?.lowerValue ?? ''
-            const uv = feature.properties?.['fill-max-value'] ?? feature.properties?.upperValue ?? ''
-            const elevLabel = (lv !== '' && uv !== '') ? `${lv}–${uv} m · ` : ''
+            const layer = L.geoJSON(feature, {
+              style: () => ({ color: classif.cor, fillColor: classif.cor, fillOpacity: 0.55, weight: 0.5, opacity: 0.15 }),
+            }).bindTooltip(`<b>${classif.label}</b><br>${avgSlope.toFixed(1)}%`, { sticky: true })
 
-            L.geoJSON(feature, {
-              style: () => ({
-                color:       classif.cor,
-                fillColor:   classif.cor,
-                fillOpacity: 0.52,
-                weight:      0.6,
-                opacity:     0.2,
-              }),
-            })
-              .bindTooltip(`<b>${classif.label}</b><br>${elevLabel}${avgSlope.toFixed(1)}%`, { sticky: true })
-              .addTo(autoLayerRef.current)
-          } catch (_) { /* pula band inválido */ }
+            layer.addTo(resultsLayerRef.current)
+            drawnPolygonsRef.current.push({ layer, classLabel: classif.label })
+          } catch (_) {}
         })
       }
 
-      // ── 7. Curvas de nível (isolines) sobre os bands — linhas escuras finas
+      // Curvas de nível sobre os bands
       try {
         const isoLines = turf.isolines(densePts, breaks, { zProperty: 'elevation' })
         L.geoJSON(isoLines, {
           style: f => {
-            const elev   = f.properties.elevation
-            const master = elev % (interval * 5) === 0
-            return { color: '#0f172a', weight: master ? 2 : 0.9, opacity: master ? 0.9 : 0.55 }
+            const master = f.properties.elevation % (interval * 5) === 0
+            return { color: '#0f172a', weight: master ? 2 : 0.8, opacity: master ? 0.9 : 0.5 }
           },
-          onEachFeature: (f, layer) => {
-            layer.bindTooltip(`⛰ ${f.properties.elevation} m`, { sticky: true })
-          },
-        }).addTo(autoLayerRef.current)
-      } catch (_) { /* isolines opcionais */ }
+          onEachFeature: (f, layer) => { layer.bindTooltip(`⛰ ${f.properties.elevation} m`, { sticky: true }) },
+        }).addTo(resultsLayerRef.current)
+      } catch (_) {}
 
-      // ── 8. Caminho de maior declive (steepest descent nos pontos brutos)
+      // Caminho de maior declive
       let maxIdx = 0
-      elevations.forEach((e, i) => { if (e > elevations[maxIdx]) maxIdx = i })
-      const path    = [gridPts[maxIdx]]
+      elevs1.forEach((e, i) => { if (e > elevs1[maxIdx]) maxIdx = i })
+      const path = [{ lat: grid1[maxIdx][1], lng: grid1[maxIdx][0], elev: elevs1[maxIdx], row: Math.floor(maxIdx/GRID), col: maxIdx%GRID }]
       const visited = new Set([maxIdx])
       while (true) {
         const curr = path[path.length - 1]
-        const neighbors = [
-          { row: curr.row-1, col: curr.col   }, { row: curr.row+1, col: curr.col   },
-          { row: curr.row,   col: curr.col-1 }, { row: curr.row,   col: curr.col+1 },
-          { row: curr.row-1, col: curr.col-1 }, { row: curr.row-1, col: curr.col+1 },
-          { row: curr.row+1, col: curr.col-1 }, { row: curr.row+1, col: curr.col+1 },
-        ].filter(n => n.row >= 0 && n.row < GRID && n.col >= 0 && n.col < GRID)
+        const nbrs = [
+          [curr.row-1,curr.col],[curr.row+1,curr.col],[curr.row,curr.col-1],[curr.row,curr.col+1],
+          [curr.row-1,curr.col-1],[curr.row-1,curr.col+1],[curr.row+1,curr.col-1],[curr.row+1,curr.col+1],
+        ].filter(([r,c]) => r>=0&&r<GRID&&c>=0&&c<GRID)
         let best = null, bestElev = curr.elev
-        for (const n of neighbors) {
-          const idx = n.row * GRID + n.col
-          if (!visited.has(idx) && gridPts[idx].elev < bestElev) {
-            bestElev = gridPts[idx].elev; best = { ...gridPts[idx], idx }
+        for (const [r, c] of nbrs) {
+          const idx = r*GRID+c
+          if (!visited.has(idx) && elevs1[idx] < bestElev) {
+            bestElev = elevs1[idx]; best = { lat: grid1[idx][1], lng: grid1[idx][0], elev: elevs1[idx], row: r, col: c, idx }
           }
         }
-        if (!best) break
-        visited.add(best.idx); path.push(best)
+        if (!best) break; visited.add(best.idx); path.push(best)
       }
-
       if (path.length >= 2) {
-        const pathCoords = path.map(p => [p.lat, p.lng])
-        L.polyline(pathCoords, { color: '#ffffff', weight: 4, opacity: 0.95, dashArray: '10,5' })
-          .bindTooltip('📍 Caminho de maior declive').addTo(autoLayerRef.current)
-        L.circleMarker(pathCoords[0], { radius: 9, color: '#fff', fillColor: '#ef4444', fillOpacity: 1, weight: 2.5 })
-          .bindTooltip(`▲ Topo: ${Math.round(path[0].elev)} m`).addTo(autoLayerRef.current)
-        L.circleMarker(pathCoords[pathCoords.length - 1], { radius: 9, color: '#fff', fillColor: '#22c55e', fillOpacity: 1, weight: 2.5 })
-          .bindTooltip(`▼ Base: ${Math.round(path[path.length - 1].elev)} m`).addTo(autoLayerRef.current)
+        L.polyline(path.map(p => [p.lat, p.lng]), { color: '#fff', weight: 4, opacity: 0.95, dashArray: '10,5' })
+          .bindTooltip('Caminho de maior declive').addTo(resultsLayerRef.current)
+        L.circleMarker([path[0].lat, path[0].lng], { radius: 9, color: '#fff', fillColor: '#ef4444', fillOpacity: 1, weight: 2.5 })
+          .bindTooltip(`▲ ${Math.round(path[0].elev)} m`).addTo(resultsLayerRef.current)
+        L.circleMarker([path[path.length-1].lat, path[path.length-1].lng], { radius: 9, color: '#fff', fillColor: '#22c55e', fillOpacity: 1, weight: 2.5 })
+          .bindTooltip(`▼ ${Math.round(path[path.length-1].elev)} m`).addTo(resultsLayerRef.current)
       }
 
-      // ── 9. Estatísticas
-      const totalCells   = Object.values(classCounts).reduce((s, v) => s + v, 0)
-      const maxSlopePct  = Math.max(...slopeAtPt)
-      const avgSlopePct  = slopeAtPt.reduce((s, v) => s + v, 0) / slopeAtPt.length
-      const pathDesnivel = path.length > 1 ? Math.abs(path[0].elev - path[path.length - 1].elev) : 0
-      const pathDistLine = path.length > 1
-        ? turf.length(turf.lineString(path.map(p => [p.lng, p.lat])), { units: 'kilometers' }) * 1000
-        : 0
-      const pathSlope = pathDistLine > 0 ? (pathDesnivel / pathDistLine) * 100 : 0
-
+      const totalCells = Object.values(classCounts).reduce((s,v) => s+v, 0)
       setModoAtivo('auto')
       setAutoResultado({
         minElev: Math.round(minElev), maxElev: Math.round(maxElev),
-        interval, numBreaks: breaks.length, drawnBands,
-        classCounts, totalCells, maxSlopePct, avgSlopePct,
-        pathDesnivel: Math.round(pathDesnivel),
-        pathDist:     Math.round(pathDistLine),
-        pathSlope,
+        interval, numBreaks: breaks.length, classCounts, totalCells,
+        maxSlopePct: Math.max(...slopeAtPt),
+        avgSlopePct: slopeAtPt.reduce((s,v) => s+v, 0) / slopeAtPt.length,
       })
     } catch (e) {
       setAutoResultado({ erro: e.message })
     } finally { setCarregandoAuto(false) }
   }
 
-  // ── Gráfico perfil manual ──────────────────────────────────
+  // ── Gráfico (não usado no modo corredor, mantido para compatibilidade)
   useEffect(() => {
     if (!resultado?.elevations || !chartRef.current) return
     if (chartInstanceRef.current) chartInstanceRef.current.destroy()
-    const cor = resultado.classifGlobal?.cor || '#38bdf8'
+    const cor = '#38bdf8'
     chartInstanceRef.current = new Chart(chartRef.current, {
       type: 'line',
-      data: {
-        labels: resultado.distances,
-        datasets: [{ label: 'Altitude (m)', data: resultado.elevations.map(e => Math.round(e)), borderColor: cor, backgroundColor: cor + '22', borderWidth: 2, tension: 0.35, fill: true, pointRadius: 0, pointHoverRadius: 4 }],
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
-        plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => `Dist: ${i[0].label} m`, label: i => `Alt: ${i.raw} m` } } },
-        scales: {
-          x: { ticks: { color: '#64748b', font: { size: 10 }, maxTicksLimit: 5, callback: (v, i, tks) => i === 0 || i === tks.length - 1 || i === Math.floor(tks.length / 2) ? `${resultado.distances[i]}m` : '' }, grid: { color: '#1e293b' } },
-          y: { ticks: { color: '#64748b', font: { size: 10 }, callback: v => `${v}m` }, grid: { color: '#1e293b' } },
-        },
-      },
+      data: { labels: resultado.distances, datasets: [{ data: resultado.elevations.map(e => Math.round(e)), borderColor: cor, backgroundColor: cor+'22', borderWidth: 2, tension: 0.35, fill: true, pointRadius: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } }, y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } } } },
     })
   }, [resultado])
 
   const isLoading = carregando || carregandoAuto
+  const linhaAFeita = !!linhaA
+  const linhaBFeita = !!linhaB
+
+  const hintMsg = carregandoAuto
+    ? '⏳ Buscando grade de elevação…'
+    : carregando
+      ? '⏳ Analisando corredor entre as linhas…'
+      : modoDesenho === 'A'
+        ? '🟠 Desenhe a Linha A — clique para pontos, duplo clique para finalizar'
+        : modoDesenho === 'B'
+          ? '🔵 Desenhe a Linha B no outro lado do talude'
+          : modoAtivo === 'corredor'
+            ? 'Polígonos entre as curvas de nível coloridos por risco'
+            : modoAtivo === 'auto'
+              ? 'Isobands coloridos por declividade · linha branca = maior declive'
+              : 'Escolha Análise Auto ou desenhe Linha A + Linha B para delimitar o corredor'
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#0f172a' }}>
@@ -513,9 +584,7 @@ export default function Declividade() {
             <div className={styles.toolbarTitle}><FiTrendingUp size={14} /> Declividade</div>
 
             <select className={styles.select} value={cidade} onChange={e => setCidade(e.target.value)}>
-              {Object.values(CIDADES).map(c => (
-                <option key={c.codigo} value={c.codigo}>{c.nome}</option>
-              ))}
+              {Object.values(CIDADES).map(c => <option key={c.codigo} value={c.codigo}>{c.nome}</option>)}
             </select>
 
             <div className={styles.layerBtns}>
@@ -527,49 +596,55 @@ export default function Declividade() {
             </div>
 
             <div className={styles.modeBtns}>
-              {/* Botão análise automática */}
+              {/* Análise automática */}
               <button
                 className={`${styles.btn} ${modoAtivo === 'auto' ? styles.btnAutoActive : styles.btnAuto}`}
-                onClick={() => { if (modoAtivo === 'auto') { limparAuto() } else { limparManual(); analisarAuto() } }}
+                onClick={() => modoAtivo === 'auto' ? limparTudo() : analisarAuto()}
                 disabled={isLoading}
               >
                 <FiZap size={12} />
-                {carregandoAuto ? 'Analisando…' : modoAtivo === 'auto' ? 'Limpar auto' : 'Análise automática'}
+                {carregandoAuto ? 'Analisando…' : modoAtivo === 'auto' ? 'Limpar' : 'Auto'}
               </button>
 
-              {/* Separador */}
               <span style={{ color: '#334155', fontSize: 14 }}>|</span>
 
-              {/* Botão desenho manual */}
+              {/* Linha A */}
               <button
-                className={`${styles.btn} ${desenhando ? styles.btnDrawActive : styles.btnDraw}`}
+                className={`${styles.btn} ${modoDesenho === 'A' ? styles.btnLineAActive : linhaAFeita ? styles.btnLineADone : styles.btnLineA}`}
                 onClick={() => {
-                  if (desenhando) finalizarLinha()
-                  else { limparManual(); limparAuto(); setDesenhando(true) }
+                  limparTudo()
+                  setModoDesenho('A')
                 }}
                 disabled={isLoading}
               >
-                <FiEdit3 size={12} />
-                {desenhando ? 'Finalizar linha' : 'Linha manual'}
+                <span style={{ fontWeight: 700 }}>A</span>
+                {modoDesenho === 'A' ? ' desenhando…' : linhaAFeita ? ' ✓' : ' Linha A'}
               </button>
 
-              {modoAtivo === 'manual' && !desenhando && (
-                <button className={`${styles.btn} ${styles.btnClear}`} onClick={limparManual} disabled={isLoading}>
-                  <FiTrash2 size={12} /> Limpar
+              {/* Linha B */}
+              <button
+                className={`${styles.btn} ${modoDesenho === 'B' ? styles.btnLineBActive : linhaBFeita ? styles.btnLineBDone : styles.btnLineB}`}
+                onClick={() => {
+                  if (!linhaAFeita) return
+                  if (linhaBFeita) { setLinhaB(null); boundaryLayerRef.current?.clearLayers(); resultsLayerRef.current?.clearLayers(); drawnPolygonsRef.current = [] }
+                  setModoDesenho('B')
+                }}
+                disabled={isLoading || (!linhaAFeita && modoDesenho !== 'B')}
+              >
+                <span style={{ fontWeight: 700 }}>B</span>
+                {modoDesenho === 'B' ? ' desenhando…' : linhaBFeita ? ' ✓' : ' Linha B'}
+              </button>
+
+              {/* Limpar */}
+              {(modoAtivo || linhaAFeita || modoDesenho) && (
+                <button className={`${styles.btn} ${styles.btnClear}`} onClick={limparTudo} disabled={isLoading}>
+                  <FiTrash2 size={12} />
                 </button>
               )}
             </div>
 
-            <span className={`${styles.hint} ${desenhando ? styles.hintActive : ''} ${isLoading ? styles.hintLoading : ''}`}>
-              {carregandoAuto
-                ? '⏳ Buscando grade de elevação…'
-                : carregando
-                  ? '⏳ Calculando cruzamentos…'
-                  : desenhando
-                    ? '✏️ Clique para pontos · Duplo clique para finalizar'
-                    : modoAtivo === 'auto'
-                      ? 'Retângulos coloridos por declividade · linha branca = maior declive'
-                      : 'Escolha análise automática ou desenhe uma linha manual'}
+            <span className={`${styles.hint} ${modoDesenho ? styles.hintActive : ''} ${isLoading ? styles.hintLoading : ''}`}>
+              {hintMsg}
             </span>
           </div>
 
@@ -581,7 +656,7 @@ export default function Declividade() {
           <div className={styles.panelHeader}>
             <FiActivity size={14} color="#38bdf8" />
             <span className={styles.panelTitle}>
-              {modoAtivo === 'auto' ? 'Análise Automática' : modoAtivo === 'manual' ? 'Linha Manual' : 'Resultado'}
+              {modoAtivo === 'corredor' ? 'Corredor de Risco' : modoAtivo === 'auto' ? 'Análise Automática' : 'Resultado'}
             </span>
             {isLoading && <span className={styles.loadingDot} />}
           </div>
@@ -592,22 +667,45 @@ export default function Declividade() {
             {isLoading && (
               <div className={styles.placeholder}>
                 <div className={styles.placeholderIcon}>⏳</div>
-                <div>{carregandoAuto ? 'Calculando grade de elevação e retângulos de risco…' : 'Calculando cruzamentos de curvas de nível…'}</div>
+                <div>{carregandoAuto ? 'Calculando isobands e grade de elevação…' : 'Calculando polígonos entre curvas de nível…'}</div>
                 <div style={{ fontSize: 11, color: '#475569' }}>Elevação SRTM · Open-Meteo</div>
               </div>
             )}
 
-            {/* Placeholder inicial */}
-            {!isLoading && !modoAtivo && (
+            {/* Instruções */}
+            {!isLoading && !modoAtivo && !modoDesenho && (
               <div className={styles.placeholder}>
                 <div className={styles.placeholderIcon}>📐</div>
-                <div style={{ fontWeight: 600, color: '#94a3b8' }}>Escolha um modo de análise</div>
-                <div style={{ marginTop: 6 }}>
-                  <b style={{ color: '#f59e0b' }}>⚡ Automático</b> — analisa toda a vista atual do mapa, desenha retângulos coloridos por risco e traça a linha de maior declive.
+                <div style={{ fontWeight: 600, color: '#94a3b8' }}>Dois modos de análise</div>
+                <div style={{ marginTop: 8 }}>
+                  <b style={{ color: '#f59e0b' }}>⚡ Auto</b> — analisa a vista atual, colore as faixas entre curvas de nível pelo grau de risco.
                 </div>
                 <div style={{ marginTop: 8 }}>
-                  <b style={{ color: '#38bdf8' }}>✏️ Manual</b> — desenhe uma linha cruzando as curvas de nível para calcular a declividade segmento a segmento.
+                  <b style={{ color: '#f97316' }}>A</b> + <b style={{ color: '#38bdf8' }}>B</b> — desenhe duas linhas laterais delimitando o talude. Os retângulos entre cada par de curvas de nível ficam coloridos pela declividade.
                 </div>
+              </div>
+            )}
+
+            {/* Instrução durante desenho */}
+            {!isLoading && modoDesenho && (
+              <div className={styles.placeholder}>
+                <div className={styles.placeholderIcon}>{modoDesenho === 'A' ? '🟠' : '🔵'}</div>
+                <div style={{ fontWeight: 600, color: modoDesenho === 'A' ? '#f97316' : '#38bdf8' }}>
+                  Desenhando Linha {modoDesenho}
+                </div>
+                <div style={{ marginTop: 6, fontSize: 12 }}>
+                  {modoDesenho === 'A'
+                    ? 'Clique no mapa para adicionar pontos. A Linha A define a borda esquerda do talude.'
+                    : 'Clique no mapa para adicionar pontos. A Linha B define a borda direita. Ao finalizar, os polígonos serão calculados automaticamente.'}
+                </div>
+                <div style={{ marginTop: 6, fontSize: 11, color: '#64748b' }}>
+                  Duplo clique para finalizar a linha
+                </div>
+                {linhaAFeita && modoDesenho === 'B' && (
+                  <div style={{ marginTop: 8, padding: '6px 10px', background: '#1e293b', borderRadius: 6, fontSize: 11, color: '#22c55e' }}>
+                    ✓ Linha A salva — agora desenhe a Linha B
+                  </div>
+                )}
               </div>
             )}
 
@@ -619,10 +717,91 @@ export default function Declividade() {
               </div>
             )}
 
-            {/* ── Resultado AUTOMÁTICO ──────────────────── */}
+            {/* ── Legenda com toggle (mostrada em qualquer modo ativo) ─── */}
+            {!isLoading && modoAtivo && !resultado?.erro && !autoResultado?.erro && (
+              <div>
+                <div className={styles.chartTitle}>Legenda — clique para mostrar/ocultar</div>
+                <div className={styles.legendToggleList}>
+                  {SLOPE_CLASSES.map(cls => {
+                    const visible = classesVisiveis.has(cls.label)
+                    const count   = modoAtivo === 'corredor'
+                      ? resultado?.classCounts?.[cls.label] || 0
+                      : autoResultado?.classCounts?.[cls.label] || 0
+                    return (
+                      <button
+                        key={cls.label}
+                        className={`${styles.legendToggleBtn} ${visible ? styles.legendToggleBtnOn : styles.legendToggleBtnOff}`}
+                        style={{ borderColor: visible ? cls.cor : '#334155' }}
+                        onClick={() => setClassesVisiveis(prev => {
+                          const next = new Set(prev)
+                          if (next.has(cls.label)) next.delete(cls.label)
+                          else next.add(cls.label)
+                          return next
+                        })}
+                      >
+                        <span style={{ width: 10, height: 10, borderRadius: 2, background: visible ? cls.cor : '#334155', flexShrink: 0, display: 'inline-block' }} />
+                        <span style={{ flex: 1, textAlign: 'left', color: visible ? cls.cor : '#475569' }}>{cls.label}</span>
+                        <span style={{ color: visible ? '#94a3b8' : '#334155', fontSize: 10 }}>
+                          {count > 0 ? count : ''}
+                        </span>
+                        {visible ? <FiEye size={11} color="#94a3b8" /> : <FiEyeOff size={11} color="#334155" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── Stats corredor ───────────────────────── */}
+            {!isLoading && modoAtivo === 'corredor' && resultado && !resultado.erro && (
+              <>
+                <div className={styles.statsGrid}>
+                  <div className={styles.statCard}>
+                    <div className={styles.statLabel}>Cotas cruzadas</div>
+                    <div className={styles.statValue}>{resultado.cotas}<span className={styles.statUnit}> ×{resultado.interval}m</span></div>
+                  </div>
+                  <div className={styles.statCard}>
+                    <div className={styles.statLabel}>Polígonos</div>
+                    <div className={styles.statValue}>{resultado.drawnCount}</div>
+                  </div>
+                  <div className={styles.statCard}>
+                    <div className={styles.statLabel}>Alt. mín</div>
+                    <div className={styles.statValue}>{resultado.minElev}<span className={styles.statUnit}> m</span></div>
+                  </div>
+                  <div className={styles.statCard}>
+                    <div className={styles.statLabel}>Alt. máx</div>
+                    <div className={styles.statValue}>{resultado.maxElev}<span className={styles.statUnit}> m</span></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className={styles.chartTitle}>Distribuição de risco no corredor</div>
+                  <div className={styles.riskBars}>
+                    {SLOPE_CLASSES.map(cls => {
+                      const count = resultado.classCounts?.[cls.label] || 0
+                      const pct   = resultado.totalCells > 0 ? (count / resultado.totalCells) * 100 : 0
+                      if (pct === 0) return null
+                      return (
+                        <div key={cls.label} className={styles.riskBarRow}>
+                          <div className={styles.riskBarLabel}>
+                            <span style={{ width: 9, height: 9, borderRadius: '50%', background: cls.cor, display: 'inline-block', flexShrink: 0 }} />
+                            <span>{cls.label}</span>
+                          </div>
+                          <div className={styles.riskBarTrack}>
+                            <div className={styles.riskBarFill} style={{ width: `${pct}%`, background: cls.cor }} />
+                          </div>
+                          <span className={styles.riskBarPct}>{pct.toFixed(0)}%</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── Stats auto ───────────────────────────── */}
             {!isLoading && modoAtivo === 'auto' && autoResultado && !autoResultado.erro && (
               <>
-                {/* Stats gerais */}
                 <div className={styles.statsGrid}>
                   <div className={styles.statCard}>
                     <div className={styles.statLabel}>Alt. mín</div>
@@ -646,30 +825,12 @@ export default function Declividade() {
                   </div>
                 </div>
 
-                {/* Caminho de maior declive */}
-                <div className={styles.pathCard}>
-                  <div className={styles.pathTitle}>📍 Caminho de maior declive</div>
-                  <div className={styles.pathRow}>
-                    <span>Distância</span><span>{autoResultado.pathDist} m</span>
-                  </div>
-                  <div className={styles.pathRow}>
-                    <span>Desnível</span><span>{autoResultado.pathDesnivel} m</span>
-                  </div>
-                  <div className={styles.pathRow}>
-                    <span>Declividade</span>
-                    <span style={{ color: classifySlope(autoResultado.pathSlope).cor, fontWeight: 700 }}>
-                      {autoResultado.pathSlope.toFixed(1)}%
-                    </span>
-                  </div>
-                </div>
-
-                {/* Distribuição por classe */}
                 <div>
-                  <div className={styles.chartTitle}>Distribuição de risco na área</div>
+                  <div className={styles.chartTitle}>Distribuição por classe</div>
                   <div className={styles.riskBars}>
                     {SLOPE_CLASSES.map(cls => {
-                      const count = autoResultado.classCounts[cls.label] || 0
-                      const pct   = (count / autoResultado.totalCells) * 100
+                      const count = autoResultado.classCounts?.[cls.label] || 0
+                      const pct   = autoResultado.totalCells > 0 ? (count / autoResultado.totalCells) * 100 : 0
                       if (pct === 0) return null
                       return (
                         <div key={cls.label} className={styles.riskBarRow}>
@@ -686,98 +847,9 @@ export default function Declividade() {
                     })}
                   </div>
                 </div>
-
-                {/* Legenda de cores */}
-                <div>
-                  <div className={styles.chartTitle}>Legenda — retângulos no mapa</div>
-                  <div className={styles.legendGrid}>
-                    {SLOPE_CLASSES.map(cls => (
-                      <div key={cls.label} className={styles.legendItem}>
-                        <div style={{ width: 14, height: 14, borderRadius: 3, background: cls.cor, opacity: 0.85, flexShrink: 0 }} />
-                        <div>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: cls.cor }}>{cls.label}</div>
-                          <div style={{ fontSize: 10, color: '#64748b' }}>≤ {cls.max === Infinity ? '75+' : cls.max}%</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </>
             )}
 
-            {/* ── Resultado MANUAL ─────────────────────── */}
-            {!isLoading && modoAtivo === 'manual' && resultado && !resultado.erro && (
-              <>
-                <div className={styles.statsGrid}>
-                  <div className={styles.statCard}>
-                    <div className={styles.statLabel}>Dist. total</div>
-                    <div className={styles.statValue}>
-                      {resultado.totalDist >= 1000 ? (resultado.totalDist / 1000).toFixed(2) : resultado.totalDist.toFixed(0)}
-                      <span className={styles.statUnit}>{resultado.totalDist >= 1000 ? ' km' : ' m'}</span>
-                    </div>
-                  </div>
-                  <div className={styles.statCard}>
-                    <div className={styles.statLabel}>Decliv. global</div>
-                    <div className={styles.statValue} style={{ color: resultado.classifGlobal.cor }}>
-                      {resultado.slopeGlobal.toFixed(1)}<span className={styles.statUnit}> %</span>
-                    </div>
-                  </div>
-                  <div className={styles.statCard}>
-                    <div className={styles.statLabel}>Alt. mínima</div>
-                    <div className={styles.statValue}>{resultado.minAlt}<span className={styles.statUnit}> m</span></div>
-                  </div>
-                  <div className={styles.statCard}>
-                    <div className={styles.statLabel}>Alt. máxima</div>
-                    <div className={styles.statValue}>{resultado.maxAlt}<span className={styles.statUnit}> m</span></div>
-                  </div>
-                  <div className={styles.statCard}>
-                    <div className={styles.statLabel}>Desnível</div>
-                    <div className={styles.statValue}>{resultado.desnivel}<span className={styles.statUnit}> m</span></div>
-                  </div>
-                  <div className={styles.statCard}>
-                    <div className={styles.statLabel}>Curvas cruzadas</div>
-                    <div className={styles.statValue}>{resultado.crossings.length}<span className={styles.statUnit}> × {resultado.interval}m</span></div>
-                  </div>
-                </div>
-
-                <div className={styles.classCard} style={{ borderColor: resultado.classifGlobal.cor + '55', background: resultado.classifGlobal.cor + '12' }}>
-                  <div className={styles.classDot} style={{ background: resultado.classifGlobal.cor }} />
-                  <div>
-                    <div className={styles.classTitle} style={{ color: resultado.classifGlobal.cor }}>{resultado.classifGlobal.label}</div>
-                    <div className={styles.classDesc}>{resultado.classifGlobal.desc}</div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className={styles.chartTitle}>Perfil Altimétrico</div>
-                  <div className={styles.chartWrap} style={{ height: 140 }}>
-                    <canvas ref={chartRef} />
-                  </div>
-                </div>
-
-                {resultado.segmentos.length > 0 && (
-                  <div>
-                    <div className={styles.chartTitle}>Segmentos entre curvas ({resultado.interval} m)</div>
-                    <div className={styles.segTable}>
-                      <div className={styles.segHeader}>
-                        <span>Cotas</span><span>Dist.</span><span>Desnível</span><span>Decliv.</span>
-                      </div>
-                      {resultado.segmentos.map((seg, i) => (
-                        <div key={i} className={styles.segRow}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: seg.classif.cor, display: 'inline-block', flexShrink: 0 }} />
-                            {seg.de}→{seg.para}m
-                          </span>
-                          <span>{seg.dist < 1000 ? `${seg.dist.toFixed(0)}m` : `${(seg.dist / 1000).toFixed(2)}km`}</span>
-                          <span style={{ color: seg.sobe ? '#f97316' : '#38bdf8' }}>{seg.sobe ? '▲' : '▼'} {seg.elevDiff}m</span>
-                          <span style={{ color: seg.classif.cor, fontWeight: 700 }}>{seg.slope.toFixed(1)}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
           </div>
         </div>
 

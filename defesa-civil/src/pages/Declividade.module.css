@@ -423,3 +423,76 @@
   border-radius: 6px;
   padding: 7px 8px;
 }
+
+/* ── Botões Linha A / Linha B ───────────────────────────────── */
+.btnLineA {
+  background: #1c1a10;
+  border-color: #f97316;
+  color: #f97316;
+}
+.btnLineA:hover:not(:disabled) { background: #2c2010; }
+
+.btnLineAActive {
+  background: #f97316;
+  border-color: #f97316;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.btnLineADone {
+  background: #431407;
+  border-color: #f97316;
+  color: #fb923c;
+}
+
+.btnLineB {
+  background: #0c1a2c;
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+.btnLineB:hover:not(:disabled) { background: #0c2240; }
+
+.btnLineBActive {
+  background: #38bdf8;
+  border-color: #38bdf8;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.btnLineBDone {
+  background: #082f49;
+  border-color: #38bdf8;
+  color: #7dd3fc;
+}
+
+/* ── Legenda com toggle ─────────────────────────────────────── */
+.legendToggleList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.legendToggleBtn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+  width: 100%;
+  transition: background 0.12s, border-color 0.12s;
+}
+.legendToggleBtn:hover { background: #1e293b; }
+
+.legendToggleBtnOn {
+  background: #1e293b22;
+}
+
+.legendToggleBtnOff {
+  background: transparent;
+  opacity: 0.6;
+}
