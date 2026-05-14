@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Home from './pages/Home'
 import Vistoria from './pages/Vistoria'
-import Ocorrencias from './pages/Ocorrencias'
 import Imoveis from './pages/Imoveis'
 import Dashboard from './pages/Dashboard'
 import Declividade from './pages/Declividade'
@@ -12,7 +11,6 @@ export default function App() {
       <Routes>
         <Route path='/' element={<Home />} />
         <Route path='/vistoria' element={<Vistoria />} />
-        <Route path='/ocorrencias' element={<Ocorrencias />} />
         <Route path='/imoveis' element={<Imoveis />} />
         <Route path='/dashboard' element={<Dashboard />} />
         <Route path='/declividade' element={<Declividade />} />

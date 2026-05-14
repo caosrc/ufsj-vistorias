@@ -79,14 +79,13 @@ function PerfilLongitudinal({ perfil, cotaA, cotaB, distHorizM, cor }) {
   const pathD = `M ${pts}`
   const areaD = `${pathD} L ${toX(maxDist).toFixed(1)},${(padT + plotH).toFixed(1)} L ${toX(0).toFixed(1)},${(padT + plotH).toFixed(1)} Z`
 
-  // ── Ticks de 1 em 1 metro no eixo Y (elevação) ──
-  // passo = 1m; exibe rótulo a cada `yLabelStep` metros para não poluir
-  const yLabelStep = elevRange <= 8 ? 1 : elevRange <= 20 ? 2 : elevRange <= 50 ? 5 : elevRange <= 100 ? 10 : 20
+  // ── Ticks de 1 em 1 metro no eixo Y — rótulo a cada 5m ──
+  const yLabelStep = elevRange <= 25 ? 5 : elevRange <= 60 ? 10 : elevRange <= 150 ? 20 : 50
   const yTicks = []
   for (let e = Math.ceil(minElev); e <= Math.floor(maxElev); e++) yTicks.push(e)
 
-  // ── Ticks de 1 em 1 metro no eixo X (distância) ──
-  const xLabelStep = maxDist <= 20 ? 1 : maxDist <= 50 ? 5 : maxDist <= 100 ? 10 : maxDist <= 250 ? 25 : maxDist <= 500 ? 50 : 100
+  // ── Ticks de 1 em 1 metro no eixo X — rótulo a cada 5m ──
+  const xLabelStep = maxDist <= 50 ? 5 : maxDist <= 150 ? 10 : maxDist <= 300 ? 25 : maxDist <= 600 ? 50 : 100
   const xTicks = []
   for (let d = 0; d <= maxDist; d++) xTicks.push(d)
 
@@ -220,20 +219,37 @@ function TrianguloSlope({ interval, distHoriz, slopePct, slopeGrau, cor }) {
   )
 }
 
+// API: OpenTopoData SRTM 30m (~30m de resolução horizontal — 3x mais preciso que SRTM 90m)
+// Fallback: Open-Meteo (SRTM 90m) caso o OpenTopoData esteja indisponível
 async function fetchElevations(points) {
   if (points.length > 100) throw new Error('Máximo 100 pontos por requisição')
-  const lats = points.map(p => p[1].toFixed(4)).join(',')
-  const lngs = points.map(p => p[0].toFixed(4)).join(',')
-  const res = await fetch(
+  // Formato OpenTopoData: lat,lng|lat,lng|...
+  const locations = points.map(p => `${p[1].toFixed(6)},${p[0].toFixed(6)}`).join('|')
+  try {
+    const res = await fetch(
+      `https://api.opentopodata.org/v1/srtm30m?locations=${locations}`,
+      { signal: AbortSignal.timeout(8000) }
+    )
+    if (res.ok) {
+      const data = await res.json()
+      if (data.results?.length === points.length) {
+        return data.results.map(r => r.elevation ?? 0)
+      }
+    }
+  } catch (_) {}
+  // Fallback: Open-Meteo (SRTM 90m)
+  const lats = points.map(p => p[1].toFixed(6)).join(',')
+  const lngs = points.map(p => p[0].toFixed(6)).join(',')
+  const res2 = await fetch(
     `https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`
   )
-  if (!res.ok) {
-    const txt = await res.text().catch(() => String(res.status))
-    throw new Error(`API retornou ${res.status}: ${txt}`)
+  if (!res2.ok) {
+    const txt = await res2.text().catch(() => String(res2.status))
+    throw new Error(`API de elevação retornou ${res2.status}: ${txt}`)
   }
-  const data = await res.json()
-  if (!data.elevation) throw new Error('Resposta inválida da API')
-  return data.elevation
+  const data2 = await res2.json()
+  if (!data2.elevation) throw new Error('Resposta inválida da API de elevação')
+  return data2.elevation
 }
 
 function findContourCrossings(elevations, distances, interval) {
