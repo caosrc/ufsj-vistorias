@@ -54,6 +54,74 @@ function detectContourInterval(elevations) {
   return 20
 }
 
+// ── Perfil Longitudinal (SVG) ─────────────────────────────────
+function PerfilLongitudinal({ perfil, cotaA, cotaB, distHorizM, cor }) {
+  if (!perfil || perfil.length < 2) return null
+  const W = 270, H = 170
+  const padL = 36, padR = 8, padT = 14, padB = 28
+  const plotW = W - padL - padR
+  const plotH = H - padT - padB
+  const minElev = Math.min(...perfil.map(p => p.elev))
+  const maxElev = Math.max(...perfil.map(p => p.elev))
+  const elevRange = Math.max(maxElev - minElev, 1)
+  const maxDist   = perfil[perfil.length - 1].dist || 1
+  const toX = d => padL + (d / maxDist) * plotW
+  const toY = e => padT + plotH - ((e - minElev) / elevRange) * plotH
+
+  const pts    = perfil.map(p => `${toX(p.dist).toFixed(1)},${toY(p.elev).toFixed(1)}`).join(' L ')
+  const pathD  = `M ${pts}`
+  const areaD  = `${pathD} L ${toX(maxDist).toFixed(1)},${(padT + plotH).toFixed(1)} L ${toX(0).toFixed(1)},${(padT + plotH).toFixed(1)} Z`
+
+  const tickStep = elevRange <= 10 ? 2 : elevRange <= 30 ? 5 : elevRange <= 80 ? 10 : elevRange <= 200 ? 20 : 50
+  const yTicks = []
+  for (let e = Math.ceil(minElev / tickStep) * tickStep; e <= maxElev + 0.1; e += tickStep) yTicks.push(e)
+  const xTicks = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(f * maxDist))
+
+  const yA = toY(cotaA), xA = toX(0)
+  const yB = toY(cotaB), xB = toX(maxDist)
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
+      {/* grid lines */}
+      {yTicks.map(e => (
+        <line key={`g${e}`} x1={padL} y1={toY(e)} x2={padL + plotW} y2={toY(e)} stroke="#1e293b" strokeWidth="0.7" strokeDasharray="3,3" />
+      ))}
+      {/* area fill */}
+      <path d={areaD} fill={cor + '1a'} />
+      {/* terrain line */}
+      <path d={pathD} fill="none" stroke={cor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      {/* Y axis */}
+      <line x1={padL} y1={padT} x2={padL} y2={padT + plotH} stroke="#334155" strokeWidth="1" />
+      {yTicks.map(e => (
+        <g key={e}>
+          <line x1={padL - 3} y1={toY(e)} x2={padL} y2={toY(e)} stroke="#475569" strokeWidth="1" />
+          <text x={padL - 5} y={toY(e) + 3} fontSize="8" fill="#64748b" textAnchor="end">{e}</text>
+        </g>
+      ))}
+      {/* X axis */}
+      <line x1={padL} y1={padT + plotH} x2={padL + plotW} y2={padT + plotH} stroke="#334155" strokeWidth="1" />
+      {xTicks.map(d => (
+        <g key={d}>
+          <line x1={toX(d)} y1={padT + plotH} x2={toX(d)} y2={padT + plotH + 3} stroke="#475569" strokeWidth="1" />
+          <text x={toX(d)} y={padT + plotH + 11} fontSize="7" fill="#64748b" textAnchor="middle">
+            {d >= 1000 ? `${(d / 1000).toFixed(1)}k` : `${d}m`}
+          </text>
+        </g>
+      ))}
+      {/* Point A */}
+      <circle cx={xA} cy={yA} r="4" fill="#a78bfa" stroke="#0f172a" strokeWidth="1.5" />
+      <text x={xA + 6} y={yA - 5} fontSize="9" fill="#a78bfa" fontWeight="bold">A</text>
+      <text x={xA + 6} y={yA + 4} fontSize="7.5" fill="#a78bfa">{cotaA} m</text>
+      {/* Point B */}
+      <circle cx={xB} cy={yB} r="4" fill="#f0abfc" stroke="#0f172a" strokeWidth="1.5" />
+      <text x={xB - 7} y={yB - 5} fontSize="9" fill="#f0abfc" fontWeight="bold" textAnchor="end">B</text>
+      <text x={xB - 7} y={yB + 4} fontSize="7.5" fill="#f0abfc" textAnchor="end">{cotaB} m</text>
+      {/* Y axis label */}
+      <text x={7} y={padT + plotH / 2} fontSize="7.5" fill="#475569" textAnchor="middle" transform={`rotate(-90,7,${padT + plotH / 2})`}>Cota (m)</text>
+    </svg>
+  )
+}
+
 // ── Triângulo de declividade (SVG) ────────────────────────────
 function TrianguloSlope({ interval, distHoriz, slopePct, slopeGrau, cor }) {
   const H_px = Math.min(Math.max((slopePct / 100) * 90, 14), 62)
@@ -379,7 +447,7 @@ export default function Declividade() {
     setClassesVisiveis(new Set(SLOPE_CLASSES.map(c => c.label)))
   }
 
-  // ── Cálculo de declividade por 2 pontos (precisão topográfica) ──
+  // ── Cálculo de declividade por 2 pontos com perfil a cada 1m ──
   async function calcularDeclividade(pt1, pt2) {
     setCarregandoMedir(true)
     setMedicaoResult(null)
@@ -387,29 +455,39 @@ export default function Declividade() {
       const tLine = turf.lineString([[pt1.lng, pt1.lat], [pt2.lng, pt2.lat]])
       const distHorizM = turf.length(tLine, { units: 'kilometers' }) * 1000
 
-      // Busca múltiplos pontos em torno de cada ponto para maior precisão
-      const offsets = [-0.0002, 0, 0.0002]
-      const samplesA = offsets.map(o => [pt1.lng + o, pt1.lat + o])
-      const samplesB = offsets.map(o => [pt2.lng + o, pt2.lat + o])
-      const allSamples = [...samplesA, ...samplesB]
-      const allElevs = await fetchElevations(allSamples)
+      // Amostra até 100 pontos ao longo da linha (intervalo de 1m até 100m, proporcional após isso)
+      const nPts = Math.max(2, Math.min(Math.round(distHorizM), 100))
+      const sampleCoords = []
+      const sampleDists  = []
+      for (let i = 0; i < nPts; i++) {
+        const d = (i / (nPts - 1)) * distHorizM
+        sampleCoords.push(pointAlongLine(tLine, d))
+        sampleDists.push(d)
+      }
+      const elevations = await fetchElevations(sampleCoords)
 
-      const rawA = allElevs.slice(0, 3).reduce((s, v) => s + v, 0) / 3
-      const rawB = allElevs.slice(3, 6).reduce((s, v) => s + v, 0) / 3
-
-      // Snap para a curva de nível de 10m mais próxima (precisão topográfica)
-      const snap10 = (v) => Math.round(v / 10) * 10
-      const cotaA = snap10(rawA)
-      const cotaB = snap10(rawB)
-      const deltaH = Math.abs(cotaB - cotaA)
-      const slopePct = distHorizM > 0 ? (deltaH / distHorizM) * 100 : 0
+      const cotaA   = Math.round(elevations[0])
+      const cotaB   = Math.round(elevations[elevations.length - 1])
+      const deltaH  = Math.abs(cotaB - cotaA)
+      const slopePct  = distHorizM > 0 ? (deltaH / distHorizM) * 100 : 0
       const slopeGrau = Math.atan(deltaH / distHorizM) * (180 / Math.PI)
-      const classif = classifySlope(slopePct)
+      const classif   = classifySlope(slopePct)
+
+      // Perfil: 1 ponto por metro (ou espaçado uniformemente)
+      const stepM = Math.round(distHorizM / (nPts - 1)) || 1
+      const perfil = sampleCoords.map((_, i) => ({
+        dist: Math.round(sampleDists[i]),
+        elev: Math.round(elevations[i]),
+      }))
 
       // Atualiza tooltips dos marcadores
       const ms = medirStateRef.current
-      if (ms.pt1Marker) ms.pt1Marker.setTooltipContent(`▲ Cota A: ${cotaA} m`)
-      if (ms.pt2Marker) ms.pt2Marker.setTooltipContent(`▼ Cota B: ${cotaB} m`)
+      if (ms.pt1Marker) ms.pt1Marker.setTooltipContent(
+        `A  Lat: ${pt1.lat.toFixed(6)}\nLng: ${pt1.lng.toFixed(6)}\nCota: ${cotaA} m`
+      )
+      if (ms.pt2Marker) ms.pt2Marker.setTooltipContent(
+        `B  Lat: ${pt2.lat.toFixed(6)}\nLng: ${pt2.lng.toFixed(6)}\nCota: ${cotaB} m`
+      )
       if (ms.linhaMedir) ms.linhaMedir.bindTooltip(
         `↕ ${deltaH} m · ${slopePct.toFixed(1)}% · ${slopeGrau.toFixed(1)}° · ${classif.label}`,
         { permanent: true, direction: 'center', className: '' }
@@ -417,10 +495,13 @@ export default function Declividade() {
 
       setModoAtivo('medir')
       setMedicaoResult({
+        coordA: { lat: pt1.lat, lng: pt1.lng },
+        coordB: { lat: pt2.lat, lng: pt2.lng },
         cotaA, cotaB,
-        rawCotaA: Math.round(rawA), rawCotaB: Math.round(rawB),
+        rawCotaA: cotaA, rawCotaB: cotaB,
         deltaH, distHorizM: Math.round(distHorizM),
         slopePct, slopeGrau, classif,
+        perfil, stepM,
       })
     } catch (e) {
       setMedicaoResult({ erro: e.message })
@@ -974,12 +1055,36 @@ export default function Declividade() {
             {/* ── Resultado da Medição (2 pontos) ──────────── */}
             {!isLoading && modoAtivo === 'medir' && medicaoResult && !medicaoResult.erro && (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: medicaoResult.classif.cor, display: 'inline-block' }} />
+                {/* Classificação */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: medicaoResult.classif.cor, display: 'inline-block', flexShrink: 0 }} />
                   <span style={{ fontWeight: 700, color: medicaoResult.classif.cor, fontSize: 15 }}>{medicaoResult.classif.label}</span>
                   <span style={{ fontSize: 11, color: '#64748b' }}>{medicaoResult.classif.desc}</span>
                 </div>
 
+                {/* Coordenadas reais de A e B */}
+                {medicaoResult.coordA && medicaoResult.coordB && (
+                <div style={{ background: '#1e293b', border: '1px solid #1e3a5f', borderRadius: 8, padding: '9px 11px', fontSize: 11 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid #162035' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#a78bfa', display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ color: '#a78bfa', fontWeight: 700, marginRight: 4 }}>A</span>
+                    <span style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 10 }}>
+                      {medicaoResult.coordA.lat.toFixed(6)}, {medicaoResult.coordA.lng.toFixed(6)}
+                    </span>
+                    <span style={{ marginLeft: 'auto', color: '#a78bfa', fontWeight: 700, whiteSpace: 'nowrap' }}>{medicaoResult.cotaA} m</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f0abfc', display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ color: '#f0abfc', fontWeight: 700, marginRight: 4 }}>B</span>
+                    <span style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 10 }}>
+                      {medicaoResult.coordB.lat.toFixed(6)}, {medicaoResult.coordB.lng.toFixed(6)}
+                    </span>
+                    <span style={{ marginLeft: 'auto', color: '#f0abfc', fontWeight: 700, whiteSpace: 'nowrap' }}>{medicaoResult.cotaB} m</span>
+                  </div>
+                </div>
+                )}
+
+                {/* Stats */}
                 <div className={styles.statsGrid}>
                   <div className={styles.statCard}>
                     <div className={styles.statLabel}>Declividade</div>
@@ -992,20 +1097,6 @@ export default function Declividade() {
                     <div className={styles.statValue} style={{ color: medicaoResult.classif.cor }}>
                       {medicaoResult.slopeGrau.toFixed(1)}<span className={styles.statUnit}> °</span>
                     </div>
-                  </div>
-                  <div className={styles.statCard}>
-                    <div className={styles.statLabel}>▲ Cota A</div>
-                    <div className={styles.statValue}>{medicaoResult.cotaA}<span className={styles.statUnit}> m</span></div>
-                    {medicaoResult.rawCotaA !== medicaoResult.cotaA && (
-                      <div style={{ fontSize: 9, color: '#475569', marginTop: 1 }}>API: {medicaoResult.rawCotaA}m</div>
-                    )}
-                  </div>
-                  <div className={styles.statCard}>
-                    <div className={styles.statLabel}>▼ Cota B</div>
-                    <div className={styles.statValue}>{medicaoResult.cotaB}<span className={styles.statUnit}> m</span></div>
-                    {medicaoResult.rawCotaB !== medicaoResult.cotaB && (
-                      <div style={{ fontSize: 9, color: '#475569', marginTop: 1 }}>API: {medicaoResult.rawCotaB}m</div>
-                    )}
                   </div>
                   <div className={styles.statCard}>
                     <div className={styles.statLabel}>Desnível (Δh)</div>
@@ -1022,9 +1113,27 @@ export default function Declividade() {
                   </div>
                 </div>
 
-                <div style={{ background: medicaoResult.classif.cor + '18', border: `1px solid ${medicaoResult.classif.cor}44`, borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#e2e8f0', lineHeight: 1.5 }}>
-                  <b style={{ color: medicaoResult.classif.cor }}>Fórmula:</b> declividade = (Δh / distância) × 100<br />
-                  = ({medicaoResult.deltaH} m / {medicaoResult.distHorizM} m) × 100 = <b style={{ color: medicaoResult.classif.cor }}>{medicaoResult.slopePct.toFixed(2)}%</b>
+                {/* Fórmula */}
+                <div style={{ background: medicaoResult.classif.cor + '18', border: `1px solid ${medicaoResult.classif.cor}44`, borderRadius: 8, padding: '8px 11px', fontSize: 11, color: '#e2e8f0', lineHeight: 1.6 }}>
+                  <b style={{ color: medicaoResult.classif.cor }}>Declividade</b> = (Δh / dist) × 100
+                  &nbsp;= ({medicaoResult.deltaH} / {medicaoResult.distHorizM}) × 100
+                  &nbsp;= <b style={{ color: medicaoResult.classif.cor }}>{medicaoResult.slopePct.toFixed(2)}%</b>
+                </div>
+
+                {/* Perfil Longitudinal */}
+                <div>
+                  <div className={styles.chartTitle}>
+                    Corte Longitudinal — perfil a cada {medicaoResult.stepM}m ({medicaoResult.perfil?.length} pontos)
+                  </div>
+                  <div style={{ background: '#1e293b', border: `1px solid ${medicaoResult.classif.cor}33`, borderRadius: 8, padding: '10px 8px 4px' }}>
+                    <PerfilLongitudinal
+                      perfil={medicaoResult.perfil}
+                      cotaA={medicaoResult.cotaA}
+                      cotaB={medicaoResult.cotaB}
+                      distHorizM={medicaoResult.distHorizM}
+                      cor={medicaoResult.classif.cor}
+                    />
+                  </div>
                 </div>
 
                 <button
