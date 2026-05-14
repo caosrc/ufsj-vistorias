@@ -54,70 +54,138 @@ function detectContourInterval(elevations) {
   return 20
 }
 
-// ── Perfil Longitudinal (SVG) ─────────────────────────────────
+// ── Perfil Longitudinal (SVG) — grade de 1 em 1 metro ─────────
 function PerfilLongitudinal({ perfil, cotaA, cotaB, distHorizM, cor }) {
   if (!perfil || perfil.length < 2) return null
-  const W = 270, H = 170
-  const padL = 36, padR = 8, padT = 14, padB = 28
+
+  const W = 278, H = 220
+  const padL = 40, padR = 10, padT = 16, padB = 32
   const plotW = W - padL - padR
   const plotH = H - padT - padB
-  const minElev = Math.min(...perfil.map(p => p.elev))
-  const maxElev = Math.max(...perfil.map(p => p.elev))
+
+  const rawMin = Math.min(...perfil.map(p => p.elev))
+  const rawMax = Math.max(...perfil.map(p => p.elev))
+  // Expandir 1m acima e abaixo para dar margem visual
+  const minElev = rawMin - 1
+  const maxElev = rawMax + 1
   const elevRange = Math.max(maxElev - minElev, 1)
   const maxDist   = perfil[perfil.length - 1].dist || 1
+
   const toX = d => padL + (d / maxDist) * plotW
   const toY = e => padT + plotH - ((e - minElev) / elevRange) * plotH
 
-  const pts    = perfil.map(p => `${toX(p.dist).toFixed(1)},${toY(p.elev).toFixed(1)}`).join(' L ')
-  const pathD  = `M ${pts}`
-  const areaD  = `${pathD} L ${toX(maxDist).toFixed(1)},${(padT + plotH).toFixed(1)} L ${toX(0).toFixed(1)},${(padT + plotH).toFixed(1)} Z`
+  // Linha do terreno
+  const pts   = perfil.map(p => `${toX(p.dist).toFixed(1)},${toY(p.elev).toFixed(1)}`).join(' L ')
+  const pathD = `M ${pts}`
+  const areaD = `${pathD} L ${toX(maxDist).toFixed(1)},${(padT + plotH).toFixed(1)} L ${toX(0).toFixed(1)},${(padT + plotH).toFixed(1)} Z`
 
-  const tickStep = elevRange <= 10 ? 2 : elevRange <= 30 ? 5 : elevRange <= 80 ? 10 : elevRange <= 200 ? 20 : 50
+  // ── Ticks de 1 em 1 metro no eixo Y (elevação) ──
+  // passo = 1m; exibe rótulo a cada `yLabelStep` metros para não poluir
+  const yLabelStep = elevRange <= 8 ? 1 : elevRange <= 20 ? 2 : elevRange <= 50 ? 5 : elevRange <= 100 ? 10 : 20
   const yTicks = []
-  for (let e = Math.ceil(minElev / tickStep) * tickStep; e <= maxElev + 0.1; e += tickStep) yTicks.push(e)
-  const xTicks = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(f * maxDist))
+  for (let e = Math.ceil(minElev); e <= Math.floor(maxElev); e++) yTicks.push(e)
+
+  // ── Ticks de 1 em 1 metro no eixo X (distância) ──
+  const xLabelStep = maxDist <= 20 ? 1 : maxDist <= 50 ? 5 : maxDist <= 100 ? 10 : maxDist <= 250 ? 25 : maxDist <= 500 ? 50 : 100
+  const xTicks = []
+  for (let d = 0; d <= maxDist; d++) xTicks.push(d)
 
   const yA = toY(cotaA), xA = toX(0)
   const yB = toY(cotaB), xB = toX(maxDist)
 
+  // Ponto mais alto e mais baixo intermediários
+  const peakPt  = perfil.reduce((a, b) => b.elev > a.elev ? b : a)
+  const valleyPt = perfil.reduce((a, b) => b.elev < a.elev ? b : a)
+  const showPeak   = peakPt.dist > 5 && peakPt.dist < maxDist - 5
+  const showValley = valleyPt.dist > 5 && valleyPt.dist < maxDist - 5 && valleyPt.elev < peakPt.elev
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
-      {/* grid lines */}
-      {yTicks.map(e => (
-        <line key={`g${e}`} x1={padL} y1={toY(e)} x2={padL + plotW} y2={toY(e)} stroke="#1e293b" strokeWidth="0.7" strokeDasharray="3,3" />
+      {/* ── Grade horizontal: 1 em 1 metro (elevação) ── */}
+      {yTicks.map(e => {
+        const isMajor = e % yLabelStep === 0
+        return (
+          <line key={`yg${e}`}
+            x1={padL} y1={toY(e)} x2={padL + plotW} y2={toY(e)}
+            stroke={isMajor ? '#243450' : '#1a2540'}
+            strokeWidth={isMajor ? 0.8 : 0.4}
+            strokeDasharray={isMajor ? '4,3' : '2,4'}
+          />
+        )
+      })}
+
+      {/* ── Grade vertical: 1 em 1 metro (distância) ── */}
+      {xTicks.map(d => {
+        const isMajor = d % xLabelStep === 0
+        return (
+          <line key={`xg${d}`}
+            x1={toX(d)} y1={padT} x2={toX(d)} y2={padT + plotH}
+            stroke={isMajor ? '#243450' : '#1a2540'}
+            strokeWidth={isMajor ? 0.8 : 0.3}
+            strokeDasharray={isMajor ? '4,3' : '1,5'}
+          />
+        )
+      })}
+
+      {/* ── Área de preenchimento ── */}
+      <path d={areaD} fill={cor + '22'} />
+
+      {/* ── Linha do terreno ── */}
+      <path d={pathD} fill="none" stroke={cor} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
+
+      {/* ── Pontos individuais de amostragem (1m cada) ── */}
+      {perfil.map((p, i) => (
+        <circle key={i} cx={toX(p.dist)} cy={toY(p.elev)} r="1.2" fill={cor} opacity="0.7" />
       ))}
-      {/* area fill */}
-      <path d={areaD} fill={cor + '1a'} />
-      {/* terrain line */}
-      <path d={pathD} fill="none" stroke={cor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      {/* Y axis */}
-      <line x1={padL} y1={padT} x2={padL} y2={padT + plotH} stroke="#334155" strokeWidth="1" />
-      {yTicks.map(e => (
-        <g key={e}>
-          <line x1={padL - 3} y1={toY(e)} x2={padL} y2={toY(e)} stroke="#475569" strokeWidth="1" />
-          <text x={padL - 5} y={toY(e) + 3} fontSize="8" fill="#64748b" textAnchor="end">{e}</text>
+
+      {/* ── Eixo Y ── */}
+      <line x1={padL} y1={padT} x2={padL} y2={padT + plotH} stroke="#475569" strokeWidth="1.2" />
+      {yTicks.filter(e => e % yLabelStep === 0).map(e => (
+        <g key={`yl${e}`}>
+          <line x1={padL - 4} y1={toY(e)} x2={padL} y2={toY(e)} stroke="#64748b" strokeWidth="1" />
+          <text x={padL - 6} y={toY(e) + 3.5} fontSize="8" fill="#94a3b8" textAnchor="end" fontFamily="monospace">{e}</text>
         </g>
       ))}
-      {/* X axis */}
-      <line x1={padL} y1={padT + plotH} x2={padL + plotW} y2={padT + plotH} stroke="#334155" strokeWidth="1" />
-      {xTicks.map(d => (
-        <g key={d}>
-          <line x1={toX(d)} y1={padT + plotH} x2={toX(d)} y2={padT + plotH + 3} stroke="#475569" strokeWidth="1" />
-          <text x={toX(d)} y={padT + plotH + 11} fontSize="7" fill="#64748b" textAnchor="middle">
-            {d >= 1000 ? `${(d / 1000).toFixed(1)}k` : `${d}m`}
+      <text x={10} y={padT + plotH / 2} fontSize="7.5" fill="#64748b" textAnchor="middle"
+        transform={`rotate(-90,10,${padT + plotH / 2})`}>Cota (m)</text>
+
+      {/* ── Eixo X ── */}
+      <line x1={padL} y1={padT + plotH} x2={padL + plotW} y2={padT + plotH} stroke="#475569" strokeWidth="1.2" />
+      {xTicks.filter(d => d % xLabelStep === 0).map(d => (
+        <g key={`xl${d}`}>
+          <line x1={toX(d)} y1={padT + plotH} x2={toX(d)} y2={padT + plotH + 4} stroke="#64748b" strokeWidth="1" />
+          <text x={toX(d)} y={padT + plotH + 13} fontSize="7.5" fill="#94a3b8" textAnchor="middle" fontFamily="monospace">
+            {d >= 1000 ? `${(d/1000).toFixed(1)}k` : `${d}m`}
           </text>
         </g>
       ))}
-      {/* Point A */}
-      <circle cx={xA} cy={yA} r="4" fill="#a78bfa" stroke="#0f172a" strokeWidth="1.5" />
-      <text x={xA + 6} y={yA - 5} fontSize="9" fill="#a78bfa" fontWeight="bold">A</text>
-      <text x={xA + 6} y={yA + 4} fontSize="7.5" fill="#a78bfa">{cotaA} m</text>
-      {/* Point B */}
-      <circle cx={xB} cy={yB} r="4" fill="#f0abfc" stroke="#0f172a" strokeWidth="1.5" />
-      <text x={xB - 7} y={yB - 5} fontSize="9" fill="#f0abfc" fontWeight="bold" textAnchor="end">B</text>
-      <text x={xB - 7} y={yB + 4} fontSize="7.5" fill="#f0abfc" textAnchor="end">{cotaB} m</text>
-      {/* Y axis label */}
-      <text x={7} y={padT + plotH / 2} fontSize="7.5" fill="#475569" textAnchor="middle" transform={`rotate(-90,7,${padT + plotH / 2})`}>Cota (m)</text>
+      <text x={padL + plotW / 2} y={H - 3} fontSize="7.5" fill="#64748b" textAnchor="middle">Distância (m)</text>
+
+      {/* ── Ponto A ── */}
+      <circle cx={xA} cy={yA} r="5" fill="#a78bfa" stroke="#0f172a" strokeWidth="2" />
+      <text x={xA + 7} y={yA - 6} fontSize="9.5" fill="#a78bfa" fontWeight="bold">A</text>
+      <text x={xA + 7} y={yA + 5} fontSize="8" fill="#a78bfa" fontFamily="monospace">{cotaA} m</text>
+
+      {/* ── Ponto B ── */}
+      <circle cx={xB} cy={yB} r="5" fill="#f0abfc" stroke="#0f172a" strokeWidth="2" />
+      <text x={xB - 8} y={yB - 6} fontSize="9.5" fill="#f0abfc" fontWeight="bold" textAnchor="end">B</text>
+      <text x={xB - 8} y={yB + 5} fontSize="8" fill="#f0abfc" fontFamily="monospace" textAnchor="end">{cotaB} m</text>
+
+      {/* ── Pico intermediário ── */}
+      {showPeak && peakPt !== perfil[0] && peakPt !== perfil[perfil.length - 1] && (
+        <g>
+          <circle cx={toX(peakPt.dist)} cy={toY(peakPt.elev)} r="3.5" fill="#fbbf24" stroke="#0f172a" strokeWidth="1.5" />
+          <text x={toX(peakPt.dist)} y={toY(peakPt.elev) - 7} fontSize="7.5" fill="#fbbf24" textAnchor="middle" fontFamily="monospace">{peakPt.elev}m</text>
+        </g>
+      )}
+
+      {/* ── Vale intermediário ── */}
+      {showValley && valleyPt !== perfil[0] && valleyPt !== perfil[perfil.length - 1] && (
+        <g>
+          <circle cx={toX(valleyPt.dist)} cy={toY(valleyPt.elev)} r="3.5" fill="#38bdf8" stroke="#0f172a" strokeWidth="1.5" />
+          <text x={toX(valleyPt.dist)} y={toY(valleyPt.elev) + 14} fontSize="7.5" fill="#38bdf8" textAnchor="middle" fontFamily="monospace">{valleyPt.elev}m</text>
+        </g>
+      )}
     </svg>
   )
 }
