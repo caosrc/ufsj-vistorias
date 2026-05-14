@@ -6,7 +6,8 @@ import Chart from 'chart.js/auto'
 import { CIDADES, CIDADE_PADRAO } from '../data/cidades'
 import Sidebar from '../components/Sidebar'
 import styles from './Declividade.module.css'
-import { FiTrendingUp, FiTrash2, FiActivity, FiZap, FiEye, FiEyeOff, FiMaximize2 } from 'react-icons/fi'
+import { FiTrendingUp, FiTrash2, FiActivity, FiZap, FiEye, FiEyeOff, FiMaximize2, FiBox } from 'react-icons/fi'
+import TerrainProfile3D from '../components/TerrainProfile3D'
 
 const LAYERS = [
   {
@@ -312,6 +313,7 @@ export default function Declividade() {
   // ── Modo Medir: 2 cliques ──────────────────────────────────
   const [modoMedir,       setModoMedir]       = useState(false)
   const [carregandoMedir, setCarregandoMedir] = useState(false)
+  const [show3D,          setShow3D]          = useState(false)
   const [medicaoResult,   setMedicaoResult]   = useState(null)
   const modoMedirRef = useRef(false)
   useEffect(() => { modoMedirRef.current = modoMedir }, [modoMedir])
@@ -970,6 +972,7 @@ export default function Declividade() {
                       : 'Escolha Medir, Análise Auto ou Linha A + B para delimitar o corredor'
 
   return (
+    <>
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#0f172a' }}>
       <Sidebar />
       <div className={styles.wrapper}>
@@ -1220,13 +1223,22 @@ export default function Declividade() {
                   </div>
                 </div>
 
-                <button
-                  className={`${styles.btn} ${styles.btnMedir}`}
-                  style={{ width: '100%', justifyContent: 'center' }}
-                  onClick={() => { limparMedicao(); setModoAtivo(null); setModoMedir(true) }}
-                >
-                  <FiMaximize2 size={12} /> Nova medição
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    className={`${styles.btn} ${styles.btnMedir}`}
+                    style={{ flex: 1, justifyContent: 'center', background: '#1e3a5f', borderColor: '#3b82f6', color: '#93c5fd' }}
+                    onClick={() => setShow3D(true)}
+                  >
+                    <FiBox size={12} /> Ver em 3D
+                  </button>
+                  <button
+                    className={`${styles.btn} ${styles.btnMedir}`}
+                    style={{ flex: 1, justifyContent: 'center' }}
+                    onClick={() => { limparMedicao(); setModoAtivo(null); setModoMedir(true) }}
+                  >
+                    <FiMaximize2 size={12} /> Nova medição
+                  </button>
+                </div>
               </>
             )}
 
@@ -1285,6 +1297,14 @@ export default function Declividade() {
                     <canvas ref={chartRef} />
                   </div>
                 </div>
+
+                <button
+                  className={`${styles.btn} ${styles.btnMedir}`}
+                  style={{ width: '100%', justifyContent: 'center', background: '#1e3a5f', borderColor: '#3b82f6', color: '#93c5fd' }}
+                  onClick={() => setShow3D(true)}
+                >
+                  <FiBox size={12} /> Ver Corredor em 3D
+                </button>
 
                 {/* ── Classificação NBR 11682 / IPT ─────── */}
                 {resultado.segMaxSlope && (() => {
@@ -1464,5 +1484,22 @@ export default function Declividade() {
 
       </div>
     </div>
+
+    {show3D && modoAtivo === 'medir' && medicaoResult?.perfil && (
+      <TerrainProfile3D
+        mode="medir"
+        perfil={medicaoResult.perfil}
+        onClose={() => setShow3D(false)}
+      />
+    )}
+    {show3D && modoAtivo === 'corredor' && resultado?.profA && (
+      <TerrainProfile3D
+        mode="corredor"
+        profA={resultado.profA}
+        profB={resultado.profB}
+        onClose={() => setShow3D(false)}
+      />
+    )}
+    </>
   )
 }

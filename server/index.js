@@ -10,6 +10,15 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 app.use(cors())
 app.use(express.json())
 
+// ── Migração automática — adiciona colunas novas sem apagar dados ──
+pool.query(`
+  ALTER TABLE vistorias
+    ADD COLUMN IF NOT EXISTS cond_encosta TEXT,
+    ADD COLUMN IF NOT EXISTS tipo_talude  TEXT,
+    ADD COLUMN IF NOT EXISTS processos    TEXT[],
+    ADD COLUMN IF NOT EXISTS moradores    TEXT
+`).catch(() => {})
+
 // ── OCORRÊNCIAS ──────────────────────────────────────────────
 app.get('/api/ocorrencias', async (req, res) => {
   try {
@@ -54,23 +63,51 @@ app.get('/api/vistorias', async (req, res) => {
     const { rows } = await pool.query(`
       SELECT id, nome, cpf, telefone, endereco, solo, tipo_uso, risco,
         patologias, observacao, cidade,
+        cond_encosta, tipo_talude, processos, moradores,
         ST_X(geom) AS lng, ST_Y(geom) AS lat, data
       FROM vistorias ORDER BY data DESC
     `)
-    res.json(rows)
+    res.json(rows.map(r => ({
+      ...r,
+      condEncosta: r.cond_encosta,
+      tipoTalude:  r.tipo_talude,
+    })))
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
 app.post('/api/vistorias', async (req, res) => {
-  const { nome, cpf, telefone, endereco, solo, tipo_uso, risco, patologias, observacao, cidade, lat, lng } = req.body
+  const { nome, cpf, telefone, endereco, solo, tipo_uso, risco,
+    patologias, observacao, cidade, lat, lng,
+    condEncosta, tipoTalude, processos, moradores } = req.body
+
+  // Garantir que as colunas existam (idempotente)
   try {
-    const geomExpr = (lat && lng) ? `ST_SetSRID(ST_MakePoint($10, $11), 4326)` : 'NULL'
-    const params = [nome, cpf || null, telefone || null, endereco || null, solo || null,
-      tipo_uso || null, risco || null, patologias || [], observacao || null, cidade || null]
-    if (lat && lng) { params.push(lng, lat) }
+    await pool.query(`
+      ALTER TABLE vistorias
+        ADD COLUMN IF NOT EXISTS cond_encosta TEXT,
+        ADD COLUMN IF NOT EXISTS tipo_talude  TEXT,
+        ADD COLUMN IF NOT EXISTS processos    TEXT[],
+        ADD COLUMN IF NOT EXISTS moradores    TEXT
+    `)
+  } catch (_) {}
+
+  try {
+    const geomExpr = (lat && lng) ? `ST_SetSRID(ST_MakePoint($14, $15), 4326)` : 'NULL'
+    const params = [
+      nome, cpf || null, telefone || null, endereco || null,
+      solo || null, tipo_uso || null, risco || null,
+      patologias || [], observacao || null, cidade || null,
+      condEncosta || null, tipoTalude || null,
+      processos || [], moradores || null,
+    ]
+    if (lat && lng) params.push(lng, lat)
     const { rows } = await pool.query(
-      `INSERT INTO vistorias (nome, cpf, telefone, endereco, solo, tipo_uso, risco, patologias, observacao, cidade, geom)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, ${lat && lng ? geomExpr : 'NULL'})
+      `INSERT INTO vistorias
+        (nome, cpf, telefone, endereco, solo, tipo_uso, risco,
+         patologias, observacao, cidade,
+         cond_encosta, tipo_talude, processos, moradores, geom)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
+               ${lat && lng ? geomExpr : 'NULL'})
        RETURNING id`,
       params
     )
