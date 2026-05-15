@@ -55,48 +55,93 @@ function detectContourInterval(elevations) {
 }
 
 // ── Perfil Longitudinal SVG ───────────────────────────────────
-function PerfilLongitudinal({ perfil, cotaA, cotaB, distHorizM, cor }) {
+function PerfilLongitudinal({ perfil, cotaA, cotaB, distHorizM, cor, segmentos10m }) {
   if (!perfil || perfil.length < 2) return null
-  const W = 278, H = 220
-  const padL = 40, padR = 10, padT = 16, padB = 32
+
+  // ── dimensões do gráfico de perfil ──────────────────────────
+  const W = 278, Hp = 200
+  const padL = 40, padR = 10, padT = 16, padB = 28
   const plotW = W - padL - padR
-  const plotH = H - padT - padB
+  const plotH = Hp - padT - padB
+
   const rawMin = Math.min(...perfil.map(p => p.elev))
   const rawMax = Math.max(...perfil.map(p => p.elev))
-  const minElev = rawMin - 1
-  const maxElev = rawMax + 1
+  const minElev = rawMin - 1, maxElev = rawMax + 1
   const elevRange = Math.max(maxElev - minElev, 1)
   const maxDist   = perfil[perfil.length - 1].dist || 1
+
   const toX = d => padL + (d / maxDist) * plotW
   const toY = e => padT + plotH - ((e - minElev) / elevRange) * plotH
+
   const pts   = perfil.map(p => `${toX(p.dist).toFixed(1)},${toY(p.elev).toFixed(1)}`).join(' L ')
   const pathD = `M ${pts}`
   const areaD = `${pathD} L ${toX(maxDist).toFixed(1)},${(padT + plotH).toFixed(1)} L ${toX(0).toFixed(1)},${(padT + plotH).toFixed(1)} Z`
+
   const yLabelStep = elevRange <= 25 ? 5 : elevRange <= 60 ? 10 : elevRange <= 150 ? 20 : 50
-  const yTicks = []
-  for (let e = Math.ceil(minElev); e <= Math.floor(maxElev); e++) yTicks.push(e)
-  const xLabelStep = maxDist <= 50 ? 5 : maxDist <= 150 ? 10 : maxDist <= 300 ? 25 : maxDist <= 600 ? 50 : 100
-  const xTicks = []
-  for (let d = 0; d <= maxDist; d++) xTicks.push(d)
+  const yTicks = []; for (let e = Math.ceil(minElev); e <= Math.floor(maxElev); e++) yTicks.push(e)
+  const xLabelStep = maxDist <= 50 ? 5 : maxDist <= 150 ? 10 : maxDist <= 300 ? 25 : maxDist <= 600 ? 50 : maxDist <= 1500 ? 100 : 200
+  const xTicks = []; for (let d = 0; d <= maxDist; d++) xTicks.push(d)
+
   const yA = toY(cotaA), xA = toX(0)
   const yB = toY(cotaB), xB = toX(maxDist)
   const peakPt   = perfil.reduce((a, b) => b.elev > a.elev ? b : a)
   const valleyPt = perfil.reduce((a, b) => b.elev < a.elev ? b : a)
-  const showPeak   = peakPt.dist > 5 && peakPt.dist < maxDist - 5
+  const showPeak   = peakPt.dist > 5  && peakPt.dist < maxDist - 5
   const showValley = valleyPt.dist > 5 && valleyPt.dist < maxDist - 5 && valleyPt.elev < peakPt.elev
+
+  // ── segmentos 10m críticos para destacar no perfil ───────────
+  const criticos10 = segmentos10m?.filter(s => s.slope >= 20) || []
+  // índice do pior segmento
+  const worstIdx = segmentos10m
+    ? segmentos10m.reduce((bi, s, i) => s.slope > segmentos10m[bi].slope ? i : bi, 0)
+    : -1
+
+  // ── gráfico de barras de declividade (abaixo do perfil) ──────
+  const BH = 56    // altura do gráfico de barras
+  const BpadT = 6, BpadB = 14
+  const bPlotH = BH - BpadT - BpadB
+  const maxSlope = segmentos10m ? Math.max(...segmentos10m.map(s => s.slope), 20) : 100
+  const toBarH = s => BpadT + bPlotH - (s / maxSlope) * bPlotH
+  const barW   = segmentos10m?.length > 0 ? plotW / segmentos10m.length : 4
+
+  const totalH = Hp + (segmentos10m?.length > 0 ? BH + 6 : 0)
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
+    <svg viewBox={`0 0 ${W} ${totalH}`} style={{ width: '100%', height: totalH, display: 'block' }}>
+
+      {/* ── Fundo de zonas críticas no perfil ─────────────────── */}
+      {criticos10.map((s, i) => (
+        <rect key={`crit${i}`}
+          x={toX(s.d0)} y={padT}
+          width={Math.max(toX(s.d1) - toX(s.d0), 2)}
+          height={plotH}
+          fill={s.classif.cor + '28'}
+        />
+      ))}
+
+      {/* Grade horizontal */}
       {yTicks.map(e => {
         const isMajor = e % yLabelStep === 0
-        return <line key={`yg${e}`} x1={padL} y1={toY(e)} x2={padL + plotW} y2={toY(e)} stroke={isMajor ? '#243450' : '#1a2540'} strokeWidth={isMajor ? 0.8 : 0.4} strokeDasharray={isMajor ? '4,3' : '2,4'} />
+        return <line key={`yg${e}`} x1={padL} y1={toY(e)} x2={padL + plotW} y2={toY(e)}
+          stroke={isMajor ? '#243450' : '#1a2540'} strokeWidth={isMajor ? 0.8 : 0.4} strokeDasharray={isMajor ? '4,3' : '2,4'} />
       })}
+      {/* Grade vertical */}
       {xTicks.map(d => {
         const isMajor = d % xLabelStep === 0
-        return <line key={`xg${d}`} x1={toX(d)} y1={padT} x2={toX(d)} y2={padT + plotH} stroke={isMajor ? '#243450' : '#1a2540'} strokeWidth={isMajor ? 0.8 : 0.3} strokeDasharray={isMajor ? '4,3' : '1,5'} />
+        return <line key={`xg${d}`} x1={toX(d)} y1={padT} x2={toX(d)} y2={padT + plotH}
+          stroke={isMajor ? '#243450' : '#1a2540'} strokeWidth={isMajor ? 0.8 : 0.3} strokeDasharray={isMajor ? '4,3' : '1,5'} />
       })}
-      <path d={areaD} fill={cor + '22'} />
-      <path d={pathD} fill="none" stroke={cor} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
-      {perfil.map((p, i) => <circle key={i} cx={toX(p.dist)} cy={toY(p.elev)} r="1.2" fill={cor} opacity="0.7" />)}
+
+      {/* Área preenchida e linha do perfil */}
+      <path d={areaD} fill={cor + '1a'} />
+      <path d={pathD} fill="none" stroke={cor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+
+      {/* Pontos do perfil (apenas se não for muito denso) */}
+      {perfil.length <= 200 && perfil.map((p, i) =>
+        <circle key={i} cx={toX(p.dist)} cy={toY(p.elev)} r="1.1" fill={cor} opacity="0.6" />
+      )}
+
+      {/* Eixo Y */}
       <line x1={padL} y1={padT} x2={padL} y2={padT + plotH} stroke="#475569" strokeWidth="1.2" />
       {yTicks.filter(e => e % yLabelStep === 0).map(e => (
         <g key={`yl${e}`}>
@@ -104,7 +149,10 @@ function PerfilLongitudinal({ perfil, cotaA, cotaB, distHorizM, cor }) {
           <text x={padL - 6} y={toY(e) + 3.5} fontSize="8" fill="#94a3b8" textAnchor="end" fontFamily="monospace">{e}</text>
         </g>
       ))}
-      <text x={10} y={padT + plotH / 2} fontSize="7.5" fill="#64748b" textAnchor="middle" transform={`rotate(-90,10,${padT + plotH / 2})`}>Cota (m)</text>
+      <text x={10} y={padT + plotH / 2} fontSize="7.5" fill="#64748b" textAnchor="middle"
+        transform={`rotate(-90,10,${padT + plotH / 2})`}>Cota (m)</text>
+
+      {/* Eixo X */}
       <line x1={padL} y1={padT + plotH} x2={padL + plotW} y2={padT + plotH} stroke="#475569" strokeWidth="1.2" />
       {xTicks.filter(d => d % xLabelStep === 0).map(d => (
         <g key={`xl${d}`}>
@@ -114,25 +162,89 @@ function PerfilLongitudinal({ perfil, cotaA, cotaB, distHorizM, cor }) {
           </text>
         </g>
       ))}
-      <text x={padL + plotW / 2} y={H - 3} fontSize="7.5" fill="#64748b" textAnchor="middle">Distância (m)</text>
+      <text x={padL + plotW / 2} y={Hp - 3} fontSize="7.5" fill="#64748b" textAnchor="middle">Distância (m)</text>
+
+      {/* Ponto A */}
       <circle cx={xA} cy={yA} r="5" fill="#a78bfa" stroke="#0f172a" strokeWidth="2" />
       <text x={xA + 7} y={yA - 6} fontSize="9.5" fill="#a78bfa" fontWeight="bold">A</text>
       <text x={xA + 7} y={yA + 5} fontSize="8" fill="#a78bfa" fontFamily="monospace">{cotaA} m</text>
+
+      {/* Ponto B */}
       <circle cx={xB} cy={yB} r="5" fill="#f0abfc" stroke="#0f172a" strokeWidth="2" />
       <text x={xB - 8} y={yB - 6} fontSize="9.5" fill="#f0abfc" fontWeight="bold" textAnchor="end">B</text>
       <text x={xB - 8} y={yB + 5} fontSize="8" fill="#f0abfc" fontFamily="monospace" textAnchor="end">{cotaB} m</text>
-      {showPeak && peakPt !== perfil[0] && peakPt !== perfil[perfil.length - 1] && (
+
+      {/* Pico */}
+      {showPeak && (
         <g>
           <circle cx={toX(peakPt.dist)} cy={toY(peakPt.elev)} r="3.5" fill="#fbbf24" stroke="#0f172a" strokeWidth="1.5" />
           <text x={toX(peakPt.dist)} y={toY(peakPt.elev) - 7} fontSize="7.5" fill="#fbbf24" textAnchor="middle" fontFamily="monospace">{peakPt.elev}m</text>
         </g>
       )}
-      {showValley && valleyPt !== perfil[0] && valleyPt !== perfil[perfil.length - 1] && (
+      {/* Vale */}
+      {showValley && (
         <g>
           <circle cx={toX(valleyPt.dist)} cy={toY(valleyPt.elev)} r="3.5" fill="#38bdf8" stroke="#0f172a" strokeWidth="1.5" />
           <text x={toX(valleyPt.dist)} y={toY(valleyPt.elev) + 14} fontSize="7.5" fill="#38bdf8" textAnchor="middle" fontFamily="monospace">{valleyPt.elev}m</text>
         </g>
       )}
+
+      {/* ── Gráfico de barras de declividade por 10m ─────────── */}
+      {segmentos10m?.length > 0 && (() => {
+        const BY = Hp + 6
+        return (
+          <>
+            {/* Título */}
+            <text x={padL} y={BY + 4} fontSize="7" fill="#64748b" fontWeight="600">Declividade por trecho 10m</text>
+            <text x={padL + plotW} y={BY + 4} fontSize="7" fill="#475569" textAnchor="end">máx: {maxSlope.toFixed(0)}%</text>
+
+            {/* Fundo */}
+            <rect x={padL} y={BY + BpadT} width={plotW} height={bPlotH} fill="#0f172a" rx="2" />
+
+            {/* Linha de referência 20% */}
+            {maxSlope > 20 && (() => {
+              const refY = BY + toBarH(20)
+              return <>
+                <line x1={padL} y1={refY} x2={padL + plotW} y2={refY} stroke="#334155" strokeWidth="0.7" strokeDasharray="3,2" />
+                <text x={padL + plotW + 2} y={refY + 3} fontSize="6.5" fill="#475569">20%</text>
+              </>
+            })()}
+
+            {/* Barras */}
+            {segmentos10m.map((s, i) => {
+              const bx   = toX(s.d0)
+              const bw   = Math.max(toX(s.d1) - toX(s.d0) - 0.5, 1)
+              const by   = BY + toBarH(s.slope)
+              const bh   = bPlotH - (toBarH(s.slope) - BpadT)
+              const isW  = i === worstIdx
+              return (
+                <g key={`bar${i}`}>
+                  <rect x={bx} y={by} width={bw} height={Math.max(bh, 1)}
+                    fill={s.classif.cor} opacity={isW ? 1 : 0.75}
+                    stroke={isW ? '#fff' : 'none'} strokeWidth={isW ? 0.5 : 0}
+                  />
+                  {/* Label do pior */}
+                  {isW && (
+                    <>
+                      <line x1={bx + bw/2} y1={by - 2} x2={bx + bw/2} y2={BY + BpadT + 2}
+                        stroke="#fff" strokeWidth="0.7" strokeDasharray="2,1" />
+                      <text x={bx + bw/2} y={BY + BpadT - 1} fontSize="7" fill="#fff" textAnchor="middle" fontWeight="bold">
+                        {s.slope.toFixed(0)}%
+                      </text>
+                    </>
+                  )}
+                </g>
+              )
+            })}
+
+            {/* Eixo X das barras */}
+            <line x1={padL} y1={BY + BpadT + bPlotH} x2={padL + plotW} y2={BY + BpadT + bPlotH} stroke="#334155" strokeWidth="0.8" />
+            <text x={padL + plotW / 2} y={BY + BH - 2} fontSize="6.5" fill="#475569" textAnchor="middle">
+              {segmentos10m.length} segmentos de 10m
+            </text>
+          </>
+        )
+      })()}
     </svg>
   )
 }
@@ -183,15 +295,36 @@ async function fetchElevations(points) {
   return data2.elevation
 }
 
-// ── Batch (quebra em lotes de 100) ───────────────────────────
+// ── Batch paralelo (lotes de 100 simultâneos) ────────────────
 async function fetchElevationsBatched(points) {
-  const results = []
-  for (let i = 0; i < points.length; i += 100) {
-    const batch = points.slice(i, i + 100)
-    const elevs = await fetchElevations(batch)
-    results.push(...elevs)
+  const batches = []
+  for (let i = 0; i < points.length; i += 100) batches.push(points.slice(i, i + 100))
+  const results = await Promise.all(batches.map(fetchElevations))
+  return results.flat()
+}
+
+// ── Calcula segmentos de declividade a cada stepM metros ──────
+function calcSegmentos(elevations, sampleDists, stepM) {
+  const maxDist = sampleDists[sampleDists.length - 1]
+  const segs = []
+  for (let d = 0; d + stepM <= maxDist + 0.5; d += stepM) {
+    const d0  = d, d1 = Math.min(d + stepM, maxDist)
+    // Índice do ponto mais próximo de d0 e d1
+    const i0  = sampleDists.reduce((best, v, i) => Math.abs(v - d0) < Math.abs(sampleDists[best] - d0) ? i : best, 0)
+    const i1  = sampleDists.reduce((best, v, i) => Math.abs(v - d1) < Math.abs(sampleDists[best] - d1) ? i : best, 0)
+    const dh  = Math.abs(elevations[i1] - elevations[i0])
+    const hdist = Math.max(sampleDists[i1] - sampleDists[i0], 0.1)
+    const slope = (dh / hdist) * 100
+    segs.push({
+      d0: Math.round(d0), d1: Math.round(d1),
+      midDist: (d0 + d1) / 2,
+      elev0: Math.round(elevations[i0]), elev1: Math.round(elevations[i1]),
+      dh: Math.round(dh * 10) / 10,
+      slope: Math.round(slope * 10) / 10,
+      classif: classifySlope(slope),
+    })
   }
-  return results
+  return segs
 }
 
 function findContourCrossings(elevations, distances, interval) {
@@ -691,28 +824,82 @@ export default function Declividade() {
     try {
       const tLine      = turf.lineString([[pt1.lng, pt1.lat], [pt2.lng, pt2.lat]])
       const distHorizM = turf.length(tLine, { units: 'kilometers' }) * 1000
-      const nPts       = Math.max(2, Math.min(Math.round(distHorizM), 100))
+
+      // 1 ponto por metro, mínimo 2, máximo 1000
+      const nPts = Math.max(2, Math.min(Math.round(distHorizM), 1000))
       const sampleCoords = [], sampleDists = []
       for (let i = 0; i < nPts; i++) {
         const d = (i / (nPts - 1)) * distHorizM
         sampleCoords.push(pointAlongLine(tLine, d))
         sampleDists.push(d)
       }
-      const elevations = await fetchElevations(sampleCoords)
-      const cotaA   = Math.round(elevations[0])
-      const cotaB   = Math.round(elevations[elevations.length - 1])
-      const deltaH  = Math.abs(cotaB - cotaA)
+
+      // Busca elevações em paralelo (lotes de 100)
+      const elevations = await fetchElevationsBatched(sampleCoords)
+
+      const cotaA    = Math.round(elevations[0])
+      const cotaB    = Math.round(elevations[elevations.length - 1])
+      const deltaH   = Math.abs(cotaB - cotaA)
       const slopePct  = distHorizM > 0 ? (deltaH / distHorizM) * 100 : 0
       const slopeGrau = Math.atan(deltaH / distHorizM) * (180 / Math.PI)
       const classif   = classifySlope(slopePct)
-      const stepM     = Math.round(distHorizM / (nPts - 1)) || 1
-      const perfil    = sampleCoords.map((_, i) => ({ dist: Math.round(sampleDists[i]), elev: Math.round(elevations[i]) }))
+      const perfil    = sampleCoords.map((_, i) => ({
+        dist: Math.round(sampleDists[i]),
+        elev: Math.round(elevations[i]),
+      }))
+
+      // Declividade a cada 10m
+      const STEP = 10
+      const segmentos10m = calcSegmentos(elevations, sampleDists, STEP)
+
+      // Pontos críticos = segmentos com declividade >= 20% (Ondulado+), top 20 mais altos
+      const criticos = [...segmentos10m]
+        .filter(s => s.slope >= 20)
+        .sort((a, b) => b.slope - a.slope)
+        .slice(0, 20)
+
+      // Marca pontos críticos no mapa
+      const layer = drawLayerRef.current
+      if (layer) {
+        criticos.forEach((s, idx) => {
+          const coord = pointAlongLine(tLine, s.midDist)
+          const nbr   = getNBRClass(s.slope)
+          L.circleMarker([coord[1], coord[0]], {
+            radius: idx === 0 ? 9 : 6,
+            fillColor: s.classif.cor,
+            color: '#0f172a',
+            fillOpacity: 0.9,
+            weight: 2,
+          })
+            .bindTooltip(
+              `⚠ ${s.slope.toFixed(1)}% · ${s.classif.label}<br>` +
+              `Δh = ${s.dh} m em ${STEP} m<br>` +
+              `${Math.round(s.midDist)} m desde A`,
+              { sticky: true }
+            )
+            .addTo(layer)
+        })
+      }
+
       const ms = medirStateRef.current
       if (ms.pt1Marker) ms.pt1Marker.setTooltipContent(`A  Lat: ${pt1.lat.toFixed(6)}\nLng: ${pt1.lng.toFixed(6)}\nCota: ${cotaA} m`)
       if (ms.pt2Marker) ms.pt2Marker.setTooltipContent(`B  Lat: ${pt2.lat.toFixed(6)}\nLng: ${pt2.lng.toFixed(6)}\nCota: ${cotaB} m`)
-      if (ms.linhaMedir) ms.linhaMedir.bindTooltip(`↕ ${deltaH} m · ${slopePct.toFixed(1)}% · ${slopeGrau.toFixed(1)}° · ${classif.label}`, { permanent: true, direction: 'center' }).openTooltip()
+      if (ms.linhaMedir) ms.linhaMedir.bindTooltip(
+        `↕ ${deltaH} m · ${slopePct.toFixed(1)}% · ${slopeGrau.toFixed(1)}° · ${classif.label}` +
+        (criticos.length ? ` · ⚠ ${criticos.length} trecho(s) crítico(s)` : ''),
+        { permanent: true, direction: 'center' }
+      ).openTooltip()
+
       setModoAtivo('medir')
-      setMedicaoResult({ coordA: { lat: pt1.lat, lng: pt1.lng }, coordB: { lat: pt2.lat, lng: pt2.lng }, cotaA, cotaB, deltaH, distHorizM: Math.round(distHorizM), slopePct, slopeGrau, classif, perfil, stepM })
+      setMedicaoResult({
+        coordA: { lat: pt1.lat, lng: pt1.lng },
+        coordB: { lat: pt2.lat, lng: pt2.lng },
+        cotaA, cotaB, deltaH,
+        distHorizM: Math.round(distHorizM),
+        slopePct, slopeGrau, classif, perfil,
+        segmentos10m, criticos,
+        nPts, stepM: STEP,
+      })
     } catch (e) {
       setMedicaoResult({ erro: e.message })
     } finally {
@@ -1057,12 +1244,118 @@ export default function Declividade() {
                 <div style={{ background: medicaoResult.classif.cor + '18', border: `1px solid ${medicaoResult.classif.cor}44`, borderRadius: 8, padding: '8px 11px', fontSize: 11, color: '#e2e8f0' }}>
                   <b style={{ color: medicaoResult.classif.cor }}>Declividade</b> = (Δh / dist) × 100 = ({medicaoResult.deltaH} / {medicaoResult.distHorizM}) × 100 = <b style={{ color: medicaoResult.classif.cor }}>{medicaoResult.slopePct.toFixed(2)}%</b>
                 </div>
+                {/* Corte longitudinal + barras de declividade 10m */}
                 <div>
-                  <div className={styles.chartTitle}>Corte Longitudinal — {medicaoResult.perfil?.length} pontos</div>
+                  <div className={styles.chartTitle}>
+                    Corte Longitudinal — {medicaoResult.perfil?.length} pts &nbsp;·&nbsp;
+                    <span style={{ color: '#64748b', fontWeight: 400 }}>
+                      {medicaoResult.segmentos10m?.length} segmentos de 10m
+                    </span>
+                  </div>
                   <div style={{ background: '#1e293b', border: `1px solid ${medicaoResult.classif.cor}33`, borderRadius: 8, padding: '10px 8px 4px' }}>
-                    <PerfilLongitudinal perfil={medicaoResult.perfil} cotaA={medicaoResult.cotaA} cotaB={medicaoResult.cotaB} distHorizM={medicaoResult.distHorizM} cor={medicaoResult.classif.cor} />
+                    <PerfilLongitudinal
+                      perfil={medicaoResult.perfil}
+                      cotaA={medicaoResult.cotaA}
+                      cotaB={medicaoResult.cotaB}
+                      distHorizM={medicaoResult.distHorizM}
+                      cor={medicaoResult.classif.cor}
+                      segmentos10m={medicaoResult.segmentos10m}
+                    />
                   </div>
                 </div>
+
+                {/* Pontos críticos */}
+                {medicaoResult.criticos?.length > 0 && (
+                  <div style={{ background: '#1a0a00', border: '1px solid #7c2d12', borderRadius: 8, overflow: 'hidden' }}>
+                    <div style={{
+                      padding: '8px 12px', borderBottom: '1px solid #7c2d12',
+                      display: 'flex', alignItems: 'center', gap: 8,
+                    }}>
+                      <span style={{ fontSize: 13 }}>⚠</span>
+                      <span style={{ color: '#fb923c', fontWeight: 700, fontSize: 12 }}>
+                        {medicaoResult.criticos.length} Trechos Críticos (≥ 20% / 10m)
+                      </span>
+                      <span style={{ color: '#64748b', fontSize: 10, marginLeft: 'auto' }}>ordenado por declividade</span>
+                    </div>
+                    <div style={{ maxHeight: 210, overflowY: 'auto' }}>
+                      {medicaoResult.criticos.map((s, i) => {
+                        const nbr = getNBRClass(s.slope)
+                        return (
+                          <div key={i} style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '6px 12px',
+                            borderBottom: '1px solid #1c1007',
+                            background: i === 0 ? s.classif.cor + '18' : 'transparent',
+                          }}>
+                            {/* Rank */}
+                            <span style={{
+                              fontSize: 10, fontWeight: 700, color: i === 0 ? '#fff' : '#64748b',
+                              background: i === 0 ? s.classif.cor : '#1e293b',
+                              borderRadius: 4, padding: '1px 6px', flexShrink: 0,
+                            }}>#{i + 1}</span>
+
+                            {/* Posição */}
+                            <span style={{ color: '#94a3b8', fontSize: 10, fontFamily: 'monospace' }}>
+                              {s.d0}–{s.d1} m
+                            </span>
+
+                            {/* Δh */}
+                            <span style={{ color: '#64748b', fontSize: 10 }}>
+                              Δh {s.dh} m
+                            </span>
+
+                            {/* Declividade */}
+                            <span style={{
+                              marginLeft: 'auto', fontWeight: 700,
+                              color: s.classif.cor, fontFamily: 'monospace', fontSize: 12,
+                            }}>
+                              {s.slope.toFixed(1)}%
+                            </span>
+
+                            {/* Classificação */}
+                            <span style={{
+                              background: s.classif.cor + '22',
+                              border: `1px solid ${s.classif.cor}55`,
+                              color: s.classif.cor, borderRadius: 4,
+                              padding: '1px 6px', fontSize: 9, fontWeight: 700,
+                              flexShrink: 0,
+                            }}>
+                              {nbr.nivel}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Resumo por classe */}
+                    <div style={{ padding: '8px 12px', borderTop: '1px solid #7c2d12', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                      {SLOPE_CLASSES.filter(c => c.max < Infinity).map(cls => {
+                        const cnt = medicaoResult.segmentos10m?.filter(s => s.classif.label === cls.label).length || 0
+                        if (!cnt) return null
+                        return (
+                          <div key={cls.label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: cls.cor, display: 'inline-block' }} />
+                            <span style={{ color: cls.cor }}>{cls.label}</span>
+                            <span style={{ color: '#475569' }}>{cnt}×</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Nenhum trecho crítico */}
+                {medicaoResult.criticos?.length === 0 && medicaoResult.segmentos10m?.length > 0 && (
+                  <div style={{
+                    background: '#064e3b', border: '1px solid #065f46', borderRadius: 8,
+                    padding: '8px 12px', fontSize: 11, color: '#6ee7b7',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                  }}>
+                    <span>✓</span>
+                    <span>Nenhum trecho com declividade crítica (≥ 20%) em segmentos de 10m.</span>
+                  </div>
+                )}
+
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className={`${styles.btn} ${styles.btnMedir}`} style={{ flex: 1, justifyContent: 'center', background: '#1e3a5f', borderColor: '#3b82f6', color: '#93c5fd' }} onClick={() => setShow3D(true)}>
                     <FiBox size={12} /> Ver em 3D
