@@ -1267,6 +1267,7 @@ export default function Declividade() {
         mode={modoAtivo === 'poligono' ? 'poligono' : 'medir'}
         perfil={modoAtivo === 'medir' ? medicaoResult?.perfil : undefined}
         gridData={modoAtivo === 'poligono' ? resultado?.grid3D : undefined}
+        lateralDists={modoAtivo === 'poligono' ? resultado?.lateralDists : undefined}
         onClose={() => setShow3D(false)}
       />
     )}

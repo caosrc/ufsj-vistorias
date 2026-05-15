@@ -13,10 +13,12 @@ app.use(express.json())
 // ── Migração automática — adiciona colunas novas sem apagar dados ──
 pool.query(`
   ALTER TABLE vistorias
-    ADD COLUMN IF NOT EXISTS cond_encosta TEXT,
-    ADD COLUMN IF NOT EXISTS tipo_talude  TEXT,
-    ADD COLUMN IF NOT EXISTS processos    TEXT[],
-    ADD COLUMN IF NOT EXISTS moradores    TEXT
+    ADD COLUMN IF NOT EXISTS cond_encosta    TEXT,
+    ADD COLUMN IF NOT EXISTS tipo_talude     TEXT,
+    ADD COLUMN IF NOT EXISTS processos       TEXT[],
+    ADD COLUMN IF NOT EXISTS moradores       TEXT,
+    ADD COLUMN IF NOT EXISTS angulo_encosta  TEXT,
+    ADD COLUMN IF NOT EXISTS caract_encosta  TEXT[]
 `).catch(() => {})
 
 // ── OCORRÊNCIAS ──────────────────────────────────────────────
@@ -64,13 +66,16 @@ app.get('/api/vistorias', async (req, res) => {
       SELECT id, nome, cpf, telefone, endereco, solo, tipo_uso, risco,
         patologias, observacao, cidade,
         cond_encosta, tipo_talude, processos, moradores,
+        angulo_encosta, caract_encosta,
         ST_X(geom) AS lng, ST_Y(geom) AS lat, data
       FROM vistorias ORDER BY data DESC
     `)
     res.json(rows.map(r => ({
       ...r,
-      condEncosta: r.cond_encosta,
-      tipoTalude:  r.tipo_talude,
+      condEncosta:    r.cond_encosta,
+      tipoTalude:     r.tipo_talude,
+      anguloEncosta:  r.angulo_encosta,
+      caractsEncosta: r.caract_encosta,
     })))
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
@@ -78,36 +83,41 @@ app.get('/api/vistorias', async (req, res) => {
 app.post('/api/vistorias', async (req, res) => {
   const { nome, cpf, telefone, endereco, solo, tipo_uso, risco,
     patologias, observacao, cidade, lat, lng,
-    condEncosta, tipoTalude, processos, moradores } = req.body
+    condEncosta, tipoTalude, processos, moradores,
+    anguloEncosta, caractsEncosta } = req.body
 
-  // Garantir que as colunas existam (idempotente)
   try {
     await pool.query(`
       ALTER TABLE vistorias
-        ADD COLUMN IF NOT EXISTS cond_encosta TEXT,
-        ADD COLUMN IF NOT EXISTS tipo_talude  TEXT,
-        ADD COLUMN IF NOT EXISTS processos    TEXT[],
-        ADD COLUMN IF NOT EXISTS moradores    TEXT
+        ADD COLUMN IF NOT EXISTS cond_encosta    TEXT,
+        ADD COLUMN IF NOT EXISTS tipo_talude     TEXT,
+        ADD COLUMN IF NOT EXISTS processos       TEXT[],
+        ADD COLUMN IF NOT EXISTS moradores       TEXT,
+        ADD COLUMN IF NOT EXISTS angulo_encosta  TEXT,
+        ADD COLUMN IF NOT EXISTS caract_encosta  TEXT[]
     `)
   } catch (_) {}
 
   try {
-    const geomExpr = (lat && lng) ? `ST_SetSRID(ST_MakePoint($14, $15), 4326)` : 'NULL'
+    const hasGeom = lat && lng
+    const geomExpr = hasGeom ? `ST_SetSRID(ST_MakePoint($16, $17), 4326)` : 'NULL'
     const params = [
       nome, cpf || null, telefone || null, endereco || null,
       solo || null, tipo_uso || null, risco || null,
       patologias || [], observacao || null, cidade || null,
       condEncosta || null, tipoTalude || null,
       processos || [], moradores || null,
+      anguloEncosta || null, caractsEncosta || [],
     ]
-    if (lat && lng) params.push(lng, lat)
+    if (hasGeom) params.push(lng, lat)
     const { rows } = await pool.query(
       `INSERT INTO vistorias
         (nome, cpf, telefone, endereco, solo, tipo_uso, risco,
          patologias, observacao, cidade,
-         cond_encosta, tipo_talude, processos, moradores, geom)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
-               ${lat && lng ? geomExpr : 'NULL'})
+         cond_encosta, tipo_talude, processos, moradores,
+         angulo_encosta, caract_encosta, geom)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
+               ${hasGeom ? geomExpr : 'NULL'})
        RETURNING id`,
       params
     )
