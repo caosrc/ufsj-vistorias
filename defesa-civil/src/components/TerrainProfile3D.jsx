@@ -3,16 +3,92 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 
 function elevToColor(t) {
-  const low    = new THREE.Color(0x22c55e)
-  const mid    = new THREE.Color(0xeab308)
-  const high   = new THREE.Color(0xf97316)
-  const peak   = new THREE.Color(0xef4444)
+  const low  = new THREE.Color(0x22c55e)
+  const mid  = new THREE.Color(0xeab308)
+  const high = new THREE.Color(0xf97316)
+  const peak = new THREE.Color(0xef4444)
   if (t < 0.33) return low.clone().lerp(mid, t / 0.33)
   if (t < 0.66) return mid.clone().lerp(high, (t - 0.33) / 0.33)
   return high.clone().lerp(peak, (t - 0.66) / 0.34)
 }
 
-export default function TerrainProfile3D({ mode, perfil, profA, profB, onClose }) {
+// Constrói BufferGeometry de terreno para grade ROWS × COLS
+function buildGridMesh(points, cols, rows, minE, maxE) {
+  const total     = points.length
+  const positions = new Float32Array(total * 3)
+  const colorsArr = new Float32Array(total * 3)
+
+  for (let i = 0; i < total; i++) {
+    const p = points[i]
+    positions[i * 3]     = p.x
+    positions[i * 3 + 1] = p.y
+    positions[i * 3 + 2] = p.z
+    const t = maxE > minE ? (p.y - minE) / (maxE - minE) : 0.5
+    const c = elevToColor(t)
+    colorsArr[i * 3]     = c.r
+    colorsArr[i * 3 + 1] = c.g
+    colorsArr[i * 3 + 2] = c.b
+  }
+
+  const indices = []
+  for (let r = 0; r < rows - 1; r++) {
+    for (let c = 0; c < cols - 1; c++) {
+      const a = r * cols + c
+      const b = r * cols + c + 1
+      const cc = (r + 1) * cols + c
+      const d = (r + 1) * cols + c + 1
+      indices.push(a, cc, b)
+      indices.push(b, cc, d)
+    }
+  }
+
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+  geo.setAttribute('color',    new THREE.BufferAttribute(colorsArr, 3))
+  geo.setIndex(indices)
+  geo.computeVertexNormals()
+  return geo
+}
+
+// Constrói BufferGeometry de fita (perfil 1D)
+function buildRibbonMesh(rowsX, rowsY, rowsZ, minE, maxE, numCols) {
+  const NC        = numCols
+  const N         = rowsX.length / NC
+  const positions = new Float32Array(rowsX.length * 3)
+  const colorsArr = new Float32Array(rowsX.length * 3)
+
+  for (let i = 0; i < rowsX.length; i++) {
+    positions[i * 3]     = rowsX[i]
+    positions[i * 3 + 1] = rowsY[i]
+    positions[i * 3 + 2] = rowsZ[i]
+    const t = maxE > minE ? (rowsY[i] - minE) / (maxE - minE) : 0.5
+    const c = elevToColor(t)
+    colorsArr[i * 3]     = c.r
+    colorsArr[i * 3 + 1] = c.g
+    colorsArr[i * 3 + 2] = c.b
+  }
+
+  const indices = []
+  for (let i = 0; i < N - 1; i++) {
+    for (let j = 0; j < NC - 1; j++) {
+      const a = i * NC + j
+      const b = i * NC + j + 1
+      const c = (i + 1) * NC + j
+      const dd = (i + 1) * NC + j + 1
+      indices.push(a, c, b)
+      indices.push(b, c, dd)
+    }
+  }
+
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+  geo.setAttribute('color',    new THREE.BufferAttribute(colorsArr, 3))
+  geo.setIndex(indices)
+  geo.computeVertexNormals()
+  return geo
+}
+
+export default function TerrainProfile3D({ mode, perfil, gridData, onClose }) {
   const mountRef = useRef(null)
 
   useEffect(() => {
@@ -33,54 +109,43 @@ export default function TerrainProfile3D({ mode, perfil, profA, profB, onClose }
     container.appendChild(renderer.domElement)
 
     const controls = new OrbitControls(camera, renderer.domElement)
-    controls.enableDamping  = true
-    controls.dampingFactor  = 0.07
-    controls.rotateSpeed    = 0.8
-    controls.zoomSpeed      = 1.2
-    controls.minDistance    = 1
-    controls.maxDistance    = 100000
-
-    const COLS = 24
-
-    function buildMesh(rowsX, rowsY, rowsZ, minE, maxE) {
-      const N = rowsX.length / COLS
-      const positions = new Float32Array(rowsX.length * 3)
-      const colorsArr = new Float32Array(rowsX.length * 3)
-
-      for (let i = 0; i < rowsX.length; i++) {
-        positions[i * 3]     = rowsX[i]
-        positions[i * 3 + 1] = rowsY[i]
-        positions[i * 3 + 2] = rowsZ[i]
-        const t = maxE > minE ? (rowsY[i] - minE) / (maxE - minE) : 0.5
-        const c = elevToColor(t)
-        colorsArr[i * 3]     = c.r
-        colorsArr[i * 3 + 1] = c.g
-        colorsArr[i * 3 + 2] = c.b
-      }
-
-      const indices = []
-      for (let i = 0; i < N - 1; i++) {
-        for (let j = 0; j < COLS - 1; j++) {
-          const a = i * COLS + j
-          const b = i * COLS + j + 1
-          const c = (i + 1) * COLS + j
-          const d = (i + 1) * COLS + j + 1
-          indices.push(a, c, b)
-          indices.push(b, c, d)
-        }
-      }
-
-      const geo = new THREE.BufferGeometry()
-      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-      geo.setAttribute('color',    new THREE.BufferAttribute(colorsArr, 3))
-      geo.setIndex(indices)
-      geo.computeVertexNormals()
-      return geo
-    }
+    controls.enableDamping = true
+    controls.dampingFactor = 0.07
+    controls.rotateSpeed   = 0.8
+    controls.zoomSpeed     = 1.2
+    controls.minDistance   = 1
+    controls.maxDistance   = 100000
 
     let geo = null
 
-    if (mode === 'medir' && perfil?.length > 1) {
+    // ── Modo Polígono: grade 2D de terreno ──────────────────────
+    if (mode === 'poligono' && gridData?.points?.length > 0) {
+      const { points, cols, rows, minE, maxE } = gridData
+
+      geo = buildGridMesh(points, cols, rows, minE, maxE)
+
+      // Linhas de grade visíveis entre células
+      const wireGeo = geo.clone()
+      const wireMat = new THREE.MeshBasicMaterial({
+        color: 0x1e3a5f, wireframe: true, transparent: true, opacity: 0.25,
+      })
+      scene.add(new THREE.Mesh(wireGeo, wireMat))
+
+      // Esferas nos pontos internos ao polígono (destaque)
+      const sphereGeo = new THREE.SphereGeometry(0.3, 6, 6)
+      points.forEach(p => {
+        if (!p.inside) return
+        const t = maxE > minE ? (p.y - minE) / (maxE - minE) : 0.5
+        const col = elevToColor(t)
+        const mat = new THREE.MeshLambertMaterial({ color: col })
+        const sphere = new THREE.Mesh(sphereGeo, mat)
+        sphere.position.set(p.x, p.y + 0.5, p.z)
+        scene.add(sphere)
+      })
+
+    // ── Modo Medir: fita de perfil 1D ──────────────────────────
+    } else if (mode === 'medir' && perfil?.length > 1) {
+      const COLS      = 24
       const N         = perfil.length
       const totalDist = perfil[N - 1].dist
       const elevs     = perfil.map(p => p.elev)
@@ -96,29 +161,7 @@ export default function TerrainProfile3D({ mode, perfil, profA, profB, onClose }
           rz.push((j / (COLS - 1)) * ribbonW)
         }
       }
-
-      geo = buildMesh(rx, ry, rz, minE, maxE)
-
-    } else if (mode === 'corredor' && profA?.elevs && profB?.elevs) {
-      const N        = profA.elevs.length
-      const allE     = [...profA.elevs, ...profB.elevs]
-      const minE     = Math.min(...allE)
-      const maxE     = Math.max(...allE)
-      const CW       = 100
-
-      const rx = [], ry = [], rz = []
-      for (let i = 0; i < N; i++) {
-        const dA = profA.dists[i], dB = profB.dists[i]
-        const eA = profA.elevs[i], eB = profB.elevs[i]
-        for (let j = 0; j < COLS; j++) {
-          const t = j / (COLS - 1)
-          rx.push(dA + (dB - dA) * t)
-          ry.push(eA + (eB - eA) * t)
-          rz.push(t * CW)
-        }
-      }
-
-      geo = buildMesh(rx, ry, rz, minE, maxE)
+      geo = buildRibbonMesh(rx, ry, rz, minE, maxE, COLS)
     }
 
     if (geo) {
@@ -126,12 +169,13 @@ export default function TerrainProfile3D({ mode, perfil, profA, profB, onClose }
       const mesh = new THREE.Mesh(geo, mat)
       scene.add(mesh)
 
-      const wireGeo = geo.clone()
-      const wireMat = new THREE.MeshBasicMaterial({
-        color: 0x1e3a5f, wireframe: true, transparent: true, opacity: 0.22,
-      })
-      scene.add(new THREE.Mesh(wireGeo, wireMat))
+      // Wireframe sobre o mesh principal
+      if (mode !== 'poligono') {
+        const wireMat = new THREE.MeshBasicMaterial({ color: 0x1e3a5f, wireframe: true, transparent: true, opacity: 0.22 })
+        scene.add(new THREE.Mesh(geo.clone(), wireMat))
+      }
 
+      // Câmera enquadrada na cena
       geo.computeBoundingBox()
       const box    = geo.boundingBox
       const center = new THREE.Vector3()
@@ -141,17 +185,32 @@ export default function TerrainProfile3D({ mode, perfil, profA, profB, onClose }
       const maxDim = Math.max(size.x, size.y, size.z)
 
       camera.position.set(
-        center.x - maxDim * 0.6,
-        center.y + maxDim * 0.8,
-        center.z + maxDim * 1.4,
+        center.x - maxDim * 0.5,
+        center.y + maxDim * 1.0,
+        center.z + maxDim * 1.6,
       )
       controls.target.copy(center)
 
-      const gridSize  = Math.max(size.x, size.z) * 1.5
-      const gridDivs  = 20
-      const grid = new THREE.GridHelper(gridSize, gridDivs, 0x1e3a5f, 0x111827)
+      // Grade de chão
+      const gridSize = Math.max(size.x, size.z) * 1.6
+      const grid = new THREE.GridHelper(gridSize, 24, 0x1e3a5f, 0x111827)
       grid.position.set(center.x, box.min.y - 0.5, center.z)
       scene.add(grid)
+
+      // Linhas de cota (eixo vertical) nos cantos do bbox
+      if (mode === 'poligono') {
+        const corners = [
+          [box.min.x, box.min.z],
+          [box.max.x, box.min.z],
+          [box.min.x, box.max.z],
+          [box.max.x, box.max.z],
+        ]
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.5 })
+        corners.forEach(([cx, cz]) => {
+          const pts = [new THREE.Vector3(cx, box.min.y - 0.5, cz), new THREE.Vector3(cx, box.max.y + 1, cz)]
+          scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat))
+        })
+      }
     }
 
     controls.update()
@@ -165,8 +224,7 @@ export default function TerrainProfile3D({ mode, perfil, profA, profB, onClose }
     scene.add(fill)
 
     const onResize = () => {
-      const w = container.clientWidth
-      const h = container.clientHeight
+      const w = container.clientWidth, h = container.clientHeight
       camera.aspect = w / h
       camera.updateProjectionMatrix()
       renderer.setSize(w, h)
@@ -186,11 +244,9 @@ export default function TerrainProfile3D({ mode, perfil, profA, profB, onClose }
       window.removeEventListener('resize', onResize)
       controls.dispose()
       renderer.dispose()
-      if (renderer.domElement.parentNode === container) {
-        container.removeChild(renderer.domElement)
-      }
+      if (renderer.domElement.parentNode === container) container.removeChild(renderer.domElement)
     }
-  }, [mode, perfil, profA, profB])
+  }, [mode, perfil, gridData])
 
   return (
     <div style={{
@@ -210,7 +266,7 @@ export default function TerrainProfile3D({ mode, perfil, profA, profB, onClose }
           alignItems: 'center', pointerEvents: 'none',
         }}>
           <div style={{ color: '#f0f9ff', fontWeight: 700, fontSize: 16 }}>
-            🏔️ Perfil 3D do Terreno
+            🏔️ {mode === 'poligono' ? 'Relevo 3D do Polígono' : 'Perfil 3D do Terreno'}
           </div>
           <div style={{ fontSize: 11, color: '#475569' }}>
             Arraste → rotacionar &nbsp;·&nbsp; Scroll → zoom &nbsp;·&nbsp; Botão direito → mover
@@ -221,6 +277,20 @@ export default function TerrainProfile3D({ mode, perfil, profA, profB, onClose }
           background: '#1e293b', border: '1px solid #334155', color: '#e2e8f0',
           borderRadius: 8, padding: '6px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
         }}>✕ Fechar</button>
+
+        {mode === 'poligono' && gridData && (
+          <div style={{
+            position: 'absolute', bottom: 16, left: 16, zIndex: 10,
+            background: 'rgba(13,17,23,0.85)', borderRadius: 8, padding: '8px 12px',
+            border: '1px solid #1e3a5f', fontSize: 11, color: '#64748b',
+          }}>
+            <div style={{ color: '#a78bfa', fontWeight: 700, marginBottom: 4 }}>Grade {gridData.rows} × {gridData.cols}</div>
+            <div>Alt. mín: <b style={{ color: '#22c55e' }}>{gridData.minE} m</b></div>
+            <div>Alt. máx: <b style={{ color: '#ef4444' }}>{gridData.maxE} m</b></div>
+            <div>Desnível: <b style={{ color: '#38bdf8' }}>{gridData.maxE - gridData.minE} m</b></div>
+          </div>
+        )}
+
         <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
       </div>
       <div style={{ marginTop: 14, display: 'flex', gap: 20, fontSize: 12, color: '#64748b' }}>
