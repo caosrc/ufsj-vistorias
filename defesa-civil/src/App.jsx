@@ -4,6 +4,7 @@ import Vistoria from './pages/Vistoria'
 import Imoveis from './pages/Imoveis'
 import Dashboard from './pages/Dashboard'
 import Declividade from './pages/Declividade'
+import OfflineManager from './components/OfflineManager'
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path='/dashboard' element={<Dashboard />} />
         <Route path='/declividade' element={<Declividade />} />
       </Routes>
+      <OfflineManager />
     </BrowserRouter>
   )
 }
