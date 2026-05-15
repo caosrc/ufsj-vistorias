@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 
+// ── Cor por altitude relativa ──────────────────────────────────
 function elevToColor(t) {
   const low  = new THREE.Color(0x22c55e)
   const mid  = new THREE.Color(0xeab308)
@@ -12,7 +13,6 @@ function elevToColor(t) {
   return high.clone().lerp(peak, (t - 0.66) / 0.34)
 }
 
-// Calcula intervalo de cota apropriado para o desnível
 function calcContourInterval(range) {
   if (range <= 10)  return 1
   if (range <= 30)  return 2
@@ -22,38 +22,50 @@ function calcContourInterval(range) {
   return 50
 }
 
-// Cria sprite com texto usando CanvasTexture
+// ── Exagero vertical automático ────────────────────────────────
+// Garante que o terreno pareça real quando Δh << extensão horizontal
+function calcExaggeration(horizExtent, vertRange) {
+  if (vertRange <= 0) return 1
+  const ratio = vertRange / horizExtent
+  // Queremos que a altura visual seja ~35–60% da extensão horizontal
+  const target = 0.45
+  const raw = target / ratio
+  return Math.min(Math.max(raw, 1), 10) // nunca menos que 1×, máximo 10×
+}
+
+// ── Sprite de texto ────────────────────────────────────────────
 function makeTextSprite(scene, text, color, x, y, z, scaleX, scaleY) {
   const canvas = document.createElement('canvas')
   canvas.width = 256; canvas.height = 64
   const ctx = canvas.getContext('2d')
   ctx.clearRect(0, 0, 256, 64)
-  ctx.fillStyle = 'rgba(10,16,34,0.75)'
-  ctx.beginPath()
-  ctx.roundRect(2, 4, 252, 56, 8)
-  ctx.fill()
+  ctx.fillStyle = 'rgba(10,16,34,0.78)'
+  ctx.beginPath(); ctx.roundRect(2, 4, 252, 56, 8); ctx.fill()
   ctx.font = 'bold 28px "Courier New", monospace'
   ctx.fillStyle = color
   ctx.textAlign = 'center'
   ctx.fillText(text, 128, 42)
   const texture = new THREE.CanvasTexture(canvas)
   texture.needsUpdate = true
-  const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false })
-  const sprite = new THREE.Sprite(mat)
-  sprite.scale.set(scaleX || 60, scaleY || 14, 1)
-  sprite.position.set(x, y, z)
-  scene.add(sprite)
-  return sprite
+  const mat  = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false })
+  const spr  = new THREE.Sprite(mat)
+  spr.scale.set(scaleX || 60, scaleY || 14, 1)
+  spr.position.set(x, y, z)
+  scene.add(spr)
+  return spr
 }
 
-// Constrói grade de terreno (polígono)
-function buildGridMesh(points, cols, rows, minE, maxE) {
+// ── Grade de terreno (polígono) com exagero vertical ──────────
+function buildGridMesh(points, cols, rows, minE, maxE, exag) {
   const total     = points.length
   const positions = new Float32Array(total * 3)
   const colorsArr = new Float32Array(total * 3)
   for (let i = 0; i < total; i++) {
     const p = points[i]
-    positions[i*3] = p.x; positions[i*3+1] = p.y; positions[i*3+2] = p.z
+    const visualY = (p.y - minE) * exag      // elevação relativa × exagero
+    positions[i*3]   = p.x
+    positions[i*3+1] = visualY
+    positions[i*3+2] = p.z
     const t = maxE > minE ? (p.y - minE) / (maxE - minE) : 0.5
     const c = elevToColor(t)
     colorsArr[i*3] = c.r; colorsArr[i*3+1] = c.g; colorsArr[i*3+2] = c.b
@@ -73,17 +85,21 @@ function buildGridMesh(points, cols, rows, minE, maxE) {
   return geo
 }
 
-// Constrói fita de perfil 1D (medir)
-function buildRibbonMesh(rowsX, rowsY, rowsZ, minE, maxE, numCols) {
-  const NC = numCols, N = rowsX.length / NC
-  const positions = new Float32Array(rowsX.length * 3)
-  const colorsArr = new Float32Array(rowsX.length * 3)
-  for (let i = 0; i < rowsX.length; i++) {
-    positions[i*3] = rowsX[i]; positions[i*3+1] = rowsY[i]; positions[i*3+2] = rowsZ[i]
+// ── Fita de perfil 1D (medir) com exagero vertical ────────────
+function buildRibbonMesh(rowsX, rowsY, rowsZ, minE, maxE, numCols, exag) {
+  const NC = numCols, count = rowsX.length
+  const positions = new Float32Array(count * 3)
+  const colorsArr = new Float32Array(count * 3)
+  for (let i = 0; i < count; i++) {
+    const visualY = (rowsY[i] - minE) * exag
+    positions[i*3]   = rowsX[i]
+    positions[i*3+1] = visualY
+    positions[i*3+2] = rowsZ[i]
     const t = maxE > minE ? (rowsY[i] - minE) / (maxE - minE) : 0.5
     const c = elevToColor(t)
     colorsArr[i*3] = c.r; colorsArr[i*3+1] = c.g; colorsArr[i*3+2] = c.b
   }
+  const N = rowsX.length / NC
   const indices = []
   for (let i = 0; i < N-1; i++) {
     for (let j = 0; j < NC-1; j++) {
@@ -99,9 +115,61 @@ function buildRibbonMesh(rowsX, rowsY, rowsZ, minE, maxE, numCols) {
   return geo
 }
 
+// ── Marcador visual de pico alto ───────────────────────────────
+function addPeakMarker(scene, px, pz, visualPeakY, realPeakElev, range, spriteW, spriteH) {
+  // Altura do cone proporcional ao visual
+  const coneH  = Math.max(visualPeakY * 0.18, spriteH * 2.5)
+  const coneR  = coneH * 0.22
+
+  // Cone principal (vermelho/laranja)
+  const coneGeo = new THREE.ConeGeometry(coneR, coneH, 10)
+  const coneMat = new THREE.MeshLambertMaterial({ color: 0xb91c1c, transparent: false })
+  const cone    = new THREE.Mesh(coneGeo, coneMat)
+  cone.position.set(px, visualPeakY + coneH / 2, pz)
+  scene.add(cone)
+
+  // Calota de neve quando desnível é muito alto (> 60m)
+  if (range > 60) {
+    const snowGeo = new THREE.SphereGeometry(coneR * 0.65, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2.2)
+    const snowMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.92 })
+    const snow    = new THREE.Mesh(snowGeo, snowMat)
+    snow.position.set(px, visualPeakY + coneH * 0.92, pz)
+    scene.add(snow)
+  }
+
+  // Halo pulsante no topo (anel luminoso)
+  const ringGeo = new THREE.TorusGeometry(coneR * 1.4, coneR * 0.12, 8, 24)
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0xf87171, transparent: true, opacity: 0.7 })
+  const ring    = new THREE.Mesh(ringGeo, ringMat)
+  ring.rotation.x = Math.PI / 2
+  ring.position.set(px, visualPeakY + coneH + coneR * 0.5, pz)
+  scene.add(ring)
+
+  // Linha vertical do chão ao pico
+  const linePts = [
+    new THREE.Vector3(px, 0, pz),
+    new THREE.Vector3(px, visualPeakY, pz),
+  ]
+  const lineMat = new THREE.LineDashedMaterial({ color: 0xf87171, dashSize: coneH * 0.08, gapSize: coneH * 0.05, transparent: true, opacity: 0.5 })
+  const line    = new THREE.Line(new THREE.BufferGeometry().setFromPoints(linePts), lineMat)
+  line.computeLineDistances()
+  scene.add(line)
+
+  // Label com a cota real
+  makeTextSprite(
+    scene,
+    `▲ PICO ${Math.round(realPeakElev)} m`,
+    '#f87171',
+    px, visualPeakY + coneH + spriteH * 1.2, pz,
+    spriteW * 1.3, spriteH * 1.2,
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
 export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists, onClose }) {
   const mountRef = useRef(null)
   const [showDists, setShowDists] = useState(true)
+  const [exagInfo, setExagInfo] = useState(null)   // { exag, range }
 
   useEffect(() => {
     const container = mountRef.current
@@ -121,43 +189,60 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
     container.appendChild(renderer.domElement)
 
     const controls = new OrbitControls(camera, renderer.domElement)
-    controls.enableDamping  = true
-    controls.dampingFactor  = 0.07
-    controls.rotateSpeed    = 0.8
-    controls.zoomSpeed      = 1.2
-    controls.minDistance    = 1
-    controls.maxDistance    = 200000
+    controls.enableDamping = true
+    controls.dampingFactor = 0.07
+    controls.rotateSpeed   = 0.8
+    controls.zoomSpeed     = 1.2
+    controls.minDistance   = 1
+    controls.maxDistance   = 200000
 
-    let geo = null
+    let geo  = null
+    let exag = 1
+    let realMinE = 0, realMaxE = 0, realRange = 0
 
-    // ── Modo Polígono ─────────────────────────────────────────
+    // ── Modo Polígono ──────────────────────────────────────────
     if (mode === 'poligono' && gridData?.points?.length > 0) {
       const { points, cols, rows, minE, maxE } = gridData
-      geo = buildGridMesh(points, cols, rows, minE, maxE)
+      realMinE = minE; realMaxE = maxE; realRange = maxE - minE
+
+      // Extensão horizontal estimada
+      const xs = points.map(p => p.x), zs = points.map(p => p.z)
+      const horizX = Math.max(...xs) - Math.min(...xs)
+      const horizZ = Math.max(...zs) - Math.min(...zs)
+      const horiz  = Math.max(horizX, horizZ, 1)
+
+      exag = calcExaggeration(horiz, realRange)
+      setExagInfo({ exag: Math.round(exag * 10) / 10, range: Math.round(realRange) })
+
+      geo = buildGridMesh(points, cols, rows, minE, maxE, exag)
 
       // Wireframe
-      const wireMat = new THREE.MeshBasicMaterial({ color: 0x1e3a5f, wireframe: true, transparent: true, opacity: 0.2 })
+      const wireMat = new THREE.MeshBasicMaterial({ color: 0x1e3a5f, wireframe: true, transparent: true, opacity: 0.18 })
       scene.add(new THREE.Mesh(geo.clone(), wireMat))
 
-      // Esferas nos pontos internos
+      // Esferas nos vértices internos
       const sphereGeo = new THREE.SphereGeometry(0.3, 6, 6)
       points.forEach(p => {
         if (!p.inside) return
-        const t   = maxE > minE ? (p.y - minE) / (maxE - minE) : 0.5
+        const t   = realMaxE > realMinE ? (p.y - realMinE) / (realMaxE - realMinE) : 0.5
         const col = elevToColor(t)
         const mat = new THREE.MeshLambertMaterial({ color: col })
         const s   = new THREE.Mesh(sphereGeo, mat)
-        s.position.set(p.x, p.y + 0.5, p.z)
+        s.position.set(p.x, (p.y - realMinE) * exag + 0.5, p.z)
         scene.add(s)
       })
 
-    // ── Modo Medir ────────────────────────────────────────────
+    // ── Modo Medir ─────────────────────────────────────────────
     } else if (mode === 'medir' && perfil?.length > 1) {
       const COLS = 24, N = perfil.length
       const totalDist = perfil[N-1].dist
       const elevs = perfil.map(p => p.elev)
-      const minE  = Math.min(...elevs), maxE = Math.max(...elevs)
+      realMinE = Math.min(...elevs); realMaxE = Math.max(...elevs); realRange = realMaxE - realMinE
       const ribbonW = Math.max(totalDist * 0.18, 15)
+
+      exag = calcExaggeration(totalDist, realRange)
+      setExagInfo({ exag: Math.round(exag * 10) / 10, range: Math.round(realRange) })
+
       const rx = [], ry = [], rz = []
       for (let i = 0; i < N; i++) {
         for (let j = 0; j < COLS; j++) {
@@ -166,7 +251,7 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
           rz.push((j / (COLS-1)) * ribbonW)
         }
       }
-      geo = buildRibbonMesh(rx, ry, rz, minE, maxE, COLS)
+      geo = buildRibbonMesh(rx, ry, rz, realMinE, realMaxE, COLS, exag)
     }
 
     if (geo) {
@@ -181,10 +266,8 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
 
       geo.computeBoundingBox()
       const box    = geo.boundingBox
-      const center = new THREE.Vector3()
-      box.getCenter(center)
-      const size   = new THREE.Vector3()
-      box.getSize(size)
+      const center = new THREE.Vector3(); box.getCenter(center)
+      const size   = new THREE.Vector3(); box.getSize(size)
       const maxDim = Math.max(size.x, size.y, size.z)
 
       camera.position.set(
@@ -200,98 +283,100 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
       grid.position.set(center.x, box.min.y - 0.5, center.z)
       scene.add(grid)
 
-      // ── CURVAS DE NÍVEL ───────────────────────────────────
-      const minE = box.min.y, maxE = box.max.y
-      const range = maxE - minE
-      const interval = calcContourInterval(range)
-      const startE   = Math.ceil(minE / interval) * interval
-
-      // Definir escala para os sprites baseada no tamanho da cena
+      // Escala dos sprites
       const spriteW = maxDim * 0.22
       const spriteH = maxDim * 0.055
 
-      for (let e = startE; e <= maxE + 0.01; e += interval) {
-        const t = (e - minE) / range
-        const col = elevToColor(Math.min(t, 1))
-        const hex = '#' + col.getHexString()
+      // ── CURVAS DE NÍVEL (em Y visual) ──────────────────────
+      const visualRange = size.y   // = realRange * exag
+      const interval    = calcContourInterval(realRange)
+      const startE      = Math.ceil(realMinE / interval) * interval
 
-        // Retângulo horizontal no nível da cota (perimeter)
+      for (let e = startE; e <= realMaxE + 0.01; e += interval) {
+        const t       = (e - realMinE) / Math.max(realRange, 1)
+        const col     = elevToColor(Math.min(t, 1))
+        const hex     = '#' + col.getHexString()
+        const visualY = (e - realMinE) * exag   // posição Y na cena
+
         const pts = [
-          new THREE.Vector3(box.min.x, e, box.min.z),
-          new THREE.Vector3(box.max.x, e, box.min.z),
-          new THREE.Vector3(box.max.x, e, box.max.z),
-          new THREE.Vector3(box.min.x, e, box.max.z),
-          new THREE.Vector3(box.min.x, e, box.min.z),
+          new THREE.Vector3(box.min.x, visualY, box.min.z),
+          new THREE.Vector3(box.max.x, visualY, box.min.z),
+          new THREE.Vector3(box.max.x, visualY, box.max.z),
+          new THREE.Vector3(box.min.x, visualY, box.max.z),
+          new THREE.Vector3(box.min.x, visualY, box.min.z),
         ]
         const lMat = new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.55 })
         scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lMat))
 
-        // Label de cota na frente (z mínimo) e na lateral (x mínimo)
         makeTextSprite(scene, `${Math.round(e)} m`, hex,
-          box.min.x - spriteW * 0.6, e, box.min.z,
-          spriteW, spriteH)
+          box.min.x - spriteW * 0.6, visualY, box.min.z, spriteW, spriteH)
         makeTextSprite(scene, `${Math.round(e)} m`, hex,
-          box.max.x + spriteW * 0.6, e, box.max.z,
-          spriteW, spriteH)
+          box.max.x + spriteW * 0.6, visualY, box.max.z, spriteW, spriteH)
       }
 
-      // ── COLUNAS VERTICAIS NOS CANTOS COM ESCALA ──────────
+      // ── COLUNAS VERTICAIS NOS CANTOS ───────────────────────
       const corners = [
-        [box.min.x, box.min.z],
-        [box.max.x, box.min.z],
-        [box.min.x, box.max.z],
-        [box.max.x, box.max.z],
+        [box.min.x, box.min.z],[box.max.x, box.min.z],
+        [box.min.x, box.max.z],[box.max.x, box.max.z],
       ]
-      const colMat = new THREE.LineBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.55 })
+      const colMat  = new THREE.LineBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.55 })
       const tickMat = new THREE.LineBasicMaterial({ color: 0x475569, transparent: true, opacity: 0.8 })
 
       corners.forEach(([cx, cz]) => {
-        // Linha vertical principal
-        const pts = [new THREE.Vector3(cx, minE - 0.5, cz), new THREE.Vector3(cx, maxE + 1, cz)]
+        const pts = [new THREE.Vector3(cx, -0.5, cz), new THREE.Vector3(cx, visualRange + 1, cz)]
         scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), colMat))
-
-        // Ticks em cada cota
-        for (let e = startE; e <= maxE + 0.01; e += interval) {
-          const tickLen = size.x * 0.025
-          const tpts = [new THREE.Vector3(cx - tickLen, e, cz), new THREE.Vector3(cx + tickLen, e, cz)]
-          scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(tpts), tickMat))
+        for (let e = startE; e <= realMaxE + 0.01; e += interval) {
+          const vy = (e - realMinE) * exag
+          const tl = size.x * 0.025
+          const tp = [new THREE.Vector3(cx - tl, vy, cz), new THREE.Vector3(cx + tl, vy, cz)]
+          scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(tp), tickMat))
         }
       })
 
-      // ── SETA + LABEL DO DESNÍVEL (barra lateral) ─────────
-      const barX = box.max.x + size.x * 0.08
+      // ── BARRA DE DESNÍVEL ──────────────────────────────────
+      const barX   = box.max.x + size.x * 0.08
       const barPts = [
-        new THREE.Vector3(barX, minE, box.min.z),
-        new THREE.Vector3(barX, maxE, box.min.z),
+        new THREE.Vector3(barX, 0, box.min.z),
+        new THREE.Vector3(barX, visualRange, box.min.z),
       ]
-      const barMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.7 })
-      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(barPts), barMat))
-      makeTextSprite(scene, `Δh = ${Math.round(range)} m`, '#38bdf8',
-        barX, (minE + maxE) / 2, box.min.z, spriteW, spriteH)
+      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(barPts),
+        new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.7 })))
+      makeTextSprite(scene, `Δh = ${Math.round(realRange)} m`, '#38bdf8',
+        barX, visualRange / 2, box.min.z, spriteW, spriteH)
 
-      // ── COTAS POLÍGONO (nome nos cantos do mesh) ──────────
+      // ── LABELS MIN / MAX ───────────────────────────────────
       if (mode === 'poligono') {
-        makeTextSprite(scene, `min: ${Math.round(minE)} m`, '#22c55e',
-          center.x, minE - spriteH, center.z, spriteW * 1.2, spriteH)
-        makeTextSprite(scene, `max: ${Math.round(maxE)} m`, '#ef4444',
-          center.x, maxE + spriteH * 0.5, center.z, spriteW * 1.2, spriteH)
+        makeTextSprite(scene, `min: ${Math.round(realMinE)} m`, '#22c55e',
+          center.x, -spriteH * 0.8, center.z, spriteW * 1.2, spriteH)
+        makeTextSprite(scene, `max: ${Math.round(realMaxE)} m`, '#ef4444',
+          center.x, visualRange + spriteH * 0.6, center.z, spriteW * 1.2, spriteH)
+      }
+
+      // ── PICO 3D (quando desnível é grande) ────────────────
+      if (realRange >= 25) {
+        if (mode === 'poligono' && gridData?.points?.length > 0) {
+          const peakPt    = gridData.points.reduce((a, b) => b.y > a.y ? b : a)
+          const visualPeakY = (peakPt.y - realMinE) * exag
+          addPeakMarker(scene, peakPt.x, peakPt.z, visualPeakY, peakPt.y, realRange, spriteW, spriteH)
+        } else if (mode === 'medir' && perfil?.length > 1) {
+          const peakPt     = perfil.reduce((a, b) => b.elev > a.elev ? b : a)
+          const ribbonW    = Math.max(perfil[perfil.length-1].dist * 0.18, 15)
+          const visualPeakY = (peakPt.elev - realMinE) * exag
+          addPeakMarker(scene, peakPt.dist, ribbonW / 2, visualPeakY, peakPt.elev, realRange, spriteW, spriteH)
+        }
       }
     }
 
     controls.update()
-
     scene.add(new THREE.AmbientLight(0x8ab4f8, 0.9))
     const sun = new THREE.DirectionalLight(0xffffff, 1.3)
-    sun.position.set(500, 800, 400)
-    scene.add(sun)
+    sun.position.set(500, 800, 400); scene.add(sun)
     const fill = new THREE.DirectionalLight(0x6699ff, 0.4)
-    fill.position.set(-300, 200, -300)
-    scene.add(fill)
+    fill.position.set(-300, 200, -300); scene.add(fill)
 
     const onResize = () => {
       const w = container.clientWidth, h = container.clientHeight
-      camera.aspect = w / h
-      camera.updateProjectionMatrix()
+      camera.aspect = w / h; camera.updateProjectionMatrix()
       renderer.setSize(w, h)
     }
     window.addEventListener('resize', onResize)
@@ -307,9 +392,9 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
     return () => {
       cancelAnimationFrame(animId)
       window.removeEventListener('resize', onResize)
-      controls.dispose()
-      renderer.dispose()
-      if (renderer.domElement.parentNode === container) container.removeChild(renderer.domElement)
+      controls.dispose(); renderer.dispose()
+      if (renderer.domElement.parentNode === container)
+        container.removeChild(renderer.domElement)
     }
   }, [mode, perfil, gridData])
 
@@ -334,8 +419,29 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
           <div style={{ color: '#f0f9ff', fontWeight: 700, fontSize: 16 }}>
             🏔️ {mode === 'poligono' ? 'Relevo 3D do Polígono' : 'Perfil 3D do Terreno'}
           </div>
-          <div style={{ fontSize: 11, color: '#475569' }}>
-            Arraste → rotacionar &nbsp;·&nbsp; Scroll → zoom &nbsp;·&nbsp; Botão direito → mover
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {exagInfo && exagInfo.exag > 1.05 && (
+              <span style={{
+                background: '#1e3a5f', border: '1px solid #3b82f6',
+                borderRadius: 6, padding: '3px 10px',
+                color: '#7dd3fc', fontSize: 11, fontWeight: 600,
+              }}>
+                Exagero vertical: {exagInfo.exag}× &nbsp;
+                <span style={{ color: '#475569' }}>(Δh real = {exagInfo.range} m)</span>
+              </span>
+            )}
+            {exagInfo && exagInfo.exag <= 1.05 && exagInfo.range > 0 && (
+              <span style={{
+                background: '#14532d', border: '1px solid #166534',
+                borderRadius: 6, padding: '3px 10px',
+                color: '#86efac', fontSize: 11, fontWeight: 600,
+              }}>
+                Escala real &nbsp;·&nbsp; Δh = {exagInfo.range} m
+              </span>
+            )}
+            <span style={{ fontSize: 11, color: '#475569' }}>
+              Arraste → rotacionar &nbsp;·&nbsp; Scroll → zoom &nbsp;·&nbsp; Dir → mover
+            </span>
           </div>
         </div>
 
@@ -345,12 +451,12 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
           borderRadius: 8, padding: '6px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
         }}>✕ Fechar</button>
 
-        {/* Painel de Info (cotas + polígono) */}
+        {/* Painel de info (polígono) */}
         {mode === 'poligono' && gridData && (
           <div style={{
             position: 'absolute', bottom: 16, left: 16, zIndex: 10,
             background: 'rgba(13,17,23,0.92)', borderRadius: 10, padding: '10px 14px',
-            border: '1px solid #1e3a5f', fontSize: 11, color: '#64748b', minWidth: 140,
+            border: '1px solid #1e3a5f', fontSize: 11, color: '#64748b', minWidth: 150,
           }}>
             <div style={{ color: '#a78bfa', fontWeight: 700, marginBottom: 6, fontSize: 12 }}>
               📐 Grade {gridData.rows} × {gridData.cols}
@@ -358,6 +464,16 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
             <div>Alt. mín: <b style={{ color: '#22c55e' }}>{gridData.minE} m</b></div>
             <div>Alt. máx: <b style={{ color: '#ef4444' }}>{gridData.maxE} m</b></div>
             <div>Desnível: <b style={{ color: '#38bdf8' }}>{gridData.maxE - gridData.minE} m</b></div>
+            {exagInfo && exagInfo.exag > 1.05 && (
+              <div style={{ marginTop: 6, borderTop: '1px solid #1e3a5f', paddingTop: 6, color: '#7dd3fc', fontSize: 10 }}>
+                ⚡ Exagero vertical {exagInfo.exag}× aplicado
+              </div>
+            )}
+            {(gridData.maxE - gridData.minE) >= 25 && (
+              <div style={{ marginTop: 4, color: '#f87171', fontSize: 10 }}>
+                🔴 Pico marcado na cena
+              </div>
+            )}
             <div style={{ marginTop: 6, borderTop: '1px solid #1e3a5f', paddingTop: 6 }}>
               <div style={{ color: '#64748b', fontSize: 10 }}>
                 Intervalo curvas: <b style={{ color: '#7dd3fc' }}>{calcContourInterval(gridData.maxE - gridData.minE)} m</b>
@@ -366,7 +482,7 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
           </div>
         )}
 
-        {/* Painel de medidas dos lados do polígono */}
+        {/* Painel de lados do polígono */}
         {mode === 'poligono' && lateralDists?.length > 0 && (
           <div style={{
             position: 'absolute', bottom: 16, right: 16, zIndex: 10,
@@ -397,23 +513,16 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
                         background: '#1e3a5f', borderRadius: 4, padding: '2px 7px',
                         color: '#93c5fd', fontWeight: 700, fontSize: 11, flexShrink: 0,
                       }}>L{i+1}</span>
-                      <span style={{ color: '#94a3b8', fontSize: 11 }}>
-                        V{d.from} → V{d.to}
-                      </span>
-                      <span style={{ color: '#fbbf24', fontWeight: 700, marginLeft: 'auto', fontFamily: 'monospace' }}>
-                        {len}
-                      </span>
+                      <span style={{ color: '#94a3b8', fontSize: 11 }}>V{d.from} → V{d.to}</span>
+                      <span style={{ color: '#fbbf24', fontWeight: 700, marginLeft: 'auto', fontFamily: 'monospace' }}>{len}</span>
                     </div>
                   )
                 })}
-                <div style={{
-                  marginTop: 8, paddingTop: 6, borderTop: '1px solid #1e3a5f',
-                  display: 'flex', justifyContent: 'space-between',
-                }}>
+                <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px solid #1e3a5f', display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#64748b' }}>Perímetro total</span>
                   <span style={{ color: '#38bdf8', fontWeight: 700, fontFamily: 'monospace' }}>
                     {(() => {
-                      const total = lateralDists.reduce((s,d) => s + d.dist, 0)
+                      const total = lateralDists.reduce((s, d) => s + d.dist, 0)
                       return total >= 1000 ? `${(total/1000).toFixed(2)} km` : `${Math.round(total)} m`
                     })()}
                   </span>
@@ -427,16 +536,15 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
       </div>
 
       {/* Legenda de cores */}
-      <div style={{ marginTop: 14, display: 'flex', gap: 20, fontSize: 12, color: '#64748b' }}>
+      <div style={{ marginTop: 14, display: 'flex', gap: 20, fontSize: 12, color: '#64748b', flexWrap: 'wrap', justifyContent: 'center' }}>
         {[['#22c55e','Baixa altitude'],['#eab308','Altitude média'],['#f97316','Alta altitude'],['#ef4444','Pico']].map(([cor,txt]) => (
           <span key={txt} style={{ display:'flex', alignItems:'center', gap:6 }}>
             <span style={{ width:12, height:12, borderRadius:3, background:cor, display:'inline-block' }} />
             {txt}
           </span>
         ))}
-        <span style={{ color: '#475569', fontSize: 11 }}>— Linhas = curvas de nível</span>
+        <span style={{ color: '#475569', fontSize: 11 }}>— Linhas = curvas de nível &nbsp;·&nbsp; 🔴 Pico destacado quando Δh ≥ 25m</span>
       </div>
     </div>
   )
 }
-
