@@ -242,7 +242,7 @@ export default function Declividade() {
   const medirStateRef = useRef({ pt1: null, pt1Marker: null, linhaMedir: null, pt2Marker: null, previewLine: null })
 
   // Polygon drawing state
-  const polyDrawRef     = useRef({ ativo: false, vertices: [], markers: [], line: null, preview: null, closeLine: null, filledPoly: null })
+  const polyDrawRef     = useRef({ ativo: false, vertices: [], markers: [], line: null, preview: null, closeLine: null, filledPoly: null, firstMarker: null })
   const modoPoligonoRef = useRef(false)
 
   const [cidade,          setCidade]          = useState(CIDADE_PADRAO)
@@ -262,6 +262,13 @@ export default function Declividade() {
 
   useEffect(() => { modoMedirRef.current  = modoMedir },  [modoMedir])
   useEffect(() => { modoPoligonoRef.current = modoPoligono }, [modoPoligono])
+
+  // Abre 3D automaticamente após análise do polígono
+  useEffect(() => {
+    if (resultado && !resultado.erro && modoAtivo === 'poligono') {
+      setShow3D(true)
+    }
+  }, [resultado])
 
   // ── Toggle visibilidade por classe ───────────────────────────
   useEffect(() => {
@@ -403,10 +410,23 @@ export default function Declividade() {
     const isFirst = pd.vertices.length === 1
     const cor = '#a78bfa'
     const m = L.circleMarker(latlng, {
-      radius: isFirst ? 7 : 5,
-      color: isFirst ? '#fff' : cor,
-      fillColor: cor, fillOpacity: 1, weight: 2,
-    }).bindTooltip(isFirst ? '1º vértice — duplo clique para fechar' : `Vértice ${pd.vertices.length}`).addTo(drawLayerRef.current)
+      radius: isFirst ? 9 : 5,
+      color: isFirst ? '#22c55e' : cor,
+      fillColor: isFirst ? '#22c55e' : cor,
+      fillOpacity: 1, weight: 2.5,
+    }).bindTooltip(isFirst ? 'Clique aqui para fechar o polígono' : `Vértice ${pd.vertices.length}`)
+      .addTo(drawLayerRef.current)
+
+    if (isFirst) {
+      pd.firstMarker = m
+      m.on('click', (e) => {
+        L.DomEvent.stopPropagation(e)
+        if (polyDrawRef.current.vertices.length >= 3) {
+          finalizarPoligono()
+        }
+      })
+    }
+
     pd.markers.push(m)
 
     // Atualiza polyline de contorno
@@ -446,7 +466,7 @@ export default function Declividade() {
     if (pd.preview)   drawLayerRef.current?.removeLayer(pd.preview)
     if (pd.closeLine) drawLayerRef.current?.removeLayer(pd.closeLine)
     if (pd.filledPoly) drawLayerRef.current?.removeLayer(pd.filledPoly)
-    polyDrawRef.current = { ativo: false, vertices: [], markers: [], line: null, preview: null, closeLine: null, filledPoly: null }
+    polyDrawRef.current = { ativo: false, vertices: [], markers: [], line: null, preview: null, closeLine: null, filledPoly: null, firstMarker: null }
   }
 
   function limparMedicao() {
@@ -835,7 +855,7 @@ export default function Declividade() {
           : modoMedir && medirStateRef.current.pt1
             ? '🟣 Clique para marcar o Ponto B — a declividade será calculada automaticamente'
             : modoPoligono
-              ? `🟣 Clique para adicionar vértices (${polyDrawRef.current.vertices.length} marcados) · Duplo clique para fechar`
+              ? `🟣 Clique para adicionar vértices (${polyDrawRef.current.vertices.length} marcados) · Clique na bolinha verde para fechar`
               : modoAtivo === 'medir'
                 ? 'Linha medida · clique em Medir para nova medição'
                 : modoAtivo === 'poligono'
@@ -962,7 +982,7 @@ export default function Declividade() {
                   <b style={{ color: '#a78bfa' }}>✏ Polígono</b> — desenhe uma área no mapa. O sistema calcula as cotas internas, distâncias laterais, cruzamentos de curvas de nível e o modelo 3D do terreno.
                 </div>
                 <div style={{ marginTop: 8, fontSize: 11, color: '#475569' }}>
-                  Duplo clique para fechar o polígono.
+                  Clique na bolinha verde do 1º ponto para fechar o polígono.
                 </div>
               </div>
             )}
