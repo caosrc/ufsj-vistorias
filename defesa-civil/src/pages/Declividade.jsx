@@ -78,9 +78,13 @@ function PerfilLongitudinal({ perfil, cotaA, cotaB, distHorizM, cor, segmentos10
   const areaD = `${pathD} L ${toX(maxDist).toFixed(1)},${(padT + plotH).toFixed(1)} L ${toX(0).toFixed(1)},${(padT + plotH).toFixed(1)} Z`
 
   const yLabelStep = elevRange <= 25 ? 5 : elevRange <= 60 ? 10 : elevRange <= 150 ? 20 : 50
-  const yTicks = []; for (let e = Math.ceil(minElev); e <= Math.floor(maxElev); e++) yTicks.push(e)
+  const yMinorStep = yLabelStep / 5
+  const yTicks = []
+  for (let e = Math.ceil(minElev / yMinorStep) * yMinorStep; e <= maxElev + 0.001; e += yMinorStep) yTicks.push(Math.round(e * 10) / 10)
   const xLabelStep = maxDist <= 50 ? 5 : maxDist <= 150 ? 10 : maxDist <= 300 ? 25 : maxDist <= 600 ? 50 : maxDist <= 1500 ? 100 : 200
-  const xTicks = []; for (let d = 0; d <= maxDist; d++) xTicks.push(d)
+  const xMinorStep = xLabelStep / 5
+  const xTicks = []
+  for (let d = 0; d <= maxDist + 0.001; d += xMinorStep) xTicks.push(Math.round(d * 10) / 10)
 
   const yA = toY(cotaA), xA = toX(0)
   const yB = toY(cotaB), xB = toX(maxDist)
@@ -121,13 +125,13 @@ function PerfilLongitudinal({ perfil, cotaA, cotaB, distHorizM, cor, segmentos10
 
       {/* Grade horizontal */}
       {yTicks.map(e => {
-        const isMajor = e % yLabelStep === 0
+        const isMajor = Math.abs(e % yLabelStep) < 0.01
         return <line key={`yg${e}`} x1={padL} y1={toY(e)} x2={padL + plotW} y2={toY(e)}
           stroke={isMajor ? '#243450' : '#1a2540'} strokeWidth={isMajor ? 0.8 : 0.4} strokeDasharray={isMajor ? '4,3' : '2,4'} />
       })}
       {/* Grade vertical */}
       {xTicks.map(d => {
-        const isMajor = d % xLabelStep === 0
+        const isMajor = Math.abs(d % xLabelStep) < 0.01
         return <line key={`xg${d}`} x1={toX(d)} y1={padT} x2={toX(d)} y2={padT + plotH}
           stroke={isMajor ? '#243450' : '#1a2540'} strokeWidth={isMajor ? 0.8 : 0.3} strokeDasharray={isMajor ? '4,3' : '1,5'} />
       })}
@@ -143,10 +147,10 @@ function PerfilLongitudinal({ perfil, cotaA, cotaB, distHorizM, cor, segmentos10
 
       {/* Eixo Y */}
       <line x1={padL} y1={padT} x2={padL} y2={padT + plotH} stroke="#475569" strokeWidth="1.2" />
-      {yTicks.filter(e => e % yLabelStep === 0).map(e => (
+      {yTicks.filter(e => Math.abs(e % yLabelStep) < 0.01).map(e => (
         <g key={`yl${e}`}>
           <line x1={padL - 4} y1={toY(e)} x2={padL} y2={toY(e)} stroke="#64748b" strokeWidth="1" />
-          <text x={padL - 6} y={toY(e) + 3.5} fontSize="8" fill="#94a3b8" textAnchor="end" fontFamily="monospace">{e}</text>
+          <text x={padL - 6} y={toY(e) + 3.5} fontSize="8" fill="#94a3b8" textAnchor="end" fontFamily="monospace">{Math.round(e)}</text>
         </g>
       ))}
       <text x={10} y={padT + plotH / 2} fontSize="7.5" fill="#64748b" textAnchor="middle"
@@ -154,11 +158,11 @@ function PerfilLongitudinal({ perfil, cotaA, cotaB, distHorizM, cor, segmentos10
 
       {/* Eixo X */}
       <line x1={padL} y1={padT + plotH} x2={padL + plotW} y2={padT + plotH} stroke="#475569" strokeWidth="1.2" />
-      {xTicks.filter(d => d % xLabelStep === 0).map(d => (
+      {xTicks.filter(d => Math.abs(d % xLabelStep) < 0.01).map(d => (
         <g key={`xl${d}`}>
           <line x1={toX(d)} y1={padT + plotH} x2={toX(d)} y2={padT + plotH + 4} stroke="#64748b" strokeWidth="1" />
           <text x={toX(d)} y={padT + plotH + 13} fontSize="7.5" fill="#94a3b8" textAnchor="middle" fontFamily="monospace">
-            {d >= 1000 ? `${(d/1000).toFixed(1)}k` : `${d}m`}
+            {d >= 1000 ? `${(d/1000).toFixed(1)}k` : `${Math.round(d)}m`}
           </text>
         </g>
       ))}
@@ -273,10 +277,26 @@ function TrianguloSlope({ interval, distHoriz, slopePct, slopeGrau, cor }) {
   )
 }
 
-// ── Elevação API (OpenTopoData SRTM 30m → fallback Open-Meteo) ─
+// ── Elevação API (Open-Meteo primário → fallback OpenTopoData) ─
 async function fetchElevations(points) {
-  const locations = points.map(p => `${p[1].toFixed(6)},${p[0].toFixed(6)}`).join('|')
+  // Primário: Open-Meteo (sem rate-limit rígido, melhor para Brasil)
   try {
+    const lats = points.map(p => p[1].toFixed(6)).join(',')
+    const lngs = points.map(p => p[0].toFixed(6)).join(',')
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`,
+      { signal: AbortSignal.timeout(10000) }
+    )
+    if (res.ok) {
+      const data = await res.json()
+      if (Array.isArray(data.elevation) && data.elevation.length === points.length) {
+        return data.elevation.map(e => e ?? 0)
+      }
+    }
+  } catch (_) {}
+  // Fallback: OpenTopoData SRTM 30m
+  try {
+    const locations = points.map(p => `${p[1].toFixed(6)},${p[0].toFixed(6)}`).join('|')
     const res = await fetch(
       `https://api.opentopodata.org/v1/srtm30m?locations=${locations}`,
       { signal: AbortSignal.timeout(8000) }
@@ -286,20 +306,17 @@ async function fetchElevations(points) {
       if (data.results?.length === points.length) return data.results.map(r => r.elevation ?? 0)
     }
   } catch (_) {}
-  const lats = points.map(p => p[1].toFixed(6)).join(',')
-  const lngs = points.map(p => p[0].toFixed(6)).join(',')
-  const res2 = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`)
-  if (!res2.ok) throw new Error(`API de elevação retornou ${res2.status}`)
-  const data2 = await res2.json()
-  if (!data2.elevation) throw new Error('Resposta inválida da API de elevação')
-  return data2.elevation
+  throw new Error('Não foi possível obter dados de elevação. Verifique sua conexão e tente novamente.')
 }
 
-// ── Batch paralelo (lotes de 100 simultâneos) ────────────────
+// ── Batch sequencial (lotes de 100, um por vez) ───────────────
 async function fetchElevationsBatched(points) {
   const batches = []
   for (let i = 0; i < points.length; i += 100) batches.push(points.slice(i, i + 100))
-  const results = await Promise.all(batches.map(fetchElevations))
+  const results = []
+  for (const batch of batches) {
+    results.push(await fetchElevations(batch))
+  }
   return results.flat()
 }
 
