@@ -49,4 +49,5 @@ server/
 ## Preferências do Usuário
 - Foco nas cidades: Ouro Branco - MG e Congonhas - MG
 - Idioma: Português (pt-BR)
-- Interface escura (dark mode)
+- Interface clara (light mode — fundo branco)
+- Layout responsivo: sidebar no desktop, barra de navegação inferior no mobile (≤768px)

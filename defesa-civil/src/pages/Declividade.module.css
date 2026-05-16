@@ -25,18 +25,19 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(9, 14, 26, 0.96);
+  background: rgba(255,255,255,0.97);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid #1e3a5f;
+  border-bottom: 1px solid #e2e8f0;
   padding: 7px 14px;
   min-height: 50px;
   flex-wrap: wrap;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
 }
 
 .toolbarTitle {
   font-size: 13px;
   font-weight: 700;
-  color: #38bdf8;
+  color: #2563eb;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -45,9 +46,9 @@
 }
 
 .select {
-  background: #1a2540;
-  color: #e2e8f0;
-  border: 1px solid #2a3f6f;
+  background: #f8fafc;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
   border-radius: 7px;
   padding: 5px 10px;
   font-size: 12px;
@@ -55,14 +56,14 @@
   cursor: pointer;
   outline: none;
 }
-.select:hover { border-color: #3b82f6; }
+.select:hover { border-color: #2563eb; }
 
 /* ── Layer buttons ──────────────────────────────────────────── */
 .layerBtns {
   display: flex;
   gap: 3px;
-  background: #1a2540;
-  border: 1px solid #2a3f6f;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 7px;
   padding: 2px;
 }
@@ -70,7 +71,7 @@
 .layerBtn {
   background: transparent;
   border: none;
-  color: #64748b;
+  color: #94a3b8;
   padding: 4px 9px;
   border-radius: 5px;
   font-size: 11px;
@@ -78,10 +79,10 @@
   transition: all 0.15s;
   white-space: nowrap;
 }
-.layerBtn:hover { background: #1e293b; color: #e2e8f0; }
+.layerBtn:hover { background: #f1f5f9; color: #1e293b; }
 .layerBtnActive {
-  background: #1e3a5f;
-  color: #38bdf8;
+  background: #eff6ff;
+  color: #2563eb;
 }
 
 /* ── Action buttons ─────────────────────────────────────────── */
@@ -101,40 +102,40 @@
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btnDraw {
-  background: #1a3a5c;
-  border-color: #38bdf8;
-  color: #38bdf8;
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #2563eb;
 }
-.btnDraw:hover:not(:disabled) { background: #1e4a74; }
+.btnDraw:hover:not(:disabled) { background: #dbeafe; }
 
 .btnDrawActive {
-  background: #38bdf8;
-  border-color: #38bdf8;
-  color: #0f172a;
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
 }
 
 .btnClear {
-  background: #1e293b;
-  border-color: #334155;
-  color: #94a3b8;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #64748b;
 }
-.btnClear:hover { background: #273549; color: #e2e8f0; }
+.btnClear:hover { background: #f1f5f9; color: #1e293b; }
 
 .hint {
   font-size: 11px;
-  color: #64748b;
+  color: #94a3b8;
   white-space: nowrap;
   margin-left: 4px;
 }
-.hintActive { color: #fbbf24; }
-.hintLoading { color: #38bdf8; }
+.hintActive { color: #d97706; }
+.hintLoading { color: #2563eb; }
 
 /* ── Painel lateral ─────────────────────────────────────────── */
 .panel {
   width: 310px;
   flex-shrink: 0;
-  background: #0f172a;
-  border-left: 1px solid #1e3a5f;
+  background: #f8fafc;
+  border-left: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -142,23 +143,24 @@
 
 .panelHeader {
   padding: 13px 16px 10px;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid #f1f5f9;
   display: flex;
   align-items: center;
   gap: 8px;
+  background: #ffffff;
 }
 
 .panelTitle {
   font-size: 13px;
   font-weight: 700;
-  color: #e2e8f0;
+  color: #1e293b;
   flex: 1;
 }
 
 .loadingDot {
   width: 7px; height: 7px;
   border-radius: 50%;
-  background: #38bdf8;
+  background: #2563eb;
   animation: pulse 1.2s ease-in-out infinite;
 }
 
@@ -188,7 +190,7 @@
   justify-content: center;
   gap: 10px;
   flex: 1;
-  color: #475569;
+  color: #94a3b8;
   font-size: 13px;
   text-align: center;
   padding: 20px;
@@ -197,7 +199,7 @@
 
 .placeholderIcon {
   font-size: 34px;
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 /* ── Stats ──────────────────────────────────────────────────── */
@@ -208,15 +210,16 @@
 }
 
 .statCard {
-  background: #1e293b;
-  border: 1px solid #1e3a5f;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 9px 11px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
 .statLabel {
   font-size: 10px;
-  color: #64748b;
+  color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 3px;
@@ -225,12 +228,12 @@
 .statValue {
   font-size: 17px;
   font-weight: 700;
-  color: #38bdf8;
+  color: #2563eb;
 }
 
 .statUnit {
   font-size: 11px;
-  color: #94a3b8;
+  color: #64748b;
   font-weight: 400;
 }
 
@@ -259,7 +262,7 @@
 
 .classDesc {
   font-size: 11px;
-  color: #94a3b8;
+  color: #64748b;
   line-height: 1.4;
 }
 
@@ -267,23 +270,24 @@
 .chartTitle {
   font-size: 10px;
   font-weight: 600;
-  color: #64748b;
+  color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 7px;
 }
 
 .chartWrap {
-  background: #1e293b;
-  border: 1px solid #1e3a5f;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 10px 10px 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
 /* ── Tabela de segmentos ────────────────────────────────────── */
 .segTable {
-  background: #1e293b;
-  border: 1px solid #1e3a5f;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   overflow: hidden;
   font-size: 11px;
@@ -294,12 +298,12 @@
   grid-template-columns: 2fr 1fr 1.1fr 1fr;
   gap: 4px;
   padding: 7px 10px;
-  background: #162035;
-  color: #64748b;
+  background: #f8fafc;
+  color: #94a3b8;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  border-bottom: 1px solid #1e3a5f;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .segRow {
@@ -307,13 +311,13 @@
   grid-template-columns: 2fr 1fr 1.1fr 1fr;
   gap: 4px;
   padding: 6px 10px;
-  color: #94a3b8;
-  border-bottom: 1px solid #162035;
+  color: #64748b;
+  border-bottom: 1px solid #f8fafc;
   align-items: center;
   transition: background 0.1s;
 }
 .segRow:last-child { border-bottom: none; }
-.segRow:hover { background: #162035; }
+.segRow:hover { background: #f8fafc; }
 
 /* ── Mode buttons group ─────────────────────────────────────── */
 .modeBtns {
@@ -323,22 +327,22 @@
 }
 
 .btnAuto {
-  background: #1a2e1a;
+  background: #fffbeb;
   border-color: #f59e0b;
-  color: #f59e0b;
+  color: #b45309;
 }
-.btnAuto:hover:not(:disabled) { background: #2a3e1a; }
+.btnAuto:hover:not(:disabled) { background: #fef3c7; }
 
 .btnAutoActive {
   background: #f59e0b;
   border-color: #f59e0b;
-  color: #0f172a;
+  color: #ffffff;
 }
 
 /* ── Caminho de maior declive ───────────────────────────────── */
 .pathCard {
-  background: #1e293b;
-  border: 1px solid #1e3a5f;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 10px 12px;
 }
@@ -346,7 +350,7 @@
 .pathTitle {
   font-size: 11px;
   font-weight: 700;
-  color: #94a3b8;
+  color: #64748b;
   margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -358,11 +362,11 @@
   align-items: center;
   padding: 4px 0;
   font-size: 12px;
-  color: #64748b;
-  border-bottom: 1px solid #162035;
+  color: #94a3b8;
+  border-bottom: 1px solid #f8fafc;
 }
 .pathRow:last-child { border-bottom: none; }
-.pathRow span:last-child { color: #e2e8f0; font-weight: 600; }
+.pathRow span:last-child { color: #1e293b; font-weight: 600; }
 
 /* ── Risk distribution bars ─────────────────────────────────── */
 .riskBars {
@@ -382,7 +386,7 @@
   align-items: center;
   gap: 5px;
   font-size: 11px;
-  color: #94a3b8;
+  color: #64748b;
   width: 110px;
   flex-shrink: 0;
 }
@@ -390,7 +394,7 @@
 .riskBarTrack {
   flex: 1;
   height: 7px;
-  background: #1e293b;
+  background: #f1f5f9;
   border-radius: 4px;
   overflow: hidden;
 }
@@ -403,7 +407,7 @@
 
 .riskBarPct {
   font-size: 10px;
-  color: #64748b;
+  color: #94a3b8;
   width: 28px;
   text-align: right;
   flex-shrink: 0;
@@ -420,65 +424,65 @@
   display: flex;
   align-items: flex-start;
   gap: 7px;
-  background: #1e293b;
-  border: 1px solid #1e3a5f;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 6px;
   padding: 7px 8px;
 }
 
 /* ── Botões Linha A / Linha B ───────────────────────────────── */
 .btnLineA {
-  background: #1c1a10;
+  background: #fff7ed;
   border-color: #f97316;
-  color: #f97316;
+  color: #c2410c;
 }
-.btnLineA:hover:not(:disabled) { background: #2c2010; }
+.btnLineA:hover:not(:disabled) { background: #ffedd5; }
 
 .btnLineAActive {
   background: #f97316;
   border-color: #f97316;
-  color: #0f172a;
+  color: #ffffff;
   font-weight: 700;
 }
 
 .btnLineADone {
-  background: #431407;
+  background: #ffedd5;
   border-color: #f97316;
-  color: #fb923c;
+  color: #ea580c;
 }
 
 .btnLineB {
-  background: #0c1a2c;
-  border-color: #38bdf8;
-  color: #38bdf8;
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #2563eb;
 }
-.btnLineB:hover:not(:disabled) { background: #0c2240; }
+.btnLineB:hover:not(:disabled) { background: #dbeafe; }
 
 .btnLineBActive {
-  background: #38bdf8;
-  border-color: #38bdf8;
-  color: #0f172a;
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
   font-weight: 700;
 }
 
 .btnLineBDone {
-  background: #082f49;
-  border-color: #38bdf8;
-  color: #7dd3fc;
+  background: #dbeafe;
+  border-color: #2563eb;
+  color: #1d4ed8;
 }
 
 /* ── Botão Medir ────────────────────────────────────────────── */
 .btnMedir {
-  background: #1a1230;
-  border-color: #a78bfa;
-  color: #a78bfa;
+  background: #f5f3ff;
+  border-color: #7c3aed;
+  color: #7c3aed;
 }
-.btnMedir:hover:not(:disabled) { background: #241840; }
+.btnMedir:hover:not(:disabled) { background: #ede9fe; }
 
 .btnMedirActive {
-  background: #a78bfa;
-  border-color: #a78bfa;
-  color: #0f172a;
+  background: #7c3aed;
+  border-color: #7c3aed;
+  color: #ffffff;
   font-weight: 700;
 }
 
@@ -503,10 +507,10 @@
   width: 100%;
   transition: background 0.12s, border-color 0.12s;
 }
-.legendToggleBtn:hover { background: #1e293b; }
+.legendToggleBtn:hover { background: #f1f5f9; }
 
 .legendToggleBtnOn {
-  background: #1e293b22;
+  background: #f8fafc;
 }
 
 .legendToggleBtnOff {

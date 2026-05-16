@@ -5,6 +5,7 @@ import Imoveis from './pages/Imoveis'
 import Dashboard from './pages/Dashboard'
 import Declividade from './pages/Declividade'
 import OfflineManager from './components/OfflineManager'
+import BottomNav from './components/BottomNav'
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Route path='/dashboard' element={<Dashboard />} />
         <Route path='/declividade' element={<Declividade />} />
       </Routes>
+      <BottomNav />
       <OfflineManager />
     </BrowserRouter>
   )

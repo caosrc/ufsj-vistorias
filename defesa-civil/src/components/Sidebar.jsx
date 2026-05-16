@@ -18,7 +18,7 @@ export default function Sidebar() {
   return (
     <div className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>
       <div className={styles.logo}>
-        <FiLayers size={24} color='#38bdf8' />
+        <FiLayers size={22} color='#2563eb' />
         {!collapsed && (
           <div className={styles.logoText}>
             <span className={styles.logoTitle}>Geovistorias</span>

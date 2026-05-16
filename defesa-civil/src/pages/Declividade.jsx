@@ -1070,7 +1070,7 @@ export default function Declividade() {
 
   return (
     <>
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#0f172a' }}>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#f8fafc' }}>
       <Sidebar />
       <div className={styles.wrapper}>
 

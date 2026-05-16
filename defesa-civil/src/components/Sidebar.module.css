@@ -1,8 +1,8 @@
 .sidebar {
-  width: 260px;
+  width: 240px;
   min-height: 100vh;
-  background: #111827;
-  border-right: 1px solid #1e3a5f;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
   padding: 16px 0;
@@ -10,19 +10,26 @@
   flex-shrink: 0;
   position: relative;
   z-index: 10;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.04);
 }
 
 .sidebar.collapsed {
-  width: 60px;
+  width: 56px;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
+  }
 }
 
 .logo {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 16px 20px;
-  border-bottom: 1px solid #1e3a5f;
-  margin-bottom: 12px;
+  padding: 0 14px 18px;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 10px;
 }
 
 .logoText {
@@ -34,20 +41,20 @@
 .logoTitle {
   font-size: 15px;
   font-weight: 700;
-  color: #f0f9ff;
+  color: #0f172a;
   white-space: nowrap;
 }
 
 .logoSub {
   font-size: 11px;
-  color: #64748b;
+  color: #94a3b8;
   white-space: nowrap;
 }
 
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   padding: 0 8px;
   flex: 1;
 }
@@ -58,7 +65,7 @@
   gap: 12px;
   padding: 10px 12px;
   border-radius: 8px;
-  color: #94a3b8;
+  color: #64748b;
   font-size: 14px;
   transition: all 0.15s;
   white-space: nowrap;
@@ -66,13 +73,14 @@
 }
 
 .navItem:hover {
-  background: #1e293b;
-  color: #e2e8f0;
+  background: #f1f5f9;
+  color: #1e293b;
 }
 
 .navItem.active {
-  background: #1e3a5f;
-  color: #38bdf8;
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 600;
 }
 
 .navIcon {
@@ -88,9 +96,9 @@
 }
 
 .collapseBtn {
-  margin: 16px 8px 4px;
-  background: #1e293b;
-  border: 1px solid #334155;
+  margin: 12px 8px 4px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   color: #94a3b8;
   border-radius: 8px;
   padding: 8px;
@@ -102,6 +110,7 @@
 }
 
 .collapseBtn:hover {
-  background: #273549;
-  color: #e2e8f0;
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #cbd5e1;
 }
