@@ -6,7 +6,7 @@ import Chart from 'chart.js/auto'
 import { CIDADES, CIDADE_PADRAO } from '../data/cidades'
 import Sidebar from '../components/Sidebar'
 import styles from './Declividade.module.css'
-import { FiTrendingUp, FiTrash2, FiActivity, FiZap, FiEye, FiEyeOff, FiMaximize2, FiBox, FiEdit3 } from 'react-icons/fi'
+import { FiTrendingUp, FiTrash2, FiActivity, FiEye, FiEyeOff, FiMaximize2, FiBox, FiEdit3 } from 'react-icons/fi'
 import TerrainProfile3D from '../components/TerrainProfile3D'
 
 const LAYERS = [
@@ -454,11 +454,9 @@ export default function Declividade() {
   const [modoPoligono,    setModoPoligono]    = useState(false)  // drawing polygon
   const [poligono,        setPoligono]        = useState(null)   // closed polygon vertices
   const [carregando,      setCarregando]      = useState(false)
-  const [carregandoAuto,  setCarregandoAuto]  = useState(false)
   const [carregandoMedir, setCarregandoMedir] = useState(false)
   const [modoAtivo,       setModoAtivo]       = useState(null)   // 'poligono' | 'auto' | 'medir'
   const [resultado,       setResultado]       = useState(null)
-  const [autoResultado,   setAutoResultado]   = useState(null)
   const [medicaoResult,   setMedicaoResult]   = useState(null)
   const [classesVisiveis, setClassesVisiveis] = useState(() => new Set(SLOPE_CLASSES.map(c => c.label)))
   const [show3D,          setShow3D]          = useState(false)
@@ -692,7 +690,6 @@ export default function Declividade() {
     setModoPoligono(false)
     setModoAtivo(null)
     setResultado(null)
-    setAutoResultado(null)
     if (chartInstanceRef.current) { chartInstanceRef.current.destroy(); chartInstanceRef.current = null }
     setClassesVisiveis(new Set(SLOPE_CLASSES.map(c => c.label)))
   }
@@ -985,149 +982,24 @@ export default function Declividade() {
     }
   }
 
-  // ── Análise automática ───────────────────────────────────────
-  async function analisarAuto() {
-    setCarregandoAuto(true); setAutoResultado(null)
-    resultsLayerRef.current?.clearLayers()
-    drawLayerRef.current?.clearLayers()
-    drawnPolygonsRef.current = []
-    limparPoligonoPreview()
-    setPoligono(null)
-    setModoPoligono(false)
-
-    try {
-      const map    = leafletRef.current
-      const bounds = map.getBounds()
-      const N = bounds.getNorth(), S = bounds.getSouth()
-      const W = bounds.getWest(),  E = bounds.getEast()
-      const GRID   = 10
-      const grid1  = [], grid2 = []
-      const stepLat = (N - S) / (GRID - 1)
-      const stepLng = (E - W) / (GRID - 1)
-      for (let r = 0; r < GRID; r++) {
-        for (let c = 0; c < GRID; c++) {
-          grid1.push([W + c * stepLng, S + r * stepLat])
-          const lat2 = S + (r + 0.5) * stepLat, lng2 = W + (c + 0.5) * stepLng
-          if (lat2 < N && lng2 < E) grid2.push([lng2, lat2])
-        }
-      }
-      const [elevs1, elevs2] = await Promise.all([fetchElevations(grid1), fetchElevations(grid2.slice(0, 100))])
-      const allTurfPts = turf.featureCollection([
-        ...grid1.map((c, i) => turf.point(c, { elevation: elevs1[i] })),
-        ...grid2.slice(0, elevs2.length).map((c, i) => turf.point(c, { elevation: elevs2[i] })),
-      ])
-      const allElevs = [...elevs1, ...elevs2]
-      const minElev  = Math.min(...allElevs), maxElev = Math.max(...allElevs)
-      const range    = maxElev - minElev
-      let interval = 5
-      if (range > 80)  interval = 10
-      if (range > 200) interval = 20
-      if (range > 400) interval = 50
-      const cellH = turf.distance(grid1[0], grid1[GRID], { units: 'meters' }) * 1000
-      const cellW = turf.distance(grid1[0], grid1[1],    { units: 'meters' }) * 1000
-      const slopeAtPt = grid1.map((_, idx) => {
-        const row = Math.floor(idx / GRID), col = idx % GRID
-        const Lv = col > 0      ? elevs1[row*GRID+(col-1)] : elevs1[idx]
-        const Rv = col < GRID-1 ? elevs1[row*GRID+(col+1)] : elevs1[idx]
-        const Uv = row > 0      ? elevs1[(row-1)*GRID+col] : elevs1[idx]
-        const Dv = row < GRID-1 ? elevs1[(row+1)*GRID+col] : elevs1[idx]
-        const dx = (col > 0 && col < GRID-1) ? 2*cellW : cellW
-        const dy = (row > 0 && row < GRID-1) ? 2*cellH : cellH
-        return Math.sqrt(((Rv-Lv)/dx)**2 + ((Dv-Uv)/dy)**2) * 100
-      })
-      const slopeTurfPts = turf.featureCollection(grid1.map((c, i) => turf.point(c, { slope: slopeAtPt[i] })))
-      const lonKm  = (E - W) * Math.cos(((N+S)/2) * Math.PI/180) * 111.32
-      const latKm  = (N - S) * 111.32
-      const cellKm = Math.max(Math.min(lonKm, latKm) / 30, 0.1)
-      let densePts = allTurfPts
-      try { densePts = turf.interpolate(allTurfPts, cellKm, { gridType: 'point', property: 'elevation', units: 'kilometers', weight: 3 }) } catch (_) {}
-      const breaks = []
-      for (let e = Math.ceil(minElev/interval)*interval; e <= Math.floor(maxElev/interval)*interval; e += interval) breaks.push(e)
-      if (breaks.length < 2) { breaks.push(Math.round(minElev), Math.round(maxElev)) }
-      let bands = null
-      try { bands = turf.isobands(densePts, breaks, { zProperty: 'elevation' }) } catch (_) {
-        try { bands = turf.isobands(allTurfPts, breaks, { zProperty: 'elevation' }) } catch (_2) {}
-      }
-      const classCounts = Object.fromEntries(SLOPE_CLASSES.map(c => [c.label, 0]))
-      if (bands?.features?.length) {
-        bands.features.forEach(feature => {
-          try {
-            let avgSlope = 20
-            try {
-              const inside = turf.pointsWithinPolygon(slopeTurfPts, feature)
-              avgSlope = inside.features.length > 0
-                ? inside.features.reduce((s, f) => s + f.properties.slope, 0) / inside.features.length
-                : turf.nearestPoint(turf.centroid(feature), slopeTurfPts).properties.slope
-            } catch (_) {}
-            const classif = classifySlope(avgSlope)
-            classCounts[classif.label] = (classCounts[classif.label] || 0) + 1
-            const layer = L.geoJSON(feature, {
-              style: () => ({ color: classif.cor, fillColor: classif.cor, fillOpacity: 0.55, weight: 0.5, opacity: 0.15 }),
-            }).bindTooltip(`<b>${classif.label}</b><br>${avgSlope.toFixed(1)}%`, { sticky: true })
-            layer.addTo(resultsLayerRef.current)
-            drawnPolygonsRef.current.push({ layer, classLabel: classif.label })
-          } catch (_) {}
-        })
-      }
-      try {
-        const isoLines = turf.isolines(densePts, breaks, { zProperty: 'elevation' })
-        L.geoJSON(isoLines, {
-          style: f => {
-            const master = f.properties.elevation % (interval * 5) === 0
-            return { color: '#0f172a', weight: master ? 2 : 0.8, opacity: master ? 0.9 : 0.5 }
-          },
-          onEachFeature: (f, layer) => layer.bindTooltip(`⛰ ${f.properties.elevation} m`, { sticky: true }),
-        }).addTo(resultsLayerRef.current)
-      } catch (_) {}
-      let maxIdx = 0
-      elevs1.forEach((e, i) => { if (e > elevs1[maxIdx]) maxIdx = i })
-      const path = [{ lat: grid1[maxIdx][1], lng: grid1[maxIdx][0], elev: elevs1[maxIdx], row: Math.floor(maxIdx/GRID), col: maxIdx%GRID }]
-      const visited = new Set([maxIdx])
-      while (true) {
-        const curr = path[path.length - 1]
-        const nbrs = [[curr.row-1,curr.col],[curr.row+1,curr.col],[curr.row,curr.col-1],[curr.row,curr.col+1],[curr.row-1,curr.col-1],[curr.row-1,curr.col+1],[curr.row+1,curr.col-1],[curr.row+1,curr.col+1]].filter(([r,c]) => r>=0&&r<GRID&&c>=0&&c<GRID)
-        let best = null, bestElev = curr.elev
-        for (const [r, c] of nbrs) {
-          const idx = r*GRID+c
-          if (!visited.has(idx) && elevs1[idx] < bestElev) { bestElev = elevs1[idx]; best = { lat: grid1[idx][1], lng: grid1[idx][0], elev: elevs1[idx], row: r, col: c, idx } }
-        }
-        if (!best) break; visited.add(best.idx); path.push(best)
-      }
-      if (path.length >= 2) {
-        L.polyline(path.map(p => [p.lat, p.lng]), { color: '#fff', weight: 4, opacity: 0.95, dashArray: '10,5' }).bindTooltip('Caminho de maior declive').addTo(resultsLayerRef.current)
-        L.circleMarker([path[0].lat, path[0].lng], { radius: 9, color: '#fff', fillColor: '#ef4444', fillOpacity: 1, weight: 2.5 }).bindTooltip(`▲ ${Math.round(path[0].elev)} m`).addTo(resultsLayerRef.current)
-        L.circleMarker([path[path.length-1].lat, path[path.length-1].lng], { radius: 9, color: '#fff', fillColor: '#22c55e', fillOpacity: 1, weight: 2.5 }).bindTooltip(`▼ ${Math.round(path[path.length-1].elev)} m`).addTo(resultsLayerRef.current)
-      }
-      const totalCells = Object.values(classCounts).reduce((s,v) => s+v, 0)
-      setModoAtivo('auto')
-      setAutoResultado({ minElev: Math.round(minElev), maxElev: Math.round(maxElev), interval, numBreaks: breaks.length, classCounts, totalCells, maxSlopePct: Math.max(...slopeAtPt), avgSlopePct: slopeAtPt.reduce((s,v) => s+v, 0) / slopeAtPt.length })
-    } catch (e) {
-      setAutoResultado({ erro: e.message })
-    } finally { setCarregandoAuto(false) }
-  }
-
-  const isLoading = carregando || carregandoAuto || carregandoMedir
+  const isLoading = carregando || carregandoMedir
   const poligonoFechado = !!poligono
 
   const hintMsg = carregandoMedir
     ? '⏳ Buscando cotas de elevação…'
-    : carregandoAuto
-      ? '⏳ Calculando grade de elevação e isobands…'
-      : carregando
-        ? '⏳ Analisando polígono — buscando cotas na grade e arestas…'
-        : modoMedir && !medirStateRef.current.pt1
-          ? '🟣 Clique no mapa para marcar o Ponto A'
-          : modoMedir && medirStateRef.current.pt1
-            ? '🟣 Clique para marcar o Ponto B — a declividade será calculada automaticamente'
-            : modoPoligono
-              ? `🟣 Clique para adicionar vértices (${polyDrawRef.current.vertices.length} marcados) · Clique na bolinha verde para fechar`
-              : modoAtivo === 'medir'
-                ? 'Linha medida · clique em Medir para nova medição'
-                : modoAtivo === 'poligono'
-                  ? 'Relevo 3D calculado a partir do polígono'
-                  : modoAtivo === 'auto'
-                    ? 'Isobands coloridos por declividade · linha branca = maior declive'
-                    : 'Escolha Medir, Auto ou Polígono para delimitar a área de análise'
+    : carregando
+      ? '⏳ Analisando polígono — buscando cotas na grade e arestas…'
+      : modoMedir && !medirStateRef.current.pt1
+        ? '🟣 Clique no mapa para marcar o Ponto A'
+        : modoMedir && medirStateRef.current.pt1
+          ? '🟣 Clique para marcar o Ponto B — a declividade será calculada automaticamente'
+          : modoPoligono
+            ? `🟣 Clique para adicionar vértices (${polyDrawRef.current.vertices.length} marcados) · Clique na bolinha verde para fechar`
+            : modoAtivo === 'medir'
+              ? 'Linha medida · clique em Medir para nova medição'
+              : modoAtivo === 'poligono'
+                ? 'Relevo 3D calculado a partir do polígono'
+                : 'Escolha Medir ou Polígono para delimitar a área de análise'
 
   return (
     <>
@@ -1161,18 +1033,6 @@ export default function Declividade() {
               >
                 <FiMaximize2 size={12} />
                 {carregandoMedir ? 'Calculando…' : modoMedir ? 'Cancelar' : 'Medir'}
-              </button>
-
-              <span style={{ color: '#334155', fontSize: 14 }}>|</span>
-
-              {/* Auto */}
-              <button
-                className={`${styles.btn} ${modoAtivo === 'auto' ? styles.btnAutoActive : styles.btnAuto}`}
-                onClick={() => modoAtivo === 'auto' ? limparTudo() : analisarAuto()}
-                disabled={isLoading}
-              >
-                <FiZap size={12} />
-                {carregandoAuto ? 'Analisando…' : modoAtivo === 'auto' ? 'Limpar' : 'Auto'}
               </button>
 
               <span style={{ color: '#334155', fontSize: 14 }}>|</span>
@@ -1219,7 +1079,7 @@ export default function Declividade() {
           <div className={styles.panelHeader}>
             <FiActivity size={14} color="#38bdf8" />
             <span className={styles.panelTitle}>
-              {modoAtivo === 'poligono' ? 'Análise de Polígono' : modoAtivo === 'auto' ? 'Análise Automática' : 'Resultado'}
+              {modoAtivo === 'poligono' ? 'Análise de Polígono' : 'Resultado'}
             </span>
             {isLoading && <span className={styles.loadingDot} />}
           </div>
@@ -1230,7 +1090,7 @@ export default function Declividade() {
             {isLoading && (
               <div className={styles.placeholder}>
                 <div className={styles.placeholderIcon}>⏳</div>
-                <div>{carregandoAuto ? 'Calculando isobands e grade de elevação…' : carregando ? 'Calculando grade interna, arestas e cruzamentos de curvas de nível…' : 'Calculando…'}</div>
+                <div>{carregando ? 'Calculando grade interna, arestas e cruzamentos de curvas de nível…' : 'Calculando…'}</div>
                 <div style={{ fontSize: 11, color: '#475569' }}>SRTM 30m · OpenTopoData</div>
               </div>
             )}
@@ -1241,7 +1101,7 @@ export default function Declividade() {
                 <div className={styles.placeholderIcon}>🗺️</div>
                 <div style={{ fontWeight: 600, color: '#94a3b8' }}>Modos de análise</div>
                 <div style={{ marginTop: 8 }}>
-                  <b style={{ color: '#f59e0b' }}>⚡ Auto</b> — analisa a vista atual, colore as faixas entre curvas de nível.
+                  <b style={{ color: '#a78bfa' }}>📏 Medir</b> — marque dois pontos no mapa para calcular declividade, desnível e gerar o corte longitudinal com segmentos de 1m.
                 </div>
                 <div style={{ marginTop: 8 }}>
                   <b style={{ color: '#a78bfa' }}>✏ Polígono</b> — desenhe uma área no mapa. O sistema calcula as cotas internas, distâncias laterais, cruzamentos de curvas de nível e o modelo 3D do terreno.
@@ -1282,10 +1142,10 @@ export default function Declividade() {
             )}
 
             {/* Erro */}
-            {!isLoading && (resultado?.erro || autoResultado?.erro || medicaoResult?.erro) && (
+            {!isLoading && (resultado?.erro || medicaoResult?.erro) && (
               <div className={styles.placeholder}>
                 <div className={styles.placeholderIcon}>⚠️</div>
-                <div style={{ color: '#f97316' }}>{resultado?.erro || autoResultado?.erro || medicaoResult?.erro}</div>
+                <div style={{ color: '#f97316' }}>{resultado?.erro || medicaoResult?.erro}</div>
               </div>
             )}
 
@@ -1446,13 +1306,13 @@ export default function Declividade() {
             )}
 
             {/* ── Legenda com toggle ───────────────────────── */}
-            {!isLoading && modoAtivo && modoAtivo !== 'medir' && !resultado?.erro && !autoResultado?.erro && (
+            {!isLoading && modoAtivo === 'poligono' && !resultado?.erro && (
               <div>
                 <div className={styles.chartTitle}>Legenda — clique para mostrar/ocultar</div>
                 <div className={styles.legendToggleList}>
                   {SLOPE_CLASSES.map(cls => {
                     const visible = classesVisiveis.has(cls.label)
-                    const count   = modoAtivo === 'poligono' ? resultado?.classCounts?.[cls.label] || 0 : autoResultado?.classCounts?.[cls.label] || 0
+                    const count   = resultado?.classCounts?.[cls.label] || 0
                     return (
                       <button key={cls.label} className={`${styles.legendToggleBtn} ${visible ? styles.legendToggleBtnOn : styles.legendToggleBtnOff}`} style={{ borderColor: visible ? cls.cor : '#334155' }}
                         onClick={() => setClassesVisiveis(prev => { const next = new Set(prev); if (next.has(cls.label)) next.delete(cls.label); else next.add(cls.label); return next })}>
@@ -1598,34 +1458,6 @@ export default function Declividade() {
               </>
             )}
 
-            {/* ── Resultado Auto ───────────────────────────── */}
-            {!isLoading && modoAtivo === 'auto' && autoResultado && !autoResultado.erro && (
-              <>
-                <div className={styles.statsGrid}>
-                  <div className={styles.statCard}><div className={styles.statLabel}>Alt. mín</div><div className={styles.statValue}>{autoResultado.minElev}<span className={styles.statUnit}> m</span></div></div>
-                  <div className={styles.statCard}><div className={styles.statLabel}>Alt. máx</div><div className={styles.statValue}>{autoResultado.maxElev}<span className={styles.statUnit}> m</span></div></div>
-                  <div className={styles.statCard}><div className={styles.statLabel}>Decliv. máx.</div><div className={styles.statValue} style={{ color: classifySlope(autoResultado.maxSlopePct).cor }}>{autoResultado.maxSlopePct.toFixed(1)}<span className={styles.statUnit}> %</span></div></div>
-                  <div className={styles.statCard}><div className={styles.statLabel}>Decliv. média</div><div className={styles.statValue} style={{ color: classifySlope(autoResultado.avgSlopePct).cor }}>{autoResultado.avgSlopePct.toFixed(1)}<span className={styles.statUnit}> %</span></div></div>
-                </div>
-                <div>
-                  <div className={styles.chartTitle}>Distribuição por classe</div>
-                  <div className={styles.riskBars}>
-                    {SLOPE_CLASSES.map(cls => {
-                      const count = autoResultado.classCounts?.[cls.label] || 0
-                      const pct   = autoResultado.totalCells > 0 ? (count / autoResultado.totalCells) * 100 : 0
-                      if (pct === 0) return null
-                      return (
-                        <div key={cls.label} className={styles.riskBarRow}>
-                          <div className={styles.riskBarLabel}><span style={{ width: 9, height: 9, borderRadius: '50%', background: cls.cor, display: 'inline-block' }} /><span>{cls.label}</span></div>
-                          <div className={styles.riskBarTrack}><div className={styles.riskBarFill} style={{ width: `${pct}%`, background: cls.cor }} /></div>
-                          <span className={styles.riskBarPct}>{pct.toFixed(0)}%</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </>
-            )}
 
           </div>
         </div>
