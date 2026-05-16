@@ -316,24 +316,81 @@ async function fetchElevationsBatched(points) {
   return results.flat()
 }
 
+// ── Interpolação cúbica Catmull-Rom ───────────────────────────
+// Recebe pontos amostrados pela API e gera um perfil denso e suave
+function catmullRomInterp(srcDists, srcElevs, tgtDists) {
+  const n = srcDists.length
+  if (n === 0) return tgtDists.map(() => 0)
+  if (n === 1) return tgtDists.map(() => srcElevs[0])
+  if (n === 2) {
+    return tgtDists.map(td => {
+      const t = srcDists[1] > srcDists[0] ? (td - srcDists[0]) / (srcDists[1] - srcDists[0]) : 0
+      return srcElevs[0] + (srcElevs[1] - srcElevs[0]) * Math.max(0, Math.min(1, t))
+    })
+  }
+  // Busca do índice do segmento por busca binária
+  function findBracket(td) {
+    if (td <= srcDists[0]) return 0
+    if (td >= srcDists[n - 1]) return n - 2
+    let lo = 0, hi = n - 2
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1
+      if (srcDists[mid] <= td) lo = mid; else hi = mid - 1
+    }
+    return lo
+  }
+  return tgtDists.map(td => {
+    if (td <= srcDists[0]) return srcElevs[0]
+    if (td >= srcDists[n - 1]) return srcElevs[n - 1]
+    const i  = findBracket(td)
+    const seg = srcDists[i + 1] - srcDists[i]
+    const t  = seg > 0 ? (td - srcDists[i]) / seg : 0
+    const p0 = srcElevs[Math.max(0, i - 1)]
+    const p1 = srcElevs[i]
+    const p2 = srcElevs[i + 1]
+    const p3 = srcElevs[Math.min(n - 1, i + 2)]
+    // Fórmula Catmull-Rom (alpha = 0.5)
+    return 0.5 * (
+      2 * p1 +
+      (-p0 + p2) * t +
+      (2*p0 - 5*p1 + 4*p2 - p3) * t * t +
+      (-p0 + 3*p1 - 3*p2 + p3) * t * t * t
+    )
+  })
+}
+
 // ── Calcula segmentos de declividade a cada stepM metros ──────
+// Otimizado para dados densos regularmente espaçados
 function calcSegmentos(elevations, sampleDists, stepM) {
-  const maxDist = sampleDists[sampleDists.length - 1]
-  const segs = []
-  for (let d = 0; d + stepM <= maxDist + 0.5; d += stepM) {
-    const d0  = d, d1 = Math.min(d + stepM, maxDist)
-    // Índice do ponto mais próximo de d0 e d1
-    const i0  = sampleDists.reduce((best, v, i) => Math.abs(v - d0) < Math.abs(sampleDists[best] - d0) ? i : best, 0)
-    const i1  = sampleDists.reduce((best, v, i) => Math.abs(v - d1) < Math.abs(sampleDists[best] - d1) ? i : best, 0)
+  const n = sampleDists.length
+  if (n < 2) return []
+  const maxDist = sampleDists[n - 1]
+  const minDist = sampleDists[0]
+  const span    = maxDist - minDist
+  const segs    = []
+  // Para dados regularmente espaçados: índice direto (O(1) por segmento)
+  const isRegular = Math.abs((sampleDists[1] - sampleDists[0]) - span / (n - 1)) < 0.01
+  const regStep   = isRegular ? span / (n - 1) : 0
+  function nearestIdx(d) {
+    if (isRegular) return Math.max(0, Math.min(n - 1, Math.round((d - minDist) / regStep)))
+    return sampleDists.reduce((best, v, i) => Math.abs(v - d) < Math.abs(sampleDists[best] - d) ? i : best, 0)
+  }
+  for (let d = minDist; d + stepM <= maxDist + 0.01; d += stepM) {
+    const d0  = d
+    const d1  = Math.min(d + stepM, maxDist)
+    const i0  = nearestIdx(d0)
+    const i1  = nearestIdx(d1)
     const dh  = Math.abs(elevations[i1] - elevations[i0])
-    const hdist = Math.max(sampleDists[i1] - sampleDists[i0], 0.1)
+    const hdist = Math.max(Math.abs(sampleDists[i1] - sampleDists[i0]), 0.1)
     const slope = (dh / hdist) * 100
     segs.push({
-      d0: Math.round(d0), d1: Math.round(d1),
+      d0: parseFloat(d0.toFixed(1)),
+      d1: parseFloat(d1.toFixed(1)),
       midDist: (d0 + d1) / 2,
-      elev0: Math.round(elevations[i0]), elev1: Math.round(elevations[i1]),
-      dh: Math.round(dh * 10) / 10,
-      slope: Math.round(slope * 10) / 10,
+      elev0: parseFloat(elevations[i0].toFixed(1)),
+      elev1: parseFloat(elevations[i1].toFixed(1)),
+      dh:    parseFloat(dh.toFixed(2)),
+      slope: parseFloat(slope.toFixed(1)),
       classif: classifySlope(slope),
     })
   }
@@ -838,34 +895,43 @@ export default function Declividade() {
       const tLine      = turf.lineString([[pt1.lng, pt1.lat], [pt2.lng, pt2.lat]])
       const distHorizM = turf.length(tLine, { units: 'kilometers' }) * 1000
 
-      // 1 ponto por metro, mínimo 2, máximo 1000
-      const nPts = Math.max(2, Math.min(Math.round(distHorizM), 1000))
-      const sampleCoords = [], sampleDists = []
-      for (let i = 0; i < nPts; i++) {
-        const d = (i / (nPts - 1)) * distHorizM
-        sampleCoords.push(pointAlongLine(tLine, d))
-        sampleDists.push(d)
+      // ── 1) Amostra a cada 5m pela API (máx 200 pontos = 2 lotes) ──
+      const API_STEP   = Math.max(5, distHorizM / 200)
+      const nApiPts    = Math.max(2, Math.min(Math.round(distHorizM / API_STEP) + 1, 200))
+      const apiCoords  = [], apiDists = []
+      for (let i = 0; i < nApiPts; i++) {
+        const d = (i / (nApiPts - 1)) * distHorizM
+        apiCoords.push(pointAlongLine(tLine, d))
+        apiDists.push(d)
       }
+      const rawElevs = await fetchElevationsBatched(apiCoords)
 
-      // Busca elevações em paralelo (lotes de 100)
-      const elevations = await fetchElevationsBatched(sampleCoords)
+      // ── 2) Interpola Catmull-Rom → 1 ponto por metro ──────────────
+      const nDense    = Math.min(Math.floor(distHorizM) + 1, 5000)
+      const denseDists = Array.from({ length: nDense }, (_, i) =>
+        i === nDense - 1 ? distHorizM : (i / (nDense - 1)) * distHorizM
+      )
+      const denseElevs = catmullRomInterp(apiDists, rawElevs, denseDists)
 
-      const cotaA    = Math.round(elevations[0])
-      const cotaB    = Math.round(elevations[elevations.length - 1])
-      const deltaH   = Math.abs(cotaB - cotaA)
-      const slopePct  = distHorizM > 0 ? (deltaH / distHorizM) * 100 : 0
-      const slopeGrau = Math.atan(deltaH / distHorizM) * (180 / Math.PI)
+      // ── 3) Cotas e métricas globais ───────────────────────────────
+      const cotaA    = parseFloat(denseElevs[0].toFixed(1))
+      const cotaB    = parseFloat(denseElevs[nDense - 1].toFixed(1))
+      const deltaH   = parseFloat(Math.abs(cotaB - cotaA).toFixed(1))
+      const slopePct  = distHorizM > 0 ? (Math.abs(cotaB - cotaA) / distHorizM) * 100 : 0
+      const slopeGrau = Math.atan(Math.abs(cotaB - cotaA) / distHorizM) * (180 / Math.PI)
       const classif   = classifySlope(slopePct)
-      const perfil    = sampleCoords.map((_, i) => ({
-        dist: Math.round(sampleDists[i]),
-        elev: Math.round(elevations[i]),
+
+      // ── 4) Perfil com 1 decimal (para o gráfico ondulado) ────────
+      const perfil = denseDists.map((d, i) => ({
+        dist: parseFloat(d.toFixed(1)),
+        elev: parseFloat(denseElevs[i].toFixed(1)),
       }))
 
-      // Declividade a cada 1m
+      // ── 5) Segmentos de 1m sobre dados interpolados ───────────────
       const STEP = 1
-      const segmentos10m = calcSegmentos(elevations, sampleDists, STEP)
+      const segmentos10m = calcSegmentos(denseElevs, denseDists, STEP)
 
-      // Pontos críticos = segmentos com declividade >= 20% (Ondulado+), top 20 mais altos
+      // Pontos críticos ≥ 20%, top 20
       const criticos = [...segmentos10m]
         .filter(s => s.slope >= 20)
         .sort((a, b) => b.slope - a.slope)
@@ -876,7 +942,6 @@ export default function Declividade() {
       if (layer) {
         criticos.forEach((s, idx) => {
           const coord = pointAlongLine(tLine, s.midDist)
-          const nbr   = getNBRClass(s.slope)
           L.circleMarker([coord[1], coord[0]], {
             radius: idx === 0 ? 9 : 6,
             fillColor: s.classif.cor,
@@ -908,10 +973,10 @@ export default function Declividade() {
         coordA: { lat: pt1.lat, lng: pt1.lng },
         coordB: { lat: pt2.lat, lng: pt2.lng },
         cotaA, cotaB, deltaH,
-        distHorizM: Math.round(distHorizM),
+        distHorizM: parseFloat(distHorizM.toFixed(1)),
         slopePct, slopeGrau, classif, perfil,
         segmentos10m, criticos,
-        nPts, stepM: STEP,
+        nPts: nDense, stepM: STEP,
       })
     } catch (e) {
       setMedicaoResult({ erro: e.message })
