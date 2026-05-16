@@ -299,34 +299,6 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
           box.max.x + sw * 0.58, relY, box.max.z, sw, sh)
       }
 
-      // ── COLUNAS NOS CANTOS COM ESCALA REAL ───────────────────
-      const corners = [
-        [box.min.x, box.min.z],[box.max.x, box.min.z],
-        [box.min.x, box.max.z],[box.max.x, box.max.z],
-      ]
-      const colMat  = new THREE.LineBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.5 })
-      const tickMat = new THREE.LineBasicMaterial({ color: 0x475569, transparent: true, opacity: 0.8 })
-
-      corners.forEach(([cx, cz]) => {
-        scene.add(new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(cx, -0.3, cz),
-            new THREE.Vector3(cx, realRange + 0.5, cz),
-          ]),
-          colMat
-        ))
-        for (let e = startE; e <= realMaxE + 0.001; e += interval) {
-          const relY = e - realMinE
-          const tl   = size.x * 0.022
-          scene.add(new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints([
-              new THREE.Vector3(cx - tl, relY, cz),
-              new THREE.Vector3(cx + tl, relY, cz),
-            ]),
-            tickMat
-          ))
-        }
-      })
 
       // ── BARRA DE DESNÍVEL (Δh real) ───────────────────────────
       const barX   = box.max.x + size.x * 0.07
