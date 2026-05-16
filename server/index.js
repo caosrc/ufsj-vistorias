@@ -258,6 +258,40 @@ app.get('/api/geojson/areas-risco', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+// ── PROXY ELEVAÇÃO ────────────────────────────────────────────
+// Evita CORS/bloqueios do browser chamando as APIs externas pelo servidor
+app.get('/api/elevation', async (req, res) => {
+  const { latitude, longitude } = req.query
+  if (!latitude || !longitude) return res.status(400).json({ error: 'latitude e longitude obrigatórios' })
+
+  // Primário: Open-Meteo (sem rate-limit rígido)
+  try {
+    const url = `https://api.open-meteo.com/v1/elevation?latitude=${latitude}&longitude=${longitude}`
+    const r = await fetch(url, { signal: AbortSignal.timeout(12000) })
+    if (r.ok) {
+      const data = await r.json()
+      if (Array.isArray(data.elevation)) return res.json({ elevation: data.elevation })
+    }
+  } catch (_) {}
+
+  // Fallback: OpenTopoData SRTM 30m
+  try {
+    const lats = latitude.split(',')
+    const lngs = longitude.split(',')
+    const locations = lats.map((lat, i) => `${lat},${lngs[i]}`).join('|')
+    const url = `https://api.opentopodata.org/v1/srtm30m?locations=${locations}`
+    const r = await fetch(url, { signal: AbortSignal.timeout(10000) })
+    if (r.ok) {
+      const data = await r.json()
+      if (data.results?.length) {
+        return res.json({ elevation: data.results.map(p => p.elevation ?? 0) })
+      }
+    }
+  } catch (_) {}
+
+  res.status(503).json({ error: 'Não foi possível obter dados de elevação' })
+})
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`API Defesa Civil rodando na porta ${PORT}`)
 })

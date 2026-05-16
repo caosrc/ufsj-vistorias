@@ -279,31 +279,19 @@ function TrianguloSlope({ interval, distHoriz, slopePct, slopeGrau, cor }) {
 
 // ── Elevação API (Open-Meteo primário → fallback OpenTopoData) ─
 async function fetchElevations(points) {
-  // Primário: Open-Meteo (sem rate-limit rígido, melhor para Brasil)
+  // Usa proxy do backend para evitar bloqueios CORS/rede do browser
+  const lats = points.map(p => p[1].toFixed(6)).join(',')
+  const lngs = points.map(p => p[0].toFixed(6)).join(',')
   try {
-    const lats = points.map(p => p[1].toFixed(6)).join(',')
-    const lngs = points.map(p => p[0].toFixed(6)).join(',')
     const res = await fetch(
-      `https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`,
-      { signal: AbortSignal.timeout(10000) }
+      `/api/elevation?latitude=${lats}&longitude=${lngs}`,
+      { signal: AbortSignal.timeout(20000) }
     )
     if (res.ok) {
       const data = await res.json()
       if (Array.isArray(data.elevation) && data.elevation.length === points.length) {
         return data.elevation.map(e => e ?? 0)
       }
-    }
-  } catch (_) {}
-  // Fallback: OpenTopoData SRTM 30m
-  try {
-    const locations = points.map(p => `${p[1].toFixed(6)},${p[0].toFixed(6)}`).join('|')
-    const res = await fetch(
-      `https://api.opentopodata.org/v1/srtm30m?locations=${locations}`,
-      { signal: AbortSignal.timeout(8000) }
-    )
-    if (res.ok) {
-      const data = await res.json()
-      if (data.results?.length === points.length) return data.results.map(r => r.elevation ?? 0)
     }
   } catch (_) {}
   throw new Error('Não foi possível obter dados de elevação. Verifique sua conexão e tente novamente.')
