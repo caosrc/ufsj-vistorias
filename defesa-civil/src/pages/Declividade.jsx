@@ -93,7 +93,7 @@ function PerfilLongitudinal({ perfil, cotaA, cotaB, distHorizM, cor, segmentos10
   const showPeak   = peakPt.dist > 5  && peakPt.dist < maxDist - 5
   const showValley = valleyPt.dist > 5 && valleyPt.dist < maxDist - 5 && valleyPt.elev < peakPt.elev
 
-  // ── segmentos 10m críticos para destacar no perfil ───────────
+  // ── segmentos 1m críticos para destacar no perfil ───────────
   const criticos10 = segmentos10m?.filter(s => s.slope >= 20) || []
   // índice do pior segmento
   const worstIdx = segmentos10m
@@ -193,13 +193,13 @@ function PerfilLongitudinal({ perfil, cotaA, cotaB, distHorizM, cor, segmentos10
         </g>
       )}
 
-      {/* ── Gráfico de barras de declividade por 10m ─────────── */}
+      {/* ── Gráfico de barras de declividade por 1m ─────────── */}
       {segmentos10m?.length > 0 && (() => {
         const BY = Hp + 6
         return (
           <>
             {/* Título */}
-            <text x={padL} y={BY + 4} fontSize="7" fill="#64748b" fontWeight="600">Declividade por trecho 10m</text>
+            <text x={padL} y={BY + 4} fontSize="7" fill="#64748b" fontWeight="600">Declividade por trecho 1m</text>
             <text x={padL + plotW} y={BY + 4} fontSize="7" fill="#475569" textAnchor="end">máx: {maxSlope.toFixed(0)}%</text>
 
             {/* Fundo */}
@@ -244,7 +244,7 @@ function PerfilLongitudinal({ perfil, cotaA, cotaB, distHorizM, cor, segmentos10
             {/* Eixo X das barras */}
             <line x1={padL} y1={BY + BpadT + bPlotH} x2={padL + plotW} y2={BY + BpadT + bPlotH} stroke="#334155" strokeWidth="0.8" />
             <text x={padL + plotW / 2} y={BY + BH - 2} fontSize="6.5" fill="#475569" textAnchor="middle">
-              {segmentos10m.length} segmentos de 10m
+              {segmentos10m.length} segmentos de 1m
             </text>
           </>
         )
@@ -861,8 +861,8 @@ export default function Declividade() {
         elev: Math.round(elevations[i]),
       }))
 
-      // Declividade a cada 10m
-      const STEP = 10
+      // Declividade a cada 1m
+      const STEP = 1
       const segmentos10m = calcSegmentos(elevations, sampleDists, STEP)
 
       // Pontos críticos = segmentos com declividade >= 20% (Ondulado+), top 20 mais altos
@@ -886,7 +886,7 @@ export default function Declividade() {
           })
             .bindTooltip(
               `⚠ ${s.slope.toFixed(1)}% · ${s.classif.label}<br>` +
-              `Δh = ${s.dh} m em ${STEP} m<br>` +
+              `Δh = ${s.dh} m em 1 m<br>` +
               `${Math.round(s.midDist)} m desde A`,
               { sticky: true }
             )
@@ -1262,7 +1262,7 @@ export default function Declividade() {
                   <div className={styles.chartTitle}>
                     Corte Longitudinal — {medicaoResult.perfil?.length} pts &nbsp;·&nbsp;
                     <span style={{ color: '#64748b', fontWeight: 400 }}>
-                      {medicaoResult.segmentos10m?.length} segmentos de 10m
+                      {medicaoResult.segmentos10m?.length} segmentos de 1m
                     </span>
                   </div>
                   <div style={{ background: '#1e293b', border: `1px solid ${medicaoResult.classif.cor}33`, borderRadius: 8, padding: '10px 8px 4px' }}>
@@ -1286,7 +1286,7 @@ export default function Declividade() {
                     }}>
                       <span style={{ fontSize: 13 }}>⚠</span>
                       <span style={{ color: '#fb923c', fontWeight: 700, fontSize: 12 }}>
-                        {medicaoResult.criticos.length} Trechos Críticos (≥ 20% / 10m)
+                        {medicaoResult.criticos.length} Trechos Críticos (≥ 20% / 1m)
                       </span>
                       <span style={{ color: '#64748b', fontSize: 10, marginLeft: 'auto' }}>ordenado por declividade</span>
                     </div>
@@ -1365,7 +1365,7 @@ export default function Declividade() {
                     display: 'flex', alignItems: 'center', gap: 8,
                   }}>
                     <span>✓</span>
-                    <span>Nenhum trecho com declividade crítica (≥ 20%) em segmentos de 10m.</span>
+                    <span>Nenhum trecho com declividade crítica (≥ 20%) em segmentos de 1m.</span>
                   </div>
                 )}
 

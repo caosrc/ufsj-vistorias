@@ -366,7 +366,9 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
     scene.add(new THREE.AmbientLight(0x9ab4d8, 0.95))
     const sun = new THREE.DirectionalLight(0xffffff, 1.4)
     sun.position.set(500, 800, 400); scene.add(sun)
-    scene.add(Object.assign(new THREE.DirectionalLight(0x6699ff, 0.35), { position: new THREE.Vector3(-300, 200, -300) }))
+    const fillLight = new THREE.DirectionalLight(0x6699ff, 0.35)
+    fillLight.position.set(-300, 200, -300)
+    scene.add(fillLight)
 
     const onResize = () => {
       const w = container.clientWidth, h = container.clientHeight
