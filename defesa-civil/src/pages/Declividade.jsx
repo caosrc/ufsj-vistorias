@@ -795,6 +795,14 @@ export default function Declividade() {
       // 7. Busca elevações das arestas em lotes
       const edgeElevsAll = await fetchElevationsBatched(edgeSamplePts)
 
+      // 7b. Elevações dos vértices (primeiro ponto de cada aresta = o próprio vértice)
+      const vertexElevs = []
+      let vertOff = 0
+      edgeMeta.forEach(({ nSamples }) => {
+        vertexElevs.push(Math.round(edgeElevsAll[vertOff] ?? minElev))
+        vertOff += nSamples
+      })
+
       // 8. Cruzamentos por aresta
       let offset = 0
       edgeMeta.forEach(({ idx, lenM, dists, nSamples }) => {
@@ -890,6 +898,13 @@ export default function Declividade() {
         return { x, y: p.elev, z, inside: p.inside }
       })
 
+      // 13b. Vértices do polígono em coordenadas 3D locais com elevação real
+      const polyVerts3D = vertices.map((v, i) => {
+        const x = turf.distance(origin, [v.lng, origin[1]], { units: 'kilometers' }) * 1000
+        const z = turf.distance(origin, [origin[0], v.lat], { units: 'kilometers' }) * 1000
+        return { x, y: vertexElevs[i] ?? minElev, z }
+      })
+
       const segMaxSlope  = segmentos.length > 0 ? segmentos.reduce((a, b) => a.slopePct > b.slopePct ? a : b) : null
       const totalCells   = Object.values(classCounts).reduce((s, v) => s + v, 0)
       const perimeterM   = Math.round(lateralDists.reduce((s, d) => s + d.dist, 0))
@@ -902,7 +917,7 @@ export default function Declividade() {
         drawnCount, classCounts, totalCells,
         segMaxSlope, allCrossings, lateralDists,
         perimeterM, areaM2,
-        grid3D: { points: grid3D, cols: GCOLS, rows: GROWS, minE: minElev, maxE: maxElev },
+        grid3D: { points: grid3D, cols: GCOLS, rows: GROWS, minE: minElev, maxE: maxElev, polyVerts: polyVerts3D },
       })
 
     } catch (e) {
