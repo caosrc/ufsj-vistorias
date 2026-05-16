@@ -14,13 +14,10 @@ function elevToColor(t) {
 }
 
 function calcContourInterval(range) {
-  if (range <= 5)   return 1
-  if (range <= 15)  return 2
-  if (range <= 30)  return 2
-  if (range <= 60)  return 5
-  if (range <= 150) return 10
-  if (range <= 400) return 20
-  return 50
+  if (range <= 100) return 1
+  if (range <= 250) return 2
+  if (range <= 500) return 5
+  return 10
 }
 
 // ── Sprite de texto (canvas) ──────────────────────────────────
@@ -155,8 +152,10 @@ function addPeakMarker(scene, px, pz, relPeakY, realPeakElev, range, sw, sh) {
 }
 
 // ─────────────────────────────────────────────────────────────
-export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists, onClose }) {
-  const mountRef  = useRef(null)
+export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists, area, onClose }) {
+  const mountRef     = useRef(null)
+  const cameraRef    = useRef(null)
+  const controlsRef  = useRef(null)
   const [showDists, setShowDists] = useState(true)
   const [info, setInfo] = useState(null)   // { minE, maxE, range, interval }
 
@@ -184,6 +183,8 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
     controls.zoomSpeed     = 1.2
     controls.minDistance   = 0.5
     controls.maxDistance   = 500000
+    cameraRef.current   = camera
+    controlsRef.current = controls
 
     let geo = null
     let realMinE = 0, realMaxE = 0, realRange = 0
@@ -388,6 +389,16 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
     }
   }, [mode, perfil, gridData])
 
+  function handleZoom(factor) {
+    const cam  = cameraRef.current
+    const ctrl = controlsRef.current
+    if (!cam || !ctrl) return
+    const dir = cam.position.clone().sub(ctrl.target)
+    dir.multiplyScalar(factor)
+    cam.position.copy(ctrl.target).add(dir)
+    ctrl.update()
+  }
+
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)',
@@ -444,6 +455,9 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
             <div>Alt. mín: <b style={{ color: '#22c55e' }}>{Math.round(info.minE)} m</b></div>
             <div>Alt. máx: <b style={{ color: '#ef4444' }}>{Math.round(info.maxE)} m</b></div>
             <div>Desnível: <b style={{ color: '#38bdf8' }}>{Math.round(info.range)} m</b></div>
+            {area != null && (
+              <div>Área: <b style={{ color: '#fbbf24' }}>{area >= 10000 ? `${(area/10000).toFixed(2)} ha` : `${area} m²`}</b></div>
+            )}
             <div style={{ marginTop: 6, borderTop: '1px solid #1e3a5f', paddingTop: 6 }}>
               <div style={{ color: '#64748b', fontSize: 10 }}>
                 Intervalo curvas: <b style={{ color: '#7dd3fc' }}>{info.interval} m</b>
@@ -503,6 +517,25 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
             )}
           </div>
         )}
+
+        {/* Botões Zoom ± */}
+        <div style={{
+          position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)',
+          zIndex: 15, display: 'flex', flexDirection: 'column', gap: 8,
+        }}>
+          <button onClick={() => handleZoom(0.7)} style={{
+            background: '#1e293b', border: '1.5px solid #475569', color: '#e2e8f0',
+            borderRadius: 8, width: 38, height: 38, fontSize: 22, fontWeight: 700,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+          }}>+</button>
+          <button onClick={() => handleZoom(1.4)} style={{
+            background: '#1e293b', border: '1.5px solid #475569', color: '#e2e8f0',
+            borderRadius: 8, width: 38, height: 38, fontSize: 26, fontWeight: 700,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+          }}>−</button>
+        </div>
 
         <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
       </div>

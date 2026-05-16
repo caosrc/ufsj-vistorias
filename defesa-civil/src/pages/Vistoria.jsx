@@ -22,38 +22,19 @@ function decToGMS(decimal, isLat) {
 function EncostaSVG10() {
   return (
     <svg viewBox="0 0 160 100" width="150" height="94">
-      <defs>
-        <linearGradient id="sky10" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#0b1a2e"/>
-          <stop offset="100%" stopColor="#0d2137"/>
-        </linearGradient>
-        <linearGradient id="solo10" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#1c3320"/>
-          <stop offset="100%" stopColor="#0e1f13"/>
-        </linearGradient>
-      </defs>
-      <rect width="160" height="100" fill="url(#sky10)"/>
-      {/* Solo plano */}
-      <polygon points="0,73 90,73 160,60 160,100 0,100" fill="url(#solo10)"/>
-      {/* Superfície */}
-      <line x1="0" y1="73" x2="90" y2="73" stroke="#22c55e" strokeWidth="2"/>
-      <line x1="90" y1="73" x2="160" y2="60" stroke="#22c55e" strokeWidth="2.5"/>
-      {/* Arc 10° */}
-      <path d="M 90,73 A 22,22 0 0,1 111.6,69.2" fill="none" stroke="#22c55e" strokeWidth="1.5"/>
-      <text x="114" y="71" fontSize="9" fill="#22c55e" fontWeight="bold">10°</text>
-      {/* Casa */}
-      <rect x="12" y="52" width="36" height="21" rx="1" fill="#1e3020" stroke="#22c55e" strokeWidth="1.5"/>
-      <polygon points="10,52 30,37 50,52" fill="#22c55e" opacity="0.75"/>
-      <rect x="18" y="62" width="9" height="11" fill="#0b1220"/>
-      <rect x="33" y="57" width="10" height="10" rx="1" fill="#38bdf8" opacity="0.35"/>
-      <line x1="30" y1="37" x2="30" y2="34" stroke="#94a3b8" strokeWidth="1"/>
-      {/* Vegetação */}
-      {[97,108,120,134,148].map((x,i)=>(
-        <g key={i} transform={`translate(${x},${[72,69,66,63,61][i]})`}>
-          <ellipse cx="0" cy="-4" rx="5" ry="6" fill="#15803d" opacity="0.8"/>
-        </g>
-      ))}
-      <text x="80" y="97" fontSize="8" fill="#22c55e" textAnchor="middle" opacity="0.7">Encosta suave — R1</text>
+      <rect width="160" height="100" fill="#f0fdf4" rx="3"/>
+      <rect width="160" height="72" fill="#e0f2fe"/>
+      <polygon points="0,72 112,72 160,64 160,100 0,100" fill="#78350f"/>
+      <polygon points="0,72 112,72 160,64 160,70" fill="#a16207"/>
+      <line x1="0" y1="72" x2="112" y2="72" stroke="#16a34a" strokeWidth="2"/>
+      <line x1="112" y1="72" x2="160" y2="64" stroke="#16a34a" strokeWidth="2"/>
+      <path d="M 112,72 A 26,26 0 0,1 137.2,67.5" fill="none" stroke="#16a34a" strokeWidth="1.5"/>
+      <text x="139" y="70" fontSize="9" fill="#16a34a" fontWeight="bold">10°</text>
+      <rect x="14" y="50" width="34" height="22" rx="1" fill="#fff" stroke="#16a34a" strokeWidth="1.5"/>
+      <polygon points="12,50 31,35 50,50" fill="#16a34a"/>
+      <rect x="21" y="60" width="9" height="12" fill="#bae6fd"/>
+      <rect x="35" y="56" width="10" height="10" rx="1" fill="#bae6fd" opacity="0.7"/>
+      <text x="80" y="95" fontSize="8" fill="#16a34a" textAnchor="middle" fontWeight="600">Encosta suave — R1</text>
     </svg>
   )
 }
@@ -61,32 +42,19 @@ function EncostaSVG10() {
 function EncostaSVG17() {
   return (
     <svg viewBox="0 0 160 100" width="150" height="94">
-      <defs>
-        <linearGradient id="solo17" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#263320"/>
-          <stop offset="100%" stopColor="#0e1f13"/>
-        </linearGradient>
-      </defs>
-      <rect width="160" height="100" fill="#0b1a2e"/>
-      {/* Solo com inclinação 17° */}
-      <polygon points="0,73 85,73 160,49 160,100 0,100" fill="url(#solo17)"/>
-      <line x1="0" y1="73" x2="85" y2="73" stroke="#84cc16" strokeWidth="2"/>
-      <line x1="85" y1="73" x2="160" y2="49" stroke="#84cc16" strokeWidth="2.5"/>
-      {/* Arc */}
-      <path d="M 85,73 A 20,20 0 0,1 104.2,66.1" fill="none" stroke="#84cc16" strokeWidth="1.5"/>
-      <text x="106" y="68" fontSize="9" fill="#84cc16" fontWeight="bold">17°</text>
-      {/* Casa */}
-      <rect x="10" y="52" width="36" height="21" rx="1" fill="#1e2e10" stroke="#84cc16" strokeWidth="1.5"/>
-      <polygon points="8,52 28,36 46,52" fill="#84cc16" opacity="0.75"/>
-      <rect x="14" y="62" width="9" height="11" fill="#0b1220"/>
-      <rect x="30" y="57" width="10" height="10" rx="1" fill="#38bdf8" opacity="0.35"/>
-      {/* Erosão leve */}
-      <path d="M 100,60 Q 115,58 130,54 Q 145,50 160,49" fill="none" stroke="#84cc16" strokeWidth="1" strokeDasharray="3,3" opacity="0.5"/>
-      {/* Vegetação esparsa */}
-      {[95,115,140].map((x,i)=>(
-        <ellipse key={i} cx={x} cy={[71,64,55][i]-4} rx="5" ry="6" fill="#4d7c0f" opacity="0.7"/>
-      ))}
-      <text x="80" y="97" fontSize="8" fill="#84cc16" textAnchor="middle" opacity="0.7">Inclinação leve — R1–R2</text>
+      <rect width="160" height="100" fill="#fefce8" rx="3"/>
+      <rect width="160" height="72" fill="#dbeafe"/>
+      <polygon points="0,72 100,72 160,55 160,100 0,100" fill="#78350f"/>
+      <polygon points="0,72 100,72 160,55 160,61" fill="#a16207"/>
+      <line x1="0" y1="72" x2="100" y2="72" stroke="#65a30d" strokeWidth="2"/>
+      <line x1="100" y1="72" x2="160" y2="55" stroke="#65a30d" strokeWidth="2"/>
+      <path d="M 100,72 A 24,24 0 0,1 122.2,63.3" fill="none" stroke="#65a30d" strokeWidth="1.5"/>
+      <text x="124" y="66" fontSize="9" fill="#65a30d" fontWeight="bold">17°</text>
+      <rect x="12" y="50" width="34" height="22" rx="1" fill="#fff" stroke="#65a30d" strokeWidth="1.5"/>
+      <polygon points="10,50 29,35 48,50" fill="#65a30d"/>
+      <rect x="18" y="60" width="9" height="12" fill="#fef9c3"/>
+      <rect x="33" y="56" width="10" height="10" rx="1" fill="#fef9c3" opacity="0.8"/>
+      <text x="80" y="95" fontSize="8" fill="#65a30d" textAnchor="middle" fontWeight="600">Inclinação leve — R1–R2</text>
     </svg>
   )
 }
@@ -94,30 +62,19 @@ function EncostaSVG17() {
 function EncostaSVG30() {
   return (
     <svg viewBox="0 0 160 100" width="150" height="94">
-      <defs>
-        <linearGradient id="solo30" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#2c2800"/>
-          <stop offset="100%" stopColor="#3d3500"/>
-        </linearGradient>
-      </defs>
-      <rect width="160" height="100" fill="#0c1520"/>
-      {/* Solo inclinação 30° */}
-      <polygon points="0,73 78,73 160,27 160,100 0,100" fill="#1c1900"/>
-      <polygon points="78,73 160,27 160,100 78,100" fill="url(#solo30)" opacity="0.8"/>
-      <line x1="0" y1="73" x2="78" y2="73" stroke="#eab308" strokeWidth="2"/>
-      <line x1="78" y1="73" x2="160" y2="27" stroke="#eab308" strokeWidth="2.5"/>
-      {/* Arc */}
-      <path d="M 78,73 A 22,22 0 0,1 97.1,62" fill="none" stroke="#eab308" strokeWidth="1.5"/>
-      <text x="100" y="65" fontSize="9" fill="#eab308" fontWeight="bold">30°</text>
-      {/* Casa */}
-      <rect x="10" y="51" width="35" height="22" rx="1" fill="#2c2000" stroke="#eab308" strokeWidth="1.5"/>
-      <polygon points="8,51 27.5,35 47,51" fill="#eab308" opacity="0.7"/>
-      <rect x="14" y="62" width="9" height="11" fill="#0b1220"/>
-      <rect x="30" y="57" width="10" height="10" rx="1" fill="#fef08a" opacity="0.25"/>
-      {/* Rachaduras no solo */}
-      <path d="M 52,70 L 58,67 L 54,65" fill="none" stroke="#eab308" strokeWidth="1" opacity="0.6"/>
-      <path d="M 62,71 L 65,67" fill="none" stroke="#eab308" strokeWidth="1" opacity="0.5"/>
-      <text x="80" y="97" fontSize="8" fill="#eab308" textAnchor="middle" opacity="0.7">Inclinação moderada — R2</text>
+      <rect width="160" height="100" fill="#fefce8" rx="3"/>
+      <rect width="160" height="72" fill="#fef9c3"/>
+      <polygon points="0,72 88,72 160,32 160,100 0,100" fill="#78350f"/>
+      <polygon points="0,72 88,72 160,32 160,38" fill="#92400e"/>
+      <line x1="0" y1="72" x2="88" y2="72" stroke="#ca8a04" strokeWidth="2"/>
+      <line x1="88" y1="72" x2="160" y2="32" stroke="#ca8a04" strokeWidth="2.5"/>
+      <path d="M 88,72 A 22,22 0 0,1 107.1,61" fill="none" stroke="#ca8a04" strokeWidth="1.5"/>
+      <text x="109" y="64" fontSize="9" fill="#ca8a04" fontWeight="bold">30°</text>
+      <rect x="10" y="50" width="34" height="22" rx="1" fill="#fff" stroke="#ca8a04" strokeWidth="1.5"/>
+      <polygon points="8,50 27,35 46,50" fill="#ca8a04"/>
+      <rect x="16" y="60" width="9" height="12" fill="#fef08a"/>
+      <rect x="31" y="56" width="10" height="10" rx="1" fill="#fef08a" opacity="0.6"/>
+      <text x="80" y="95" fontSize="8" fill="#ca8a04" textAnchor="middle" fontWeight="600">Inclinação moderada — R2</text>
     </svg>
   )
 }
@@ -125,30 +82,20 @@ function EncostaSVG30() {
 function EncostaSVG60() {
   return (
     <svg viewBox="0 0 160 100" width="150" height="94">
-      <rect width="160" height="100" fill="#0c1020"/>
-      {/* Solo muito inclinado 60° */}
-      <polygon points="0,73 90,73 116,27 160,27 160,100 0,100" fill="#2c1000"/>
-      <polygon points="90,73 116,27 160,27 160,100 90,100" fill="#3d1500" opacity="0.8"/>
-      <line x1="0" y1="73" x2="90" y2="73" stroke="#f97316" strokeWidth="2"/>
-      <line x1="90" y1="73" x2="116" y2="27" stroke="#f97316" strokeWidth="2.5"/>
-      <line x1="116" y1="27" x2="160" y2="27" stroke="#f97316" strokeWidth="2" opacity="0.6"/>
-      {/* Arc 60° */}
-      <path d="M 90,73 A 18,18 0 0,1 99,57.4" fill="none" stroke="#f97316" strokeWidth="1.5"/>
-      <text x="100" y="60" fontSize="9" fill="#f97316" fontWeight="bold">60°</text>
-      {/* Casa inclinada/ameaçada */}
-      <g transform="rotate(-3, 26, 62)">
-        <rect x="8" y="52" width="34" height="21" rx="1" fill="#2c1000" stroke="#f97316" strokeWidth="1.5"/>
-        <polygon points="6,52 25,37 44,52" fill="#f97316" opacity="0.65"/>
-        <rect x="14" y="63" width="8" height="10" fill="#0b1220"/>
-        <rect x="29" y="58" width="9" height="9" rx="1" fill="#fed7aa" opacity="0.2"/>
-      </g>
-      {/* Setas de deslizamento */}
-      <path d="M 96,60 L 92,68" stroke="#ef4444" strokeWidth="2" markerEnd="url(#arr)" opacity="0.8"/>
-      <path d="M 104,50 L 100,58" stroke="#ef4444" strokeWidth="2" opacity="0.6"/>
-      <path d="M 108,40 L 105,48" stroke="#ef4444" strokeWidth="1.5" opacity="0.5"/>
-      {/* Blocos de rocha caindo */}
-      <rect x="88" y="63" width="6" height="5" rx="1" fill="#7c2d12" stroke="#f97316" strokeWidth="0.8"/>
-      <text x="80" y="97" fontSize="8" fill="#f97316" textAnchor="middle" opacity="0.7">Encosta acentuada — R3–R4</text>
+      <rect width="160" height="100" fill="#fff7ed" rx="3"/>
+      <rect width="160" height="72" fill="#ffedd5"/>
+      <polygon points="0,72 90,72 106,28 160,28 160,100 0,100" fill="#78350f"/>
+      <polygon points="90,72 106,28 160,28 160,34" fill="#92400e"/>
+      <line x1="0" y1="72" x2="90" y2="72" stroke="#ea580c" strokeWidth="2"/>
+      <line x1="90" y1="72" x2="106" y2="28" stroke="#ea580c" strokeWidth="2.5"/>
+      <line x1="106" y1="28" x2="160" y2="28" stroke="#ea580c" strokeWidth="1.5" opacity="0.5"/>
+      <path d="M 90,72 A 18,18 0 0,1 99,56.4" fill="none" stroke="#ea580c" strokeWidth="1.5"/>
+      <text x="100" y="59" fontSize="9" fill="#ea580c" fontWeight="bold">60°</text>
+      <rect x="10" y="50" width="34" height="22" rx="1" fill="#fff3ee" stroke="#ea580c" strokeWidth="1.5"/>
+      <polygon points="8,50 27,35 46,50" fill="#ea580c"/>
+      <rect x="16" y="60" width="9" height="12" fill="#fed7aa"/>
+      <rect x="31" y="56" width="10" height="10" rx="1" fill="#fed7aa" opacity="0.5"/>
+      <text x="80" y="95" fontSize="8" fill="#ea580c" textAnchor="middle" fontWeight="600">Encosta acentuada — R3–R4</text>
     </svg>
   )
 }
@@ -156,32 +103,23 @@ function EncostaSVG60() {
 function EncostaSVG90() {
   return (
     <svg viewBox="0 0 160 100" width="150" height="94">
-      <rect width="160" height="100" fill="#0c0a18"/>
-      {/* Paredão vertical */}
-      <polygon points="0,73 75,73 75,10 160,10 160,100 0,100" fill="#1a0000"/>
-      <polygon points="75,73 75,10 160,10 160,100 75,100" fill="#2c0000" opacity="0.8"/>
-      <line x1="0" y1="73" x2="75" y2="73" stroke="#ef4444" strokeWidth="2"/>
-      <line x1="75" y1="73" x2="75" y2="10" stroke="#ef4444" strokeWidth="3"/>
-      <line x1="75" y1="10" x2="160" y2="10" stroke="#ef4444" strokeWidth="2" opacity="0.6"/>
-      {/* Ângulo reto 90° */}
-      <rect x="75" y="63" width="10" height="10" fill="none" stroke="#ef4444" strokeWidth="1.5"/>
-      <text x="88" y="73" fontSize="9" fill="#ef4444" fontWeight="bold">90°</text>
-      {/* Estratificação da rocha */}
+      <rect width="160" height="100" fill="#fff1f2" rx="3"/>
+      <rect width="160" height="72" fill="#ffe4e6"/>
+      <polygon points="0,72 78,72 78,10 160,10 160,100 0,100" fill="#7f1d1d"/>
+      <polygon points="78,72 78,10 160,10 160,16" fill="#991b1b"/>
+      <line x1="0" y1="72" x2="78" y2="72" stroke="#dc2626" strokeWidth="2"/>
+      <line x1="78" y1="72" x2="78" y2="10" stroke="#dc2626" strokeWidth="3"/>
+      <line x1="78" y1="10" x2="160" y2="10" stroke="#dc2626" strokeWidth="1.5" opacity="0.5"/>
+      <rect x="78" y="62" width="10" height="10" fill="none" stroke="#dc2626" strokeWidth="1.5"/>
+      <text x="90" y="73" fontSize="9" fill="#dc2626" fontWeight="bold">90°</text>
       {[20,32,44,56,68].map((y,i)=>(
-        <line key={i} x1="75" y1={y} x2="160" y2={y} stroke="#ef4444" strokeWidth="0.5" opacity="0.25"/>
+        <line key={i} x1="78" y1={y} x2="160" y2={y} stroke="#dc2626" strokeWidth="0.6" opacity="0.3"/>
       ))}
-      {/* Casa pressionada contra o paredão */}
-      <g>
-        <rect x="8" y="50" width="34" height="23" rx="1" fill="#1a0000" stroke="#ef4444" strokeWidth="2"/>
-        <polygon points="6,50 25,34 44,50" fill="#ef4444" opacity="0.6"/>
-        <rect x="13" y="62" width="8" height="11" fill="#0b1220"/>
-        <rect x="28" y="57" width="9" height="9" rx="1" fill="#fecaca" opacity="0.15"/>
-      </g>
-      {/* Blocos desprendendo */}
-      {[[76,38,5,4],[80,55,4,3],[72,48,6,4]].map(([x,y,w,h],i)=>(
-        <rect key={i} x={x} y={y} width={w} height={h} rx="0.5" fill="#7f1d1d" stroke="#ef4444" strokeWidth="0.8"/>
-      ))}
-      <text x="80" y="97" fontSize="8" fill="#ef4444" textAnchor="middle" opacity="0.7">Paredão vertical — R4 CRÍTICO</text>
+      <rect x="10" y="50" width="34" height="22" rx="1" fill="#ffe4e6" stroke="#dc2626" strokeWidth="1.5"/>
+      <polygon points="8,50 27,35 46,50" fill="#dc2626"/>
+      <rect x="16" y="60" width="9" height="12" fill="#fecaca"/>
+      <rect x="31" y="56" width="10" height="10" rx="1" fill="#fecaca" opacity="0.6"/>
+      <text x="80" y="95" fontSize="8" fill="#dc2626" textAnchor="middle" fontWeight="700">Paredão vertical — R4 CRÍTICO</text>
     </svg>
   )
 }
@@ -341,72 +279,71 @@ function DeslizamentoIlus() {
 function CasaR1() {
   return (
     <svg viewBox="0 0 100 80" width="80" height="72">
-      <rect width="100" height="80" fill="#0b1220" rx="4"/>
-      {/* Solo suave */}
-      <polygon points="0,65 100,65 100,80 0,80" fill="#14532d"/>
-      <path d="M0,65 Q50,60 100,65" fill="none" stroke="#22c55e" strokeWidth="2"/>
-      {/* Casa estável */}
-      <rect x="22" y="42" width="56" height="23" rx="2" fill="#14532d" stroke="#22c55e" strokeWidth="2"/>
-      <polygon points="18,42 50,20 82,42" fill="#166534" stroke="#22c55e" strokeWidth="2"/>
-      <rect x="30" y="52" width="12" height="13" fill="#0b1220"/>
-      <rect x="58" y="48" width="13" height="12" rx="1" fill="#bbf7d0" opacity="0.5"/>
-      {/* Fundação sólida */}
-      <line x1="22" y1="65" x2="78" y2="65" stroke="#22c55e" strokeWidth="2"/>
-      <text x="50" y="76" fontSize="8" fill="#22c55e" textAnchor="middle" fontWeight="bold">~10–15°</text>
+      <rect width="100" height="80" fill="#f0fdf4" rx="4"/>
+      <rect width="100" height="65" fill="#dcfce7"/>
+      <polygon points="0,65 100,65 100,80 0,80" fill="#78350f" opacity="0.4"/>
+      <line x1="0" y1="65" x2="100" y2="65" stroke="#16a34a" strokeWidth="2.5"/>
+      <rect x="22" y="42" width="56" height="23" rx="2" fill="#fff" stroke="#16a34a" strokeWidth="2"/>
+      <polygon points="18,42 50,20 82,42" fill="#16a34a"/>
+      <rect x="30" y="52" width="12" height="13" fill="#bae6fd"/>
+      <rect x="58" y="48" width="13" height="12" rx="1" fill="#bae6fd" opacity="0.8"/>
+      <line x1="22" y1="65" x2="78" y2="65" stroke="#16a34a" strokeWidth="2.5"/>
+      <text x="50" y="76" fontSize="8" fill="#16a34a" textAnchor="middle" fontWeight="700">~10–15°</text>
     </svg>
   )
 }
 function CasaR2() {
   return (
     <svg viewBox="0 0 100 80" width="80" height="72">
-      <rect width="100" height="80" fill="#0b1220" rx="4"/>
-      <path d="M0,68 Q30,64 60,70 Q80,72 100,68" fill="#713f12" stroke="none"/>
-      <polygon points="0,68 100,68 100,80 0,80" fill="#713f12"/>
-      <g transform="rotate(-7,50,60)">
-        <rect x="22" y="43" width="56" height="22" rx="2" fill="#422006" stroke="#eab308" strokeWidth="2"/>
-        <polygon points="18,43 50,22 82,43" fill="#713f12" stroke="#eab308" strokeWidth="2"/>
-        <rect x="30" y="53" width="12" height="12" fill="#0b1220"/>
-        <rect x="58" y="49" width="13" height="12" rx="1" fill="#fef08a" opacity="0.4"/>
-        <line x1="22" y1="54" x2="78" y2="55" stroke="#eab308" strokeWidth="0.8" strokeDasharray="3,2"/>
+      <rect width="100" height="80" fill="#fefce8" rx="4"/>
+      <rect width="100" height="68" fill="#fef9c3"/>
+      <path d="M0,68 Q50,63 100,67" fill="none" stroke="#ca8a04" strokeWidth="2"/>
+      <polygon points="0,68 100,67 100,80 0,80" fill="#a16207" opacity="0.3"/>
+      <g transform="rotate(-8,50,55)">
+        <rect x="22" y="42" width="56" height="23" rx="2" fill="#fff" stroke="#ca8a04" strokeWidth="2"/>
+        <polygon points="18,42 50,20 82,42" fill="#ca8a04"/>
+        <rect x="30" y="52" width="12" height="13" fill="#fef08a"/>
+        <rect x="58" y="48" width="13" height="12" rx="1" fill="#fef08a" opacity="0.7"/>
+        <line x1="22" y1="55" x2="78" y2="55" stroke="#ca8a04" strokeWidth="0.8" strokeDasharray="3,2"/>
       </g>
-      <text x="50" y="77" fontSize="8" fill="#facc15" textAnchor="middle" fontWeight="bold">~25–30°</text>
+      <text x="50" y="78" fontSize="8" fill="#ca8a04" textAnchor="middle" fontWeight="700">~25–30°</text>
     </svg>
   )
 }
 function CasaR3() {
   return (
     <svg viewBox="0 0 100 82" width="80" height="72">
-      <rect width="100" height="82" fill="#0b1220" rx="4"/>
-      <path d="M0,70 Q25,62 50,72 Q75,78 100,68" fill="#7c2d12" stroke="none"/>
-      <polygon points="0,70 100,70 100,82 0,82" fill="#7c2d12"/>
-      <g transform="rotate(-20,50,62)">
-        <rect x="22" y="44" width="56" height="22" rx="2" fill="#431407" stroke="#f97316" strokeWidth="2"/>
-        <polygon points="18,44 50,22 82,44" fill="#7c2d12" stroke="#f97316" strokeWidth="2"/>
-        <rect x="30" y="54" width="12" height="12" fill="#0b1220"/>
-        <rect x="58" y="50" width="13" height="11" rx="1" fill="#fed7aa" opacity="0.3"/>
+      <rect width="100" height="82" fill="#fff7ed" rx="4"/>
+      <rect width="100" height="70" fill="#ffedd5"/>
+      <path d="M0,70 Q30,63 65,72 Q82,76 100,67" fill="none" stroke="#ea580c" strokeWidth="2"/>
+      <polygon points="0,70 100,67 100,82 0,82" fill="#a16207" opacity="0.3"/>
+      <g transform="rotate(-20,50,58)">
+        <rect x="22" y="42" width="56" height="23" rx="2" fill="#fff7ed" stroke="#ea580c" strokeWidth="2"/>
+        <polygon points="18,42 50,20 82,42" fill="#ea580c"/>
+        <rect x="30" y="52" width="12" height="13" fill="#fed7aa"/>
+        <rect x="58" y="48" width="13" height="11" rx="1" fill="#fed7aa" opacity="0.6"/>
       </g>
-      {/* Setas de movimento */}
-      {[15,48,82].map((x,i)=>(
-        <line key={i} x1={x} y1={[48,38,50][i]} x2={x+3} y2={[58,48,60][i]} stroke="#f97316" strokeWidth="1.5" opacity="0.8"/>
-      ))}
-      <text x="50" y="79" fontSize="8" fill="#fb923c" textAnchor="middle" fontWeight="bold">~40–45°</text>
+      <line x1="14" y1="50" x2="17" y2="60" stroke="#ea580c" strokeWidth="1.5"/>
+      <line x1="48" y1="40" x2="51" y2="50" stroke="#ea580c" strokeWidth="1.5"/>
+      <line x1="80" y1="48" x2="83" y2="58" stroke="#ea580c" strokeWidth="1.5"/>
+      <text x="50" y="80" fontSize="8" fill="#ea580c" textAnchor="middle" fontWeight="700">~40–45°</text>
     </svg>
   )
 }
 function CasaR4() {
   return (
     <svg viewBox="0 0 100 82" width="80" height="72">
-      <rect width="100" height="82" fill="#0b1220" rx="4"/>
-      <path d="M0,72 L25,60 Q40,54 55,68 Q70,72 100,65" fill="#7f1d1d" stroke="none"/>
-      <polygon points="0,72 100,72 100,82 0,82" fill="#7f1d1d"/>
-      <polygon points="20,68 42,46 62,62 78,42 92,68" fill="#450a0a" stroke="#ef4444" strokeWidth="2"/>
-      <polygon points="30,46 62,62 42,62" fill="#7f1d1d" stroke="#ef4444" strokeWidth="1"/>
-      <rect x="54" y="54" width="14" height="12" rx="1" fill="#fecaca" opacity="0.3" transform="rotate(20,61,60)"/>
-      {/* Detritos */}
-      {[[10,66,6],[20,68,5],[30,64,7],[40,70,4]].map(([x,y,s],i)=>(
-        <ellipse key={i} cx={x} cy={y} rx={s} ry={3} fill="#7f1d1d" stroke="#ef4444" strokeWidth="0.8"/>
+      <rect width="100" height="82" fill="#fff1f2" rx="4"/>
+      <rect width="100" height="72" fill="#ffe4e6"/>
+      <path d="M0,72 L25,60 Q40,52 60,68 Q78,74 100,64" fill="none" stroke="#dc2626" strokeWidth="1.5"/>
+      <polygon points="0,72 100,64 100,82 0,82" fill="#fca5a5" opacity="0.4"/>
+      <polygon points="20,68 44,44 66,60 80,40 94,68" fill="#fef2f2" stroke="#dc2626" strokeWidth="2"/>
+      <polygon points="32,44 66,60 44,60" fill="#fecaca" stroke="#dc2626" strokeWidth="1"/>
+      <rect x="54" y="52" width="14" height="12" rx="1" fill="#fecaca" transform="rotate(22,61,58)"/>
+      {[[10,66,7],[22,69,5],[34,64,8],[46,70,5]].map(([x,y,s],i)=>(
+        <ellipse key={i} cx={x} cy={y} rx={s} ry={3} fill="#fca5a5"/>
       ))}
-      <text x="50" y="79" fontSize="8" fill="#f87171" textAnchor="middle" fontWeight="bold">&gt;45° — EVACUAÇÃO</text>
+      <text x="50" y="80" fontSize="7.5" fill="#dc2626" textAnchor="middle" fontWeight="700">&gt;45° — EVACUAÇÃO</text>
     </svg>
   )
 }

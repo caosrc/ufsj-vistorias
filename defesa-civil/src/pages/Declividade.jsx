@@ -8,6 +8,7 @@ import Sidebar from '../components/Sidebar'
 import styles from './Declividade.module.css'
 import { FiTrendingUp, FiTrash2, FiActivity, FiEye, FiEyeOff, FiMaximize2, FiBox, FiEdit3 } from 'react-icons/fi'
 import TerrainProfile3D from '../components/TerrainProfile3D'
+import { api } from '../services/api'
 
 const LAYERS = [
   {
@@ -431,14 +432,15 @@ function pointAlongLine(turfLine, distM) {
 
 // ─────────────────────────────────────────────────────────────
 export default function Declividade() {
-  const mapRef           = useRef(null)
-  const leafletRef       = useRef(null)
-  const tileLayerRef     = useRef(null)
-  const drawLayerRef     = useRef(null)
-  const resultsLayerRef  = useRef(null)
-  const chartRef         = useRef(null)
-  const chartInstanceRef = useRef(null)
-  const drawnPolygonsRef = useRef([])
+  const mapRef            = useRef(null)
+  const leafletRef        = useRef(null)
+  const tileLayerRef      = useRef(null)
+  const drawLayerRef      = useRef(null)
+  const resultsLayerRef   = useRef(null)
+  const vistoriasLayerRef = useRef(null)
+  const chartRef          = useRef(null)
+  const chartInstanceRef  = useRef(null)
+  const drawnPolygonsRef  = useRef([])
 
   // Medir state
   const modoMedirRef  = useRef(false)
@@ -461,6 +463,7 @@ export default function Declividade() {
   const [classesVisiveis, setClassesVisiveis] = useState(() => new Set(SLOPE_CLASSES.map(c => c.label)))
   const [show3D,          setShow3D]          = useState(false)
   const [showPanel,       setShowPanel]       = useState(false)
+  const [showVistorias,   setShowVistorias]   = useState(true)
 
   useEffect(() => { modoMedirRef.current  = modoMedir },  [modoMedir])
   useEffect(() => { modoPoligonoRef.current = modoPoligono }, [modoPoligono])
@@ -497,13 +500,15 @@ export default function Declividade() {
     })
     L.control.zoom({ position: 'topright' }).addTo(map)
     L.control.scale({ metric: true, imperial: false }).addTo(map)
-    tileLayerRef.current   = L.tileLayer(LAYERS[0].url, { attribution: LAYERS[0].attribution, maxZoom: LAYERS[0].maxZoom }).addTo(map)
-    drawLayerRef.current   = L.layerGroup().addTo(map)
+    tileLayerRef.current    = L.tileLayer(LAYERS[0].url, { attribution: LAYERS[0].attribution, maxZoom: LAYERS[0].maxZoom }).addTo(map)
+    drawLayerRef.current    = L.layerGroup().addTo(map)
     resultsLayerRef.current = L.layerGroup().addTo(map)
+    vistoriasLayerRef.current = L.layerGroup().addTo(map)
     map.on('click',     handleClick)
     map.on('dblclick',  handleDblClick)
     map.on('mousemove', handleMouseMove)
     leafletRef.current = map
+    carregarVistoriasDeclividade()
     return () => { map.remove(); leafletRef.current = null }
   }, [])
 
