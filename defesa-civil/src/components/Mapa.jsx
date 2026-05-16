@@ -8,7 +8,7 @@ import styles from './Mapa.module.css'
 import {
   FiMapPin, FiCloud, FiX, FiCheck, FiRefreshCw, FiSquare,
   FiLayers, FiBookOpen, FiDroplet, FiAlertTriangle, FiChevronDown,
-  FiChevronRight, FiRadio
+  FiChevronRight, FiRadio, FiNavigation, FiClipboard
 } from 'react-icons/fi'
 
 const CAMADAS_BASE = [
@@ -39,6 +39,30 @@ const CAMADAS_BASE = [
 ]
 
 const RISCO_CORES = { R1: '#22c55e', R2: '#eab308', R3: '#f97316', R4: '#ef4444' }
+
+function criarIconeVistoria(risco) {
+  const cor = RISCO_CORES[risco] || '#64748b'
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:20px;height:20px;border-radius:5px;background:${cor};border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;">
+      <span style="font-size:7px;font-weight:900;color:#fff;letter-spacing:-0.5px;">${risco || '?'}</span>
+    </div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  })
+}
+
+function criarIconeGPS() {
+  return L.divIcon({
+    className: '',
+    html: `<div style="position:relative;width:22px;height:22px;">
+      <div style="width:22px;height:22px;border-radius:50%;background:rgba(37,99,235,0.15);border:2px solid #2563eb;position:absolute;top:0;left:0;animation:gpsRipple 1.5s ease-out infinite;"></div>
+      <div style="width:11px;height:11px;border-radius:50%;background:#2563eb;border:2.5px solid #fff;position:absolute;top:5.5px;left:5.5px;box-shadow:0 2px 8px rgba(37,99,235,0.7);"></div>
+    </div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+  })
+}
 const NIVEL_CORES = { critico: '#ef4444', alto: '#f97316', medio: '#eab308', baixo: '#22c55e' }
 
 const RISCO_LABELS = {
@@ -74,6 +98,10 @@ export default function Mapa() {
   const drawLayerRef = useRef(null)
   const chuvaLayerRef = useRef(null)
   const heatLayerRef = useRef(null)
+  const vistoriasLayerRef = useRef(null)
+  const gpsMarkerRef = useRef(null)
+  const gpsAccCircleRef = useRef(null)
+  const gpsWatchIdRef = useRef(null)
   const drawStateRef = useRef({ ativo: false, pontos: [], markers: [], polyline: null })
 
   const [camada, setCamada] = useState('ruas')
@@ -87,12 +115,13 @@ export default function Mapa() {
   const [nivelRisco, setNivelRisco] = useState('R2')
   const [descRisco, setDescRisco] = useState('')
   const [polyRascunho, setPolyRascunho] = useState(null)
-  const [overlays, setOverlays] = useState({ chuva: false, heatmap: false, areas: true })
+  const [overlays, setOverlays] = useState({ chuva: false, heatmap: false, areas: true, vistorias: true })
   const [precipitacao, setPrecipitacao] = useState(null)
   const [ocorrenciasLatLng, setOcorrenciasLatLng] = useState([])
   const [secaoBase, setSecaoBase] = useState(true)
   const [secaoOverlay, setSecaoOverlay] = useState(true)
   const [radarTs, setRadarTs] = useState(null)
+  const [gpsAtivo, setGpsAtivo] = useState(false)
 
   // ── Init Mapa ──────────────────────────────────────────────
   useEffect(() => {
@@ -117,6 +146,7 @@ export default function Mapa() {
     areaLayerRef.current = L.layerGroup().addTo(map)
     drawLayerRef.current = L.layerGroup().addTo(map)
     heatLayerRef.current = L.layerGroup().addTo(map)
+    vistoriasLayerRef.current = L.layerGroup().addTo(map)
 
     map.on('click', handleMapClick)
     map.on('mousemove', (e) => {
@@ -194,6 +224,27 @@ export default function Mapa() {
     }
   }, [overlays.areas])
 
+  // ── Overlay: Vistorias ─────────────────────────────────────
+  useEffect(() => {
+    if (!vistoriasLayerRef.current || !leafletRef.current) return
+    if (overlays.vistorias) {
+      if (!leafletRef.current.hasLayer(vistoriasLayerRef.current)) {
+        vistoriasLayerRef.current.addTo(leafletRef.current)
+      }
+    } else {
+      leafletRef.current.removeLayer(vistoriasLayerRef.current)
+    }
+  }, [overlays.vistorias])
+
+  // ── Cleanup GPS ao desmontar ───────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (gpsWatchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(gpsWatchIdRef.current)
+      }
+    }
+  }, [])
+
   // ── Nível do polígono rascunho ─────────────────────────────
   useEffect(() => {
     if (polyRascunho?.polygon) {
@@ -264,12 +315,77 @@ export default function Mapa() {
     }
   }
 
+  // ── GPS ────────────────────────────────────────────────────
+  function toggleGPS() {
+    if (gpsAtivo) {
+      desativarGPS()
+    } else {
+      ativarGPS()
+    }
+  }
+
+  function ativarGPS() {
+    if (!navigator.geolocation) {
+      alert('GPS não disponível neste navegador.')
+      return
+    }
+    setGpsAtivo(true)
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords
+        const map = leafletRef.current
+        if (!map) return
+
+        if (gpsMarkerRef.current) {
+          gpsMarkerRef.current.setLatLng([lat, lng])
+        } else {
+          gpsMarkerRef.current = L.marker([lat, lng], {
+            icon: criarIconeGPS(), zIndexOffset: 1000
+          })
+            .bindPopup(`<b style="font-size:13px">📍 Sua localização</b><br><span style="font-size:11px;color:#64748b">Precisão: ±${Math.round(acc)} m</span>`)
+            .addTo(map)
+        }
+
+        if (gpsAccCircleRef.current) {
+          gpsAccCircleRef.current.setLatLng([lat, lng]).setRadius(acc)
+        } else {
+          gpsAccCircleRef.current = L.circle([lat, lng], {
+            radius: acc,
+            color: '#2563eb', fillColor: '#2563eb',
+            fillOpacity: 0.07, weight: 1.5, dashArray: '5,5',
+          }).addTo(map)
+        }
+
+        map.setView([lat, lng], Math.max(map.getZoom(), 16), { animate: true, duration: 1 })
+      },
+      () => {
+        setGpsAtivo(false)
+        if (gpsMarkerRef.current) { leafletRef.current?.removeLayer(gpsMarkerRef.current); gpsMarkerRef.current = null }
+        if (gpsAccCircleRef.current) { leafletRef.current?.removeLayer(gpsAccCircleRef.current); gpsAccCircleRef.current = null }
+        alert('Não foi possível obter localização. Verifique as permissões do GPS.')
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+    )
+    gpsWatchIdRef.current = id
+  }
+
+  function desativarGPS() {
+    if (gpsWatchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(gpsWatchIdRef.current)
+      gpsWatchIdRef.current = null
+    }
+    setGpsAtivo(false)
+    if (gpsMarkerRef.current) { leafletRef.current?.removeLayer(gpsMarkerRef.current); gpsMarkerRef.current = null }
+    if (gpsAccCircleRef.current) { leafletRef.current?.removeLayer(gpsAccCircleRef.current); gpsAccCircleRef.current = null }
+  }
+
   // ── Dados do mapa ──────────────────────────────────────────
   async function carregarDados(map) {
     const m = map || leafletRef.current
     if (!m) return
     ocMarkerLayerRef.current?.clearLayers()
     areaLayerRef.current?.clearLayers()
+    vistoriasLayerRef.current?.clearLayers()
     try {
       const [ocGeo, arGeo] = await Promise.all([
         api.geojsonOcorrencias().catch(() => null),
@@ -312,6 +428,38 @@ export default function Mapa() {
             )
           }
         }).addTo(areaLayerRef.current)
+      }
+      // ── Vistorias ──
+      try {
+        const vistorias = await api.getVistorias()
+        const layer = vistoriasLayerRef.current
+        if (layer) {
+          vistorias.filter(v => v.lat && v.lng).forEach(v => {
+            const cor = RISCO_CORES[v.risco] || '#64748b'
+            L.marker([v.lat, v.lng], { icon: criarIconeVistoria(v.risco) })
+              .bindPopup(
+                `<div style="font-family:sans-serif;min-width:160px">
+                  <b style="font-size:13px">📋 ${v.nome || 'Vistoria'}</b>
+                  ${v.endereco ? `<div style="font-size:11px;color:#64748b;margin-top:3px">${v.endereco}</div>` : ''}
+                  <div style="margin-top:6px;display:flex;align-items:center;gap:6px">
+                    <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:${cor}22;color:${cor};border:1px solid ${cor}44">
+                      ${v.risco || '—'}
+                    </span>
+                    ${v.data ? `<span style="font-size:10px;color:#94a3b8">${new Date(v.data).toLocaleDateString('pt-BR')}</span>` : ''}
+                  </div>
+                </div>`
+              )
+              .addTo(layer)
+          })
+        }
+      } catch (_) {
+        // fallback localStorage
+        const vistorias = JSON.parse(localStorage.getItem('vistorias') || '[]')
+        vistorias.filter(v => v.lat && v.lng).forEach(v => {
+          L.marker([v.lat, v.lng], { icon: criarIconeVistoria(v.risco) })
+            .bindPopup(`<b>${v.nome || 'Vistoria'}</b><br>${v.risco || '—'}`)
+            .addTo(vistoriasLayerRef.current)
+        })
       }
     } catch {
       const ocs = JSON.parse(localStorage.getItem('ocorrencias') || '[]')
@@ -468,6 +616,15 @@ export default function Mapa() {
           )}
 
           <button
+            className={`${styles.toolBtn} ${gpsAtivo ? styles.toolBtnGps : ''}`}
+            onClick={toggleGPS}
+            title={gpsAtivo ? 'Desativar GPS' : 'Mostrar minha localização no mapa'}
+          >
+            <FiNavigation size={14} />
+            <span>{gpsAtivo ? 'GPS Ativo' : 'GPS'}</span>
+          </button>
+
+          <button
             className={`${styles.toolBtn} ${showLegenda ? styles.toolBtnActive : ''}`}
             onClick={() => setShowLegenda(s => !s)}
             title="Legenda"
@@ -618,6 +775,22 @@ export default function Mapa() {
                     <button
                       className={`${styles.toggle} ${overlays.areas ? styles.toggleOn : ''}`}
                       onClick={() => toggleOverlay('areas')}
+                    >
+                      <span className={styles.toggleKnob} />
+                    </button>
+                  </div>
+
+                  <div className={styles.overlayItem}>
+                    <div className={styles.overlayInfo}>
+                      <span className={styles.overlayIcone}>📋</span>
+                      <div>
+                        <span className={styles.overlayNome}>Vistorias</span>
+                        <span className={styles.overlayTs}>por coordenada</span>
+                      </div>
+                    </div>
+                    <button
+                      className={`${styles.toggle} ${overlays.vistorias ? styles.toggleOn : ''}`}
+                      onClick={() => toggleOverlay('vistorias')}
                     >
                       <span className={styles.toggleKnob} />
                     </button>

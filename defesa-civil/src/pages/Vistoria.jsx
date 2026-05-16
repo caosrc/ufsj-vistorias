@@ -719,12 +719,16 @@ export default function Vistoria() {
   const [risco,       setRisco]       = useState('')
   const [observacao,  setObservacao]  = useState('')
 
-  const [vistorias,  setVistorias]  = useState([])
-  const [coordAtual, setCoordAtual] = useState(null)
-  const [sucesso,    setSucesso]    = useState(false)
-  const [carregando, setCarregando] = useState(false)
-  const [gpsLoading, setGpsLoading] = useState(false)
-  const [gpsErro,    setGpsErro]    = useState('')
+  const [vistorias,     setVistorias]     = useState([])
+  const [coordAtual,    setCoordAtual]    = useState(null)
+  const [sucesso,       setSucesso]       = useState(false)
+  const [carregando,    setCarregando]    = useState(false)
+  const [gpsLoading,    setGpsLoading]    = useState(false)
+  const [gpsErro,       setGpsErro]       = useState('')
+  const [showGMSModal,  setShowGMSModal]  = useState(false)
+  const [gmsLat,        setGmsLat]        = useState('')
+  const [gmsLng,        setGmsLng]        = useState('')
+  const [gmsErroModal,  setGmsErroModal]  = useState('')
 
   useEffect(() => {
     carregar()
@@ -756,12 +760,48 @@ export default function Vistoria() {
         localStorage.setItem('ultimaCoordenada', JSON.stringify(coord))
         setGpsLoading(false)
       },
-      (err) => {
+      () => {
         setGpsErro('Não foi possível obter localização. Verifique as permissões.')
         setGpsLoading(false)
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     )
+  }
+
+  function parseGMSToDecimal(gms) {
+    if (!gms) return null
+    const s = gms.trim()
+    // Aceita formatos: 20°31'30.00"S  |  20 31 30.00 S  |  20°31'30,00"S
+    const m = s.match(/^(\d+)[°\s](\d+)['\s]([0-9.,]+)["\s]?\s*([NSEWnsewsSoOoO]?)$/)
+    if (!m) return null
+    const deg = parseFloat(m[1])
+    const min = parseFloat(m[2])
+    const sec = parseFloat(m[3].replace(',', '.'))
+    const dir = (m[4] || '').toUpperCase()
+    if (isNaN(deg) || isNaN(min) || isNaN(sec)) return null
+    let dec = deg + min / 60 + sec / 3600
+    if (dir === 'S' || dir === 'O' || dir === 'W') dec = -dec
+    return dec
+  }
+
+  function confirmarGMS() {
+    setGmsErroModal('')
+    const lat = parseGMSToDecimal(gmsLat)
+    const lng = parseGMSToDecimal(gmsLng)
+    if (lat === null || lng === null) {
+      setGmsErroModal('Formato inválido. Exemplo: 20°31\'30.00"S e 43°22\'15.00"O')
+      return
+    }
+    if (lat < -35 || lat > 6 || lng < -75 || lng > -28) {
+      setGmsErroModal('Coordenadas fora do Brasil. Verifique os valores.')
+      return
+    }
+    const coord = { lat, lng }
+    setCoordAtual(coord)
+    localStorage.setItem('ultimaCoordenada', JSON.stringify(coord))
+    setShowGMSModal(false)
+    setGmsLat('')
+    setGmsLng('')
   }
 
   function toggleProcesso(id) { setProcessos(p => p.includes(id) ? p.filter(x=>x!==id) : [...p, id]) }
@@ -825,7 +865,7 @@ export default function Vistoria() {
       {abaAtiva === 'form' && (
         <div className={styles.formCard}>
 
-          {/* ── GPS ── */}
+          {/* ── GPS + GMS ── */}
           <div className={styles.gpsBox}>
             <div className={styles.gpsLeft}>
               <FiMapPin size={16} color={coordAtual ? '#22c55e' : '#f97316'}/>
@@ -843,12 +883,62 @@ export default function Vistoria() {
                 )}
               </div>
             </div>
-            <button type='button' className={`${styles.gpsBtn} ${gpsLoading ? styles.gpsBtnLoad : ''}`} onClick={ativarGPS} disabled={gpsLoading}>
-              <FiNavigation size={14}/>
-              {gpsLoading ? 'Aguardando GPS...' : 'Capturar GPS'}
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+              <button type='button' className={`${styles.gpsBtn} ${gpsLoading ? styles.gpsBtnLoad : ''}`} onClick={ativarGPS} disabled={gpsLoading}>
+                <FiNavigation size={14}/>
+                {gpsLoading ? 'Aguardando GPS...' : 'Capturar GPS'}
+              </button>
+              <button type='button' className={styles.gmsBtn} onClick={() => { setShowGMSModal(true); setGmsErroModal('') }}>
+                <FiMapPin size={13}/>
+                Inserir GMS
+              </button>
+            </div>
           </div>
           {gpsErro && <div className={styles.gpsErro}>{gpsErro}</div>}
+
+          {/* ── Modal GMS ── */}
+          {showGMSModal && (
+            <div className={styles.gmsModalOverlay} onClick={e => { if (e.target === e.currentTarget) setShowGMSModal(false) }}>
+              <div className={styles.gmsModalCard}>
+                <h3 className={styles.gmsModalTitle}>Inserir Coordenadas GMS</h3>
+                <p className={styles.gmsModalSub}>Graus, Minutos e Segundos (formato GMS)</p>
+
+                {gmsErroModal && <div className={styles.gmsModalErro}>{gmsErroModal}</div>}
+
+                <div className={styles.gmsModalField}>
+                  <label className={styles.gmsModalLabel}>Latitude</label>
+                  <input
+                    className={styles.gmsModalInput}
+                    placeholder='20°31′30.00″S'
+                    value={gmsLat}
+                    onChange={e => setGmsLat(e.target.value)}
+                    autoFocus
+                  />
+                  <div className={styles.gmsModalHint}>Ex: 20°31'30.00"S — use S para Sul</div>
+                </div>
+
+                <div className={styles.gmsModalField}>
+                  <label className={styles.gmsModalLabel}>Longitude</label>
+                  <input
+                    className={styles.gmsModalInput}
+                    placeholder='43°22′15.00″O'
+                    value={gmsLng}
+                    onChange={e => setGmsLng(e.target.value)}
+                  />
+                  <div className={styles.gmsModalHint}>Ex: 43°22'15.00"O — use O ou W para Oeste</div>
+                </div>
+
+                <div className={styles.gmsModalBtns}>
+                  <button type='button' className={styles.gmsModalConfirm} onClick={confirmarGMS}>
+                    <FiMapPin size={13}/> Confirmar
+                  </button>
+                  <button type='button' className={styles.gmsModalCancel} onClick={() => setShowGMSModal(false)}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={salvar} className={styles.form}>
 

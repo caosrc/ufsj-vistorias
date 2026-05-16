@@ -277,23 +277,31 @@ function TrianguloSlope({ interval, distHoriz, slopePct, slopeGrau, cor }) {
   )
 }
 
-// ── Elevação API (Open-Meteo primário → fallback OpenTopoData) ─
+// ── Elevação API via proxy do backend ────────────────────────
 async function fetchElevations(points) {
-  // Usa proxy do backend para evitar bloqueios CORS/rede do browser
   const lats = points.map(p => p[1].toFixed(6)).join(',')
   const lngs = points.map(p => p[0].toFixed(6)).join(',')
   try {
-    const res = await fetch(
-      `/api/elevation?latitude=${lats}&longitude=${lngs}`,
-      { signal: AbortSignal.timeout(20000) }
-    )
+    const res = await fetch(`/api/elevation?latitude=${lats}&longitude=${lngs}`)
     if (res.ok) {
       const data = await res.json()
-      if (Array.isArray(data.elevation) && data.elevation.length === points.length) {
-        return data.elevation.map(e => e ?? 0)
+      if (Array.isArray(data.elevation) && data.elevation.length > 0) {
+        if (data.elevation.length === points.length) {
+          return data.elevation.map(e => e ?? 0)
+        }
+        // Comprimento diferente: interpola para o número de pontos solicitados
+        return points.map((_, i) => {
+          const t = points.length > 1 ? i / (points.length - 1) : 0
+          const srcIdx = t * (data.elevation.length - 1)
+          const lo = Math.floor(srcIdx), hi = Math.min(Math.ceil(srcIdx), data.elevation.length - 1)
+          const frac = srcIdx - lo
+          return (data.elevation[lo] ?? 0) * (1 - frac) + (data.elevation[hi] ?? data.elevation[lo] ?? 0) * frac
+        })
       }
     }
-  } catch (_) {}
+  } catch (err) {
+    console.error('[Elevação] erro:', err)
+  }
   throw new Error('Não foi possível obter dados de elevação. Verifique sua conexão e tente novamente.')
 }
 

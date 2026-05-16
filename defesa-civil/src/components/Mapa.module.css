@@ -90,6 +90,20 @@
 }
 .toolBtn:hover { background: #f1f5f9; border-color: #2563eb; color: #1e293b; }
 .toolBtnActive { background: #eff6ff !important; border-color: #2563eb !important; color: #2563eb !important; }
+.toolBtnGps {
+  background: #f0fdf4 !important;
+  border-color: #16a34a !important;
+  color: #15803d !important;
+  animation: gpsBtnPulse 2s ease-in-out infinite;
+}
+@keyframes gpsBtnPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(22,163,74,0.25); }
+  50% { box-shadow: 0 0 0 5px rgba(22,163,74,0); }
+}
+@keyframes gpsRipple {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
 
 .iconBtn {
   display: flex; align-items: center; justify-content: center;
