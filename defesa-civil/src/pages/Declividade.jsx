@@ -489,6 +489,27 @@ export default function Declividade() {
     })
   }, [classesVisiveis])
 
+  // ── Carrega vistorias no mapa ────────────────────────────────
+  function carregarVistoriasDeclividade() {
+    if (!vistoriasLayerRef.current) return
+    api.getVistorias().then(vistorias => {
+      vistoriasLayerRef.current.clearLayers()
+      vistorias.forEach(v => {
+        if (v.lat == null || v.lng == null) return
+        const cor = v.risco === 'R4' ? '#ef4444'
+                  : v.risco === 'R3' ? '#f97316'
+                  : v.risco === 'R2' ? '#eab308'
+                  : '#22c55e'
+        L.circleMarker([v.lat, v.lng], {
+          radius: 7, color: cor, fillColor: cor,
+          fillOpacity: 0.8, weight: 2,
+        })
+          .bindTooltip(`<b>${v.nome}</b><br/>Risco: ${v.risco || 'N/A'}<br/>${v.endereco || ''}`, { sticky: true })
+          .addTo(vistoriasLayerRef.current)
+      })
+    }).catch(() => {})
+  }
+
   // ── Init mapa ────────────────────────────────────────────────
   useEffect(() => {
     if (leafletRef.current) return
