@@ -1,5 +1,5 @@
-// ── Geovistorias Service Worker v3 ─────────────────────────────
-const CACHE_APP   = 'geovistorias-app-v3'
+// ── Geovistorias Service Worker v4 ─────────────────────────────
+const CACHE_APP   = 'geovistorias-app-v4'
 const CACHE_TILES = 'geovistorias-tiles-v2'
 const CACHE_API   = 'geovistorias-api-v2'
 
@@ -64,8 +64,8 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // App shell e assets → CacheFirst
-  event.respondWith(cacheFirstApp(req))
+  // App shell e assets JS/CSS → NetworkFirst (garante versão atualizada)
+  event.respondWith(networkFirstApp(req))
 })
 
 // ── Estratégias de cache ───────────────────────────────────────
@@ -120,7 +120,20 @@ async function cacheFirstApp(request) {
     if (response.ok) cache.put(request, response.clone())
     return response
   } catch {
-    // SPA fallback → retorna index.html
+    const fallback = await cache.match('/') || await cache.match('/index.html')
+    return fallback || new Response('App offline', { status: 503 })
+  }
+}
+
+async function networkFirstApp(request) {
+  const cache = await caches.open(CACHE_APP)
+  try {
+    const response = await fetch(request)
+    if (response.ok) cache.put(request, response.clone())
+    return response
+  } catch {
+    const cached = await cache.match(request)
+    if (cached) return cached
     const fallback = await cache.match('/') || await cache.match('/index.html')
     return fallback || new Response('App offline', { status: 503 })
   }

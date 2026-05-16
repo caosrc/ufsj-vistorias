@@ -460,6 +460,7 @@ export default function Declividade() {
   const [medicaoResult,   setMedicaoResult]   = useState(null)
   const [classesVisiveis, setClassesVisiveis] = useState(() => new Set(SLOPE_CLASSES.map(c => c.label)))
   const [show3D,          setShow3D]          = useState(false)
+  const [showPanel,       setShowPanel]       = useState(false)
 
   useEffect(() => { modoMedirRef.current  = modoMedir },  [modoMedir])
   useEffect(() => { modoPoligonoRef.current = modoPoligono }, [modoPoligono])
@@ -690,6 +691,7 @@ export default function Declividade() {
     setModoPoligono(false)
     setModoAtivo(null)
     setResultado(null)
+    setShowPanel(false)
     if (chartInstanceRef.current) { chartInstanceRef.current.destroy(); chartInstanceRef.current = null }
     setClassesVisiveis(new Set(SLOPE_CLASSES.map(c => c.label)))
   }
@@ -1058,6 +1060,20 @@ export default function Declividade() {
                   : poligonoFechado ? '✓ Polígono' : 'Polígono'}
               </button>
 
+              {/* Separador + Resultado */}
+              {(medicaoResult || resultado) && !isLoading && (
+                <>
+                  <span style={{ color: '#334155', fontSize: 14 }}>|</span>
+                  <button
+                    className={`${styles.btn} ${showPanel ? styles.btnResultadoActive : styles.btnResultado}`}
+                    onClick={() => setShowPanel(p => !p)}
+                  >
+                    <FiActivity size={12} />
+                    Resultado
+                  </button>
+                </>
+              )}
+
               {/* Limpar */}
               {(modoAtivo || modoPoligono || modoMedir || poligonoFechado) && (
                 <button className={`${styles.btn} ${styles.btnClear}`} onClick={limparTudo} disabled={isLoading && !modoMedir}>
@@ -1074,7 +1090,8 @@ export default function Declividade() {
           <div ref={mapRef} className={styles.mapEl} />
         </div>
 
-        {/* ── Painel lateral ─────────────────────────────── */}
+        {/* ── Painel flutuante ───────────────────────────── */}
+        {showPanel && (
         <div className={styles.panel}>
           <div className={styles.panelHeader}>
             <FiActivity size={14} color="#38bdf8" />
@@ -1082,6 +1099,7 @@ export default function Declividade() {
               {modoAtivo === 'poligono' ? 'Análise de Polígono' : 'Resultado'}
             </span>
             {isLoading && <span className={styles.loadingDot} />}
+            <button className={styles.panelClose} onClick={() => setShowPanel(false)} title="Fechar">✕</button>
           </div>
 
           <div className={styles.panelBody}>
@@ -1461,6 +1479,7 @@ export default function Declividade() {
 
           </div>
         </div>
+        )}
       </div>
     </div>
 
