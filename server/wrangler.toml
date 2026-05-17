@@ -6,4 +6,4 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding      = "DB"
 database_name = "geovistorias"
-database_id  = "COLOQUE_AQUI_O_ID_DO_D1"
+database_id  = "3cb04587-ede1-47ec-afe2-38322605864f"
