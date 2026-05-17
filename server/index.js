@@ -3,11 +3,20 @@ import cors from 'cors'
 import { Pool } from 'pg'
 
 const app = express()
-const PORT = 3001
+const PORT = process.env.PORT || 3001
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
-app.use(cors())
+// CORS: em produção, restringe à origem do VITE_FRONTEND_URL se definida
+const allowedOrigins = process.env.VITE_FRONTEND_URL
+  ? [process.env.VITE_FRONTEND_URL]
+  : true  // desenvolvimento: aceita qualquer origem
+
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'DELETE', 'PATCH', 'PUT'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}))
 app.use(express.json())
 
 // ── Migração automática — adiciona colunas novas sem apagar dados ──

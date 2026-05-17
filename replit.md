@@ -46,6 +46,34 @@ server/
   index.js     — Express + PostGIS
 ```
 
+## Deploy — Cloudflare Pages (Frontend) + Backend Separado
+
+### Frontend no Cloudflare Pages
+1. Faça push do repositório para o GitHub
+2. No Cloudflare Pages → "Connect to Git" → selecione o repositório
+3. Configure o build:
+   - **Framework preset**: Vite
+   - **Build command**: `cd defesa-civil && npm install && npm run build`
+   - **Build output directory**: `defesa-civil/dist`
+4. Variável de ambiente no Cloudflare Pages:
+   - `VITE_API_URL` = URL do backend em produção (ex: `https://api.geovistorias.com`)
+
+### Backend (Express + PostgreSQL)
+O backend precisa de um servidor Node.js com PostgreSQL/PostGIS. Opções recomendadas:
+- **Railway** (railway.app) — suporta Node.js + PostgreSQL nativo
+- **Render** (render.com) — plano gratuito com PostgreSQL
+- **Fly.io** — ideal para apps com banco de dados
+
+Variáveis de ambiente do backend:
+- `DATABASE_URL` — connection string do PostgreSQL
+- `PORT` — porta do servidor (padrão: 3001)
+- `VITE_FRONTEND_URL` — URL do frontend Cloudflare (para CORS, ex: `https://geovistorias.pages.dev`)
+
+### Arquivos de configuração já incluídos
+- `defesa-civil/public/_redirects` — SPA routing no Cloudflare Pages
+- `defesa-civil/public/_headers` — cache e headers de segurança
+- `defesa-civil/.env.example` — modelo de variáveis de ambiente
+
 ## Preferências do Usuário
 - Foco nas cidades: Ouro Branco - MG e Congonhas - MG
 - Idioma: Português (pt-BR)

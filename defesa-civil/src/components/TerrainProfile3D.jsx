@@ -62,11 +62,6 @@ function buildGridMesh(points, cols, rows, minE, maxE) {
   for (let r = 0; r < rows-1; r++) {
     for (let c = 0; c < cols-1; c++) {
       const a=r*cols+c, b=r*cols+c+1, cc=(r+1)*cols+c, d=(r+1)*cols+c+1
-      // Filtra células fora do polígono usando o flag 'inside'
-      if (points[a].inside !== undefined) {
-        const cnt = [points[a],points[b],points[cc],points[d]].filter(p=>p.inside).length
-        if (cnt < 2) continue
-      }
       indices.push(a, cc, b); indices.push(b, cc, d)
     }
   }
@@ -329,83 +324,12 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
       // Cone posicionado na cota real, sem distorção
       if (realRange >= 20) {
         if (mode === 'poligono' && gridData?.points?.length > 0) {
-          const peakPt = gridData.points.filter(p => p.inside).reduce((a, b) => b.y > a.y ? b : a)
+          const peakPt = gridData.points.reduce((a, b) => b.y > a.y ? b : a)
           addPeakMarker(scene, peakPt.x, peakPt.z, peakPt.y - realMinE, peakPt.y, realRange, sw, sh)
         } else if (mode === 'medir' && perfil?.length > 1) {
           const peakPt  = perfil.reduce((a, b) => b.elev > a.elev ? b : a)
           const ribW    = Math.max(perfil[perfil.length-1].dist * 0.12, 10)
           addPeakMarker(scene, peakPt.dist, ribW / 2, peakPt.elev - realMinE, peakPt.elev, realRange, sw, sh)
-        }
-      }
-
-      // ── CONTORNO 3D DO POLÍGONO com paredes e medidas ─────────
-      if (mode === 'poligono' && gridData?.polyVerts?.length > 0) {
-        const pvs = gridData.polyVerts
-        const N   = pvs.length
-
-        // Linha de perímetro na altitude real de cada vértice
-        const perimPts = [...pvs, pvs[0]].map(v => new THREE.Vector3(v.x, v.y - realMinE, v.z))
-        scene.add(new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints(perimPts),
-          new THREE.LineBasicMaterial({ color: 0xa78bfa, transparent: true, opacity: 0.95 })
-        ))
-
-        // Linha de base do polígono (ao nível do chão)
-        const basePts = [...pvs, pvs[0]].map(v => new THREE.Vector3(v.x, 0, v.z))
-        scene.add(new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints(basePts),
-          new THREE.LineBasicMaterial({ color: 0x7c3aed, transparent: true, opacity: 0.5 })
-        ))
-
-        // Paredes laterais (saia) do perímetro até a base
-        const skirtVerts = []
-        for (let i = 0; i < N; i++) {
-          const v1 = pvs[i], v2 = pvs[(i + 1) % N]
-          const y1 = v1.y - realMinE, y2 = v2.y - realMinE
-          skirtVerts.push(v1.x, y1, v1.z,  v1.x, 0, v1.z,  v2.x, y2, v2.z)
-          skirtVerts.push(v2.x, y2, v2.z,  v1.x, 0, v1.z,  v2.x, 0,  v2.z)
-        }
-        const skirtGeo = new THREE.BufferGeometry()
-        skirtGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(skirtVerts), 3))
-        skirtGeo.computeVertexNormals()
-        scene.add(new THREE.Mesh(skirtGeo,
-          new THREE.MeshLambertMaterial({ color: 0x7c3aed, transparent: true, opacity: 0.18, side: THREE.DoubleSide })))
-
-        // Arestas verticais nos cantos do polígono
-        const vLinePts = []
-        pvs.forEach(v => {
-          vLinePts.push(new THREE.Vector3(v.x, 0, v.z))
-          vLinePts.push(new THREE.Vector3(v.x, v.y - realMinE, v.z))
-        })
-        scene.add(new THREE.LineSegments(
-          new THREE.BufferGeometry().setFromPoints(vLinePts),
-          new THREE.LineBasicMaterial({ color: 0xa78bfa, transparent: true, opacity: 0.55 })
-        ))
-
-        // Esferas douradas nos vértices com label de altitude
-        const vSphR = Math.max(horizMax * 0.013, 0.8)
-        pvs.forEach((v, i) => {
-          const relY = v.y - realMinE
-          const sph  = new THREE.Mesh(
-            new THREE.SphereGeometry(vSphR, 8, 8),
-            new THREE.MeshLambertMaterial({ color: 0xfbbf24 })
-          )
-          sph.position.set(v.x, relY, v.z)
-          scene.add(sph)
-          makeTextSprite(scene, `V${i + 1}  ${Math.round(v.y)} m`, '#fbbf24',
-            v.x, relY + sh * 1.5, v.z, sw * 1.1, sh)
-        })
-
-        // Labels de comprimento em cada aresta (no meio da aresta, acima da saia)
-        if (lateralDists?.length > 0) {
-          lateralDists.forEach((d, i) => {
-            const v1 = pvs[i], v2 = pvs[(i + 1) % N]
-            const mx  = (v1.x + v2.x) / 2
-            const my  = ((v1.y - realMinE) + (v2.y - realMinE)) / 2 + sh * 0.7
-            const mz  = (v1.z + v2.z) / 2
-            const len = d.dist >= 1000 ? `${(d.dist / 1000).toFixed(2)} km` : `${d.dist} m`
-            makeTextSprite(scene, `L${i + 1}: ${len}`, '#38bdf8', mx, my, mz, sw * 1.35, sh)
-          })
         }
       }
     }
