@@ -3,13 +3,17 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --port 3001",
+    "dev": "node index.js",
+    "start": "node index.js",
     "deploy": "wrangler deploy",
     "db:init": "wrangler d1 execute geovistorias --file=schema.sql",
     "db:init:remote": "wrangler d1 execute geovistorias --remote --file=schema.sql"
   },
   "dependencies": {
-    "hono": "^4.6.0"
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "hono": "^4.6.0",
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "wrangler": "^3.80.0"

@@ -10,12 +10,12 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'three-vendor': ['three'],
-          'chart-vendor': ['chart.js', 'react-chartjs-2'],
-          'map-vendor': ['leaflet'],
-          'turf-vendor': ['@turf/turf'],
+        manualChunks: (id) => {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router-dom')) return 'react-vendor'
+          if (id.includes('node_modules/three')) return 'three-vendor'
+          if (id.includes('node_modules/chart.js') || id.includes('node_modules/react-chartjs-2')) return 'chart-vendor'
+          if (id.includes('node_modules/leaflet')) return 'map-vendor'
+          if (id.includes('node_modules/@turf')) return 'turf-vendor'
         }
       }
     }
