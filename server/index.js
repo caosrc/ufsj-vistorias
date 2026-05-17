@@ -1,289 +1,226 @@
-import express from 'express'
-import cors from 'cors'
-import { Pool } from 'pg'
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
 
-const app = express()
-const PORT = process.env.PORT || 3001
+const app = new Hono()
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-
-// CORS: em produção, restringe à origem do VITE_FRONTEND_URL se definida
-const allowedOrigins = process.env.VITE_FRONTEND_URL
-  ? [process.env.VITE_FRONTEND_URL]
-  : true  // desenvolvimento: aceita qualquer origem
-
-app.use(cors({
-  origin: allowedOrigins,
-  methods: ['GET', 'POST', 'DELETE', 'PATCH', 'PUT'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+app.use('*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'DELETE', 'PATCH', 'PUT'],
+  allowHeaders: ['Content-Type', 'Authorization'],
 }))
-app.use(express.json())
 
-// ── Migração automática — adiciona colunas novas sem apagar dados ──
-pool.query(`
-  ALTER TABLE vistorias
-    ADD COLUMN IF NOT EXISTS cond_encosta    TEXT,
-    ADD COLUMN IF NOT EXISTS tipo_talude     TEXT,
-    ADD COLUMN IF NOT EXISTS processos       TEXT[],
-    ADD COLUMN IF NOT EXISTS moradores       TEXT,
-    ADD COLUMN IF NOT EXISTS angulo_encosta  TEXT,
-    ADD COLUMN IF NOT EXISTS caract_encosta  TEXT[]
-`).catch(() => {})
+// ── helpers ───────────────────────────────────────────────────
+const json = (arr) => arr ? JSON.stringify(arr) : null
+const parse = (str) => { try { return str ? JSON.parse(str) : [] } catch { return [] } }
 
 // ── OCORRÊNCIAS ──────────────────────────────────────────────
-app.get('/api/ocorrencias', async (req, res) => {
+app.get('/api/ocorrencias', async (c) => {
   try {
-    const { rows } = await pool.query(`
-      SELECT id, tipo, descricao, nivel, endereco, cidade,
-        ST_X(geom) AS lng, ST_Y(geom) AS lat,
-        data
-      FROM ocorrencias ORDER BY data DESC
-    `)
-    res.json(rows)
-  } catch (e) { res.status(500).json({ error: e.message }) }
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM ocorrencias ORDER BY data DESC'
+    ).all()
+    return c.json(results)
+  } catch (e) { return c.json({ error: e.message }, 500) }
 })
 
-app.post('/api/ocorrencias', async (req, res) => {
-  const { tipo, descricao, nivel, endereco, cidade, lat, lng, data } = req.body
+app.post('/api/ocorrencias', async (c) => {
+  const { tipo, descricao, nivel, endereco, cidade, lat, lng, data } = await c.req.json()
   try {
-    const geom = (lat && lng) ? `ST_SetSRID(ST_MakePoint($6, $7), 4326)` : 'NULL'
-    const params = [tipo, descricao || null, nivel || 'medio', endereco || null, cidade || null]
-    if (lat && lng) { params.push(lng, lat) }
-    if (data) params.push(data)
-    const dataParam = data ? `$${params.length}` : 'NOW()'
-    const { rows } = await pool.query(
-      `INSERT INTO ocorrencias (tipo, descricao, nivel, endereco, cidade, geom, data)
-       VALUES ($1, $2, $3, $4, $5, ${lat && lng ? geom : 'NULL'}, ${dataParam})
-       RETURNING id`,
-      params
-    )
-    res.json({ id: rows[0].id })
-  } catch (e) { res.status(500).json({ error: e.message }) }
+    const { meta } = await c.env.DB.prepare(
+      `INSERT INTO ocorrencias (tipo, descricao, nivel, endereco, cidade, lat, lng, data)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(tipo, descricao ?? null, nivel ?? 'medio', endereco ?? null, cidade ?? null,
+           lat ?? null, lng ?? null, data ?? new Date().toISOString()).run()
+    return c.json({ id: meta.last_row_id })
+  } catch (e) { return c.json({ error: e.message }, 500) }
 })
 
-app.delete('/api/ocorrencias/:id', async (req, res) => {
+app.delete('/api/ocorrencias/:id', async (c) => {
   try {
-    await pool.query('DELETE FROM ocorrencias WHERE id = $1', [req.params.id])
-    res.json({ ok: true })
-  } catch (e) { res.status(500).json({ error: e.message }) }
+    await c.env.DB.prepare('DELETE FROM ocorrencias WHERE id = ?').bind(c.req.param('id')).run()
+    return c.json({ ok: true })
+  } catch (e) { return c.json({ error: e.message }, 500) }
 })
 
 // ── VISTORIAS ────────────────────────────────────────────────
-app.get('/api/vistorias', async (req, res) => {
+app.get('/api/vistorias', async (c) => {
   try {
-    const { rows } = await pool.query(`
-      SELECT id, nome, cpf, telefone, endereco, solo, tipo_uso, risco,
-        patologias, observacao, cidade,
-        cond_encosta, tipo_talude, processos, moradores,
-        angulo_encosta, caract_encosta,
-        ST_X(geom) AS lng, ST_Y(geom) AS lat, data
-      FROM vistorias ORDER BY data DESC
-    `)
-    res.json(rows.map(r => ({
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM vistorias ORDER BY data DESC'
+    ).all()
+    return c.json(results.map(r => ({
       ...r,
+      patologias:     parse(r.patologias),
+      processos:      parse(r.processos),
+      caract_encosta: parse(r.caract_encosta),
       condEncosta:    r.cond_encosta,
       tipoTalude:     r.tipo_talude,
       anguloEncosta:  r.angulo_encosta,
-      caractsEncosta: r.caract_encosta,
+      caractsEncosta: parse(r.caract_encosta),
     })))
-  } catch (e) { res.status(500).json({ error: e.message }) }
+  } catch (e) { return c.json({ error: e.message }, 500) }
 })
 
-app.post('/api/vistorias', async (req, res) => {
-  const { nome, cpf, telefone, endereco, solo, tipo_uso, risco,
+app.post('/api/vistorias', async (c) => {
+  const {
+    nome, cpf, telefone, endereco, solo, tipo_uso, risco,
     patologias, observacao, cidade, lat, lng,
     condEncosta, tipoTalude, processos, moradores,
-    anguloEncosta, caractsEncosta } = req.body
-
+    anguloEncosta, caractsEncosta
+  } = await c.req.json()
   try {
-    await pool.query(`
-      ALTER TABLE vistorias
-        ADD COLUMN IF NOT EXISTS cond_encosta    TEXT,
-        ADD COLUMN IF NOT EXISTS tipo_talude     TEXT,
-        ADD COLUMN IF NOT EXISTS processos       TEXT[],
-        ADD COLUMN IF NOT EXISTS moradores       TEXT,
-        ADD COLUMN IF NOT EXISTS angulo_encosta  TEXT,
-        ADD COLUMN IF NOT EXISTS caract_encosta  TEXT[]
-    `)
-  } catch (_) {}
-
-  try {
-    const hasGeom = lat && lng
-    const geomExpr = hasGeom ? `ST_SetSRID(ST_MakePoint($16, $17), 4326)` : 'NULL'
-    const params = [
-      nome, cpf || null, telefone || null, endereco || null,
-      solo || null, tipo_uso || null, risco || null,
-      patologias || [], observacao || null, cidade || null,
-      condEncosta || null, tipoTalude || null,
-      processos || [], moradores || null,
-      anguloEncosta || null, caractsEncosta || [],
-    ]
-    if (hasGeom) params.push(lng, lat)
-    const { rows } = await pool.query(
+    const { meta } = await c.env.DB.prepare(
       `INSERT INTO vistorias
         (nome, cpf, telefone, endereco, solo, tipo_uso, risco,
          patologias, observacao, cidade,
          cond_encosta, tipo_talude, processos, moradores,
-         angulo_encosta, caract_encosta, geom)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
-               ${hasGeom ? geomExpr : 'NULL'})
-       RETURNING id`,
-      params
-    )
-    res.json({ id: rows[0].id })
-  } catch (e) { res.status(500).json({ error: e.message }) }
+         angulo_encosta, caract_encosta, lat, lng)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(
+      nome, cpf ?? null, telefone ?? null, endereco ?? null,
+      solo ?? null, tipo_uso ?? null, risco ?? null,
+      json(patologias ?? []), observacao ?? null, cidade ?? null,
+      condEncosta ?? null, tipoTalude ?? null,
+      json(processos ?? []), moradores ?? null,
+      anguloEncosta ?? null, json(caractsEncosta ?? []),
+      lat ?? null, lng ?? null
+    ).run()
+    return c.json({ id: meta.last_row_id })
+  } catch (e) { return c.json({ error: e.message }, 500) }
 })
 
-app.delete('/api/vistorias/:id', async (req, res) => {
+app.delete('/api/vistorias/:id', async (c) => {
   try {
-    await pool.query('DELETE FROM vistorias WHERE id = $1', [req.params.id])
-    res.json({ ok: true })
-  } catch (e) { res.status(500).json({ error: e.message }) }
+    await c.env.DB.prepare('DELETE FROM vistorias WHERE id = ?').bind(c.req.param('id')).run()
+    return c.json({ ok: true })
+  } catch (e) { return c.json({ error: e.message }, 500) }
 })
 
 // ── IMÓVEIS ──────────────────────────────────────────────────
-app.get('/api/imoveis', async (req, res) => {
+app.get('/api/imoveis', async (c) => {
   try {
-    const { rows } = await pool.query(`
-      SELECT id, nome, tipo, endereco, proprietario, contato, situacao,
-        moradores, obs, cidade,
-        ST_X(geom) AS lng, ST_Y(geom) AS lat, criado_em
-      FROM imoveis ORDER BY criado_em DESC
-    `)
-    res.json(rows)
-  } catch (e) { res.status(500).json({ error: e.message }) }
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM imoveis ORDER BY criado_em DESC'
+    ).all()
+    return c.json(results)
+  } catch (e) { return c.json({ error: e.message }, 500) }
 })
 
-app.post('/api/imoveis', async (req, res) => {
-  const { nome, tipo, endereco, proprietario, contato, situacao, moradores, obs, cidade, lat, lng } = req.body
+app.post('/api/imoveis', async (c) => {
+  const { nome, tipo, endereco, proprietario, contato, situacao, moradores, obs, cidade, lat, lng } = await c.req.json()
   try {
-    const geomExpr = (lat && lng) ? `ST_SetSRID(ST_MakePoint($10, $11), 4326)` : 'NULL'
-    const params = [nome || null, tipo || null, endereco, proprietario || null,
-      contato || null, situacao || 'regular', moradores || null, obs || null, cidade || null]
-    if (lat && lng) { params.push(lng, lat) }
-    const { rows } = await pool.query(
-      `INSERT INTO imoveis (nome, tipo, endereco, proprietario, contato, situacao, moradores, obs, cidade, geom)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, ${lat && lng ? geomExpr : 'NULL'})
-       RETURNING id`,
-      params
-    )
-    res.json({ id: rows[0].id })
-  } catch (e) { res.status(500).json({ error: e.message }) }
+    const { meta } = await c.env.DB.prepare(
+      `INSERT INTO imoveis (nome, tipo, endereco, proprietario, contato, situacao, moradores, obs, cidade, lat, lng)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(
+      nome ?? null, tipo ?? null, endereco, proprietario ?? null,
+      contato ?? null, situacao ?? 'regular', moradores ?? null,
+      obs ?? null, cidade ?? null, lat ?? null, lng ?? null
+    ).run()
+    return c.json({ id: meta.last_row_id })
+  } catch (e) { return c.json({ error: e.message }, 500) }
 })
 
-app.delete('/api/imoveis/:id', async (req, res) => {
+app.delete('/api/imoveis/:id', async (c) => {
   try {
-    await pool.query('DELETE FROM imoveis WHERE id = $1', [req.params.id])
-    res.json({ ok: true })
-  } catch (e) { res.status(500).json({ error: e.message }) }
+    await c.env.DB.prepare('DELETE FROM imoveis WHERE id = ?').bind(c.req.param('id')).run()
+    return c.json({ ok: true })
+  } catch (e) { return c.json({ error: e.message }, 500) }
 })
 
 // ── ÁREAS DE RISCO ────────────────────────────────────────────
-app.get('/api/areas-risco', async (req, res) => {
+app.get('/api/areas-risco', async (c) => {
   try {
-    const { rows } = await pool.query(`
-      SELECT id, nivel, descricao, cidade, criado_em,
-        ST_AsGeoJSON(geom)::json AS geojson
-      FROM areas_risco ORDER BY criado_em DESC
-    `)
-    res.json(rows)
-  } catch (e) { res.status(500).json({ error: e.message }) }
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM areas_risco ORDER BY criado_em DESC'
+    ).all()
+    return c.json(results.map(r => ({ ...r, geojson: parse(r.geojson) })))
+  } catch (e) { return c.json({ error: e.message }, 500) }
 })
 
-app.post('/api/areas-risco', async (req, res) => {
-  const { nivel, descricao, cidade, geojson } = req.body
+app.post('/api/areas-risco', async (c) => {
+  const { nivel, descricao, cidade, geojson } = await c.req.json()
   try {
-    const { rows } = await pool.query(
-      `INSERT INTO areas_risco (nivel, descricao, cidade, geom)
-       VALUES ($1, $2, $3, ST_SetSRID(ST_GeomFromGeoJSON($4), 4326))
-       RETURNING id`,
-      [nivel, descricao || null, cidade || null, JSON.stringify(geojson)]
-    )
-    res.json({ id: rows[0].id })
-  } catch (e) { res.status(500).json({ error: e.message }) }
+    const { meta } = await c.env.DB.prepare(
+      `INSERT INTO areas_risco (nivel, descricao, cidade, geojson) VALUES (?,?,?,?)`
+    ).bind(nivel, descricao ?? null, cidade ?? null, JSON.stringify(geojson)).run()
+    return c.json({ id: meta.last_row_id })
+  } catch (e) { return c.json({ error: e.message }, 500) }
 })
 
-app.delete('/api/areas-risco/:id', async (req, res) => {
+app.delete('/api/areas-risco/:id', async (c) => {
   try {
-    await pool.query('DELETE FROM areas_risco WHERE id = $1', [req.params.id])
-    res.json({ ok: true })
-  } catch (e) { res.status(500).json({ error: e.message }) }
+    await c.env.DB.prepare('DELETE FROM areas_risco WHERE id = ?').bind(c.req.param('id')).run()
+    return c.json({ ok: true })
+  } catch (e) { return c.json({ error: e.message }, 500) }
 })
 
 // ── ESTATÍSTICAS ──────────────────────────────────────────────
-app.get('/api/stats', async (req, res) => {
+app.get('/api/stats', async (c) => {
   try {
     const [oc, vi, im, ar] = await Promise.all([
-      pool.query('SELECT COUNT(*) FROM ocorrencias'),
-      pool.query('SELECT COUNT(*) FROM vistorias'),
-      pool.query('SELECT COUNT(*) FROM imoveis'),
-      pool.query('SELECT COUNT(*) FROM areas_risco'),
+      c.env.DB.prepare('SELECT COUNT(*) as count FROM ocorrencias').first(),
+      c.env.DB.prepare('SELECT COUNT(*) as count FROM vistorias').first(),
+      c.env.DB.prepare('SELECT COUNT(*) as count FROM imoveis').first(),
+      c.env.DB.prepare('SELECT COUNT(*) as count FROM areas_risco').first(),
     ])
-    res.json({
-      ocorrencias: parseInt(oc.rows[0].count),
-      vistorias: parseInt(vi.rows[0].count),
-      imoveis: parseInt(im.rows[0].count),
-      areas_risco: parseInt(ar.rows[0].count),
+    return c.json({
+      ocorrencias: oc.count,
+      vistorias: vi.count,
+      imoveis: im.count,
+      areas_risco: ar.count,
     })
-  } catch (e) { res.status(500).json({ error: e.message }) }
+  } catch (e) { return c.json({ error: e.message }, 500) }
 })
 
-// ── GeoJSON (para visualizar no mapa) ─────────────────────────
-app.get('/api/geojson/ocorrencias', async (req, res) => {
+// ── GeoJSON ────────────────────────────────────────────────────
+app.get('/api/geojson/ocorrencias', async (c) => {
   try {
-    const { rows } = await pool.query(`
-      SELECT json_build_object(
-        'type','FeatureCollection',
-        'features', COALESCE(json_agg(
-          json_build_object(
-            'type','Feature',
-            'geometry', ST_AsGeoJSON(geom)::json,
-            'properties', json_build_object('id',id,'tipo',tipo,'nivel',nivel,'descricao',descricao,'data',data)
-          )
-        ) FILTER (WHERE geom IS NOT NULL), '[]'::json)
-      ) AS fc
-      FROM ocorrencias
-    `)
-    res.json(rows[0].fc)
-  } catch (e) { res.status(500).json({ error: e.message }) }
+    const { results } = await c.env.DB.prepare(
+      'SELECT id, tipo, nivel, descricao, data, lat, lng FROM ocorrencias WHERE lat IS NOT NULL'
+    ).all()
+    return c.json({
+      type: 'FeatureCollection',
+      features: results.map(r => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [r.lng, r.lat] },
+        properties: { id: r.id, tipo: r.tipo, nivel: r.nivel, descricao: r.descricao, data: r.data }
+      }))
+    })
+  } catch (e) { return c.json({ error: e.message }, 500) }
 })
 
-app.get('/api/geojson/areas-risco', async (req, res) => {
+app.get('/api/geojson/areas-risco', async (c) => {
   try {
-    const { rows } = await pool.query(`
-      SELECT json_build_object(
-        'type','FeatureCollection',
-        'features', COALESCE(json_agg(
-          json_build_object(
-            'type','Feature',
-            'geometry', ST_AsGeoJSON(geom)::json,
-            'properties', json_build_object('id',id,'nivel',nivel,'descricao',descricao)
-          )
-        ) FILTER (WHERE geom IS NOT NULL), '[]'::json)
-      ) AS fc
-      FROM areas_risco
-    `)
-    res.json(rows[0].fc)
-  } catch (e) { res.status(500).json({ error: e.message }) }
+    const { results } = await c.env.DB.prepare(
+      'SELECT id, nivel, descricao, geojson FROM areas_risco WHERE geojson IS NOT NULL'
+    ).all()
+    return c.json({
+      type: 'FeatureCollection',
+      features: results.map(r => ({
+        type: 'Feature',
+        geometry: parse(r.geojson),
+        properties: { id: r.id, nivel: r.nivel, descricao: r.descricao }
+      }))
+    })
+  } catch (e) { return c.json({ error: e.message }, 500) }
 })
 
 // ── PROXY ELEVAÇÃO ────────────────────────────────────────────
-// Evita CORS/bloqueios do browser chamando as APIs externas pelo servidor
-app.get('/api/elevation', async (req, res) => {
-  const { latitude, longitude } = req.query
-  if (!latitude || !longitude) return res.status(400).json({ error: 'latitude e longitude obrigatórios' })
+app.get('/api/elevation', async (c) => {
+  const latitude = c.req.query('latitude')
+  const longitude = c.req.query('longitude')
+  if (!latitude || !longitude) return c.json({ error: 'latitude e longitude obrigatórios' }, 400)
 
-  // Primário: Open-Meteo (sem rate-limit rígido)
   try {
     const url = `https://api.open-meteo.com/v1/elevation?latitude=${latitude}&longitude=${longitude}`
     const r = await fetch(url, { signal: AbortSignal.timeout(12000) })
     if (r.ok) {
       const data = await r.json()
-      if (Array.isArray(data.elevation)) return res.json({ elevation: data.elevation })
+      if (Array.isArray(data.elevation)) return c.json({ elevation: data.elevation })
     }
   } catch (_) {}
 
-  // Fallback: OpenTopoData SRTM 30m
   try {
     const lats = latitude.split(',')
     const lngs = longitude.split(',')
@@ -293,14 +230,12 @@ app.get('/api/elevation', async (req, res) => {
     if (r.ok) {
       const data = await r.json()
       if (data.results?.length) {
-        return res.json({ elevation: data.results.map(p => p.elevation ?? 0) })
+        return c.json({ elevation: data.results.map(p => p.elevation ?? 0) })
       }
     }
   } catch (_) {}
 
-  res.status(503).json({ error: 'Não foi possível obter dados de elevação' })
+  return c.json({ error: 'Não foi possível obter dados de elevação' }, 503)
 })
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`API Defesa Civil rodando na porta ${PORT}`)
-})
+export default app

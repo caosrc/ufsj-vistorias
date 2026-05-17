@@ -46,33 +46,43 @@ server/
   index.js     — Express + PostGIS
 ```
 
-## Deploy — Cloudflare Pages (Frontend) + Backend Separado
+## Deploy — Cloudflare Pages + Cloudflare Workers + D1
 
-### Frontend no Cloudflare Pages
-1. Faça push do repositório para o GitHub
-2. No Cloudflare Pages → "Connect to Git" → selecione o repositório
-3. Configure o build:
-   - **Framework preset**: Vite
-   - **Build command**: `cd defesa-civil && npm install && npm run build`
-   - **Build output directory**: `defesa-civil/dist`
-4. Variável de ambiente no Cloudflare Pages:
-   - `VITE_API_URL` = URL do backend em produção (ex: `https://api.geovistorias.com`)
+> Veja o guia completo em **`DEPLOY_CLOUDFLARE.md`**
 
-### Backend (Express + PostgreSQL)
-O backend precisa de um servidor Node.js com PostgreSQL/PostGIS. Opções recomendadas:
-- **Railway** (railway.app) — suporta Node.js + PostgreSQL nativo
-- **Render** (render.com) — plano gratuito com PostgreSQL
-- **Fly.io** — ideal para apps com banco de dados
+### Resumo rápido
 
-Variáveis de ambiente do backend:
-- `DATABASE_URL` — connection string do PostgreSQL
-- `PORT` — porta do servidor (padrão: 3001)
-- `VITE_FRONTEND_URL` — URL do frontend Cloudflare (para CORS, ex: `https://geovistorias.pages.dev`)
+#### 1. Criar banco D1 e aplicar schema
+```bash
+npx wrangler d1 create geovistorias
+# Cole o database_id em server/wrangler.toml
+npx wrangler d1 execute geovistorias --remote --file=server/schema.sql
+```
 
-### Arquivos de configuração já incluídos
-- `defesa-civil/public/_redirects` — SPA routing no Cloudflare Pages
-- `defesa-civil/public/_headers` — cache e headers de segurança
-- `defesa-civil/.env.example` — modelo de variáveis de ambiente
+#### 2. Deploy do Worker (API)
+```bash
+cd server && npx wrangler deploy
+```
+
+#### 3. Deploy do Frontend (Cloudflare Pages via GitHub)
+- Conecte o repositório no Cloudflare Pages
+- Build command: `cd defesa-civil && npm install && npm run build`
+- Build output: `defesa-civil/dist`
+- Variável: `VITE_API_URL` = URL do Worker
+
+#### GitHub Actions (deploy automático)
+Segredos necessários no repositório GitHub:
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+- `VITE_API_URL`
+
+### Arquivos de configuração
+- `server/wrangler.toml` — configuração do Worker + D1
+- `server/schema.sql` — schema do banco D1
+- `.github/workflows/deploy-worker.yml` — CI/CD do Worker
+- `.github/workflows/deploy-pages.yml` — CI/CD do frontend
+- `defesa-civil/public/_redirects` — SPA routing
+- `defesa-civil/.env.example` — modelo de variáveis
 
 ## Preferências do Usuário
 - Foco nas cidades: Ouro Branco - MG e Congonhas - MG

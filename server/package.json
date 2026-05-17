@@ -1,14 +1,17 @@
 {
-  "name": "server",
+  "name": "geovistorias-api",
   "version": "1.0.0",
   "type": "module",
-  "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "dev": "wrangler dev --port 3001",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute geovistorias --file=schema.sql",
+    "db:init:remote": "wrangler d1 execute geovistorias --remote --file=schema.sql"
   },
   "dependencies": {
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "pg": "^8.20.0"
+    "hono": "^4.6.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.80.0"
   }
 }

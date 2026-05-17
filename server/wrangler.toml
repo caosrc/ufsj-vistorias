@@ -1,0 +1,9 @@
+name = "geovistorias-api"
+main = "index.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding      = "DB"
+database_name = "geovistorias"
+database_id  = "COLOQUE_AQUI_O_ID_DO_D1"
