@@ -1,0 +1,240 @@
+VISÃO FINAL DO SISTEMA
+
+Você vai ter 4 camadas:
+
+🗺️ satélite (Mapbox)
+🧊 relevo real (DEM)
+🌞 iluminação (hillshade)
+🌊 água com glow (WebGL + pós-processamento)
+🗺️ 1. MAPBOX + TERRAIN RGB (BASE REAL)
+📁 map.js
+import mapboxgl from "mapbox-gl";
+
+mapboxgl.accessToken = "SEU_TOKEN_MAPBOX";
+
+export function initMap() {
+
+  const map = new mapboxgl.Map({
+    container: "map",
+    style: "mapbox://styles/mapbox/satellite-streets-v12",
+    center: [-43.69, -20.51],
+    zoom: 13,
+    pitch: 65,
+    bearing: -20,
+    antialias: true
+  });
+
+  map.on("load", () => {
+
+    // 🔥 DEM REAL (Terrain RGB)
+    map.addSource("mapbox-dem", {
+      type: "raster-dem",
+      url: "mapbox://mapbox.terrain-rgb",
+      tileSize: 512,
+      maxzoom: 14
+    });
+
+    map.setTerrain({
+      source: "mapbox-dem",
+      exaggeration: 1.8
+    });
+
+  });
+
+  return map;
+}
+🌞 2. ILUMINAÇÃO REAL (HILLSHADE)
+
+👉 isso dá aquele efeito de relevo profissional
+
+map.addLayer({
+  id: "hillshade",
+  type: "hillshade",
+  source: "mapbox-dem",
+  paint: {
+    "hillshade-exaggeration": 0.7,
+    "hillshade-shadow-color": "#000000",
+    "hillshade-highlight-color": "#ffffff"
+  }
+});
+🌍 3. DEM ALTA RESOLUÇÃO (SRTM / ALOS)
+🔗 fontes gratuitas reais:
+SRTM 30m → NASA
+ALOS 12.5m → JAXA (melhor)
+
+👉 você pode baixar aqui:
+
+👉 https://search.asf.alaska.edu/ (ALOS)
+
+📁 carregar DEM local (GeoTIFF)
+import GeoTIFF from "geotiff";
+
+export async function carregarDEM(url) {
+
+  const tiff = await GeoTIFF.fromUrl(url);
+  const image = await tiff.getImage();
+
+  const raster = await image.readRasters();
+
+  return {
+    data: raster[0],
+    width: image.getWidth(),
+    height: image.getHeight(),
+    bbox: image.getBoundingBox()
+  };
+}
+🌊 4. ÁGUA REAL COM SHADER + GLOW
+📁 waterShader.js
+import * as THREE from "three";
+
+export function criarAgua(map) {
+
+  const layer = {
+
+    id: "water",
+    type: "custom",
+    renderingMode: "3d",
+
+    onAdd(map, gl) {
+
+      this.camera = new THREE.Camera();
+      this.scene = new THREE.Scene();
+
+      const geometry = new THREE.PlaneGeometry(2000, 2000, 200, 200);
+
+      const material = new THREE.ShaderMaterial({
+
+        uniforms: {
+          time: { value: 0 }
+        },
+
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            vec3 pos = position;
+
+            pos.z += sin(pos.x * 0.05 + time) * 2.0;
+
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos,1.0);
+          }
+        `,
+
+        fragmentShader: `
+          varying vec2 vUv;
+          uniform float time;
+
+          void main() {
+
+            float glow = sin(vUv.x * 10.0 + time) * 0.2;
+
+            vec3 color = vec3(0.0, 0.5, 1.0) + glow;
+
+            gl_FragColor = vec4(color, 0.6);
+          }
+        `,
+
+        transparent: true
+      });
+
+      this.mesh = new THREE.Mesh(geometry, material);
+      this.scene.add(this.mesh);
+
+      this.renderer = new THREE.WebGLRenderer({
+        canvas: map.getCanvas(),
+        context: gl
+      });
+
+      this.renderer.autoClear = false;
+    },
+
+    render(gl, matrix) {
+
+      this.mesh.material.uniforms.time.value += 0.03;
+
+      this.renderer.render(this.scene, this.camera);
+      map.triggerRepaint();
+    }
+  };
+
+  return layer;
+}
+✨ 5. BLOOM / GLOW (EFEITO PROFISSIONAL)
+
+👉 isso é o que deixa igual sua imagem
+
+📁 postprocess.js
+import * as THREE from "three";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+
+export function addBloom(scene, camera, renderer) {
+
+  const composer = new EffectComposer(renderer);
+
+  const renderPass = new RenderPass(scene, camera);
+  composer.addPass(renderPass);
+
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    1.5, // intensidade
+    0.4, // radius
+    0.85 // threshold
+  );
+
+  composer.addPass(bloomPass);
+
+  return composer;
+}
+🌊 6. FLUXO REAL (BASEADO NO DEM)
+export function calcularFluxoDEM(dem) {
+
+  const fluxo = [];
+
+  for (let i = 0; i < dem.data.length; i++) {
+
+    const elev = dem.data[i];
+
+    const vizinhos = [
+      dem.data[i - 1],
+      dem.data[i + 1],
+      dem.data[i - dem.width],
+      dem.data[i + dem.width]
+    ];
+
+    const menor = Math.min(...vizinhos);
+
+    fluxo.push(menor);
+  }
+
+  return fluxo;
+}
+🧠 7. INTEGRAÇÃO FINAL
+import { initMap } from "./map.js";
+import { criarAgua } from "./waterShader.js";
+
+const map = initMap();
+
+map.on("load", async () => {
+
+  // água 3D
+  map.addLayer(criarAgua(map));
+
+  // iluminação
+  map.addLayer({
+    id: "hillshade",
+    type: "hillshade",
+    source: "mapbox-dem"
+  });
+
+});
+🔥 RESULTADO
+
+Depois disso você terá:
+
+✔ relevo 3D real
+✔ iluminação profissional
+✔ água com movimento (shader)
+✔ glow estilo imagem
+✔ base pronta pra fluxo real

@@ -1,0 +1,11 @@
+.container { max-width: 600px; }
+.title { font-size: 2rem; font-weight: 700; color: #111827; margin: 0 0 24px; }
+.card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 28px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.sectionTitle { font-size: 1.1rem; font-weight: 600; color: #111827; margin: 0 0 8px; }
+.desc { font-size: 0.9rem; color: #6b7280; margin: 0 0 12px; line-height: 1.6; }
+.divider { border: none; border-top: 1px solid #f3f4f6; margin: 20px 0; }
+.contactList { display: flex; flex-direction: column; gap: 8px; }
+.contactItem { display: flex; align-items: center; gap: 10px; }
+.contactLabel { font-size: 0.875rem; font-weight: 500; color: #374151; }
+.contactValue { font-size: 0.875rem; color: #2563eb; text-decoration: none; }
+.contactValue:hover { text-decoration: underline; }

@@ -1,0 +1,62 @@
+3:23:02 PM: Netlify Build                                                 
+3:23:02 PM: ────────────────────────────────────────────────────────────────
+3:23:02 PM: ​
+3:23:02 PM: ❯ Version
+3:23:02 PM:   @netlify/build 36.0.0
+3:23:02 PM: ​
+3:23:02 PM: ❯ Flags
+3:23:02 PM:   accountId: 6a3a989c3054330dab955bda
+3:23:02 PM:   baseRelDir: true
+3:23:02 PM:   buildId: 6a3aceb74e2d690008a79fed
+3:23:02 PM:   deployId: 6a3aceb74e2d690008a79fef
+3:23:02 PM: ​
+3:23:02 PM: ❯ Current directory
+3:23:02 PM:   /opt/build/repo/defesa-civil
+3:23:02 PM: ​
+3:23:02 PM: ❯ Config file
+3:23:02 PM:   /opt/build/repo/netlify.toml
+3:23:02 PM: ​
+3:23:02 PM: ❯ Context
+3:23:02 PM:   production
+3:23:02 PM: ​
+3:23:02 PM: build.command from netlify.toml                               
+3:23:02 PM: ────────────────────────────────────────────────────────────────
+3:23:02 PM: ​
+3:23:02 PM: $ npm install && npm run build
+3:24:14 PM: Failed during stage 'building site': Build script returned non-zero exit code: 2 (https://ntl.fyi/exit-code-2)
+3:24:13 PM: npm error Exit handler never called!
+3:24:13 PM: npm error This is an error with npm itself. Please report this error at:
+3:24:13 PM: npm error   <https://github.com/npm/cli/issues&gt;
+3:24:13 PM: npm error A complete log of this run can be found in: /opt/buildhome/.npm/_logs/2026-06-23T18_23_02_645Z-debug-0.log
+3:24:13 PM: > defesa-civil@0.0.0 build
+3:24:13 PM: > vite build
+3:24:13 PM: sh: 1: vite: not found
+3:24:13 PM: ​
+3:24:13 PM: "build.command" failed                                        
+3:24:13 PM: ────────────────────────────────────────────────────────────────
+3:24:13 PM: ​
+3:24:13 PM:   Error message
+3:24:13 PM:   Command failed with exit code 127: npm install && npm run build (https://ntl.fyi/exit-code-127)
+3:24:13 PM: ​
+3:24:13 PM:   Error location
+3:24:13 PM:   In build.command from netlify.toml:
+3:24:13 PM:   npm install && npm run build
+3:24:13 PM: ​
+3:24:13 PM:   Resolved config
+3:24:13 PM:   build:
+3:24:13 PM:     base: /opt/build/repo/defesa-civil
+3:24:13 PM:     command: npm install && npm run build
+3:24:13 PM:     commandOrigin: config
+3:24:13 PM:     environment:
+3:24:13 PM:       - NODE_VERSION
+3:24:13 PM:       - NPM_FLAGS
+3:24:13 PM:     publish: /opt/build/repo/defesa-civil/dist
+3:24:13 PM:     publishOrigin: config
+3:24:13 PM:   redirects:
+3:24:14 PM:     - from: /*
+      status: 200
+      to: /index.html
+  redirectsOrigin: config
+3:24:14 PM: Build failed due to a user error: Build script returned non-zero exit code: 2
+3:24:14 PM: Failing build: Failed to build site
+3:24:14 PM: Finished processing build request in 2m29.821s

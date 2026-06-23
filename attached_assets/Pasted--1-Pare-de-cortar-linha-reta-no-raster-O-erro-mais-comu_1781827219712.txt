@@ -1,0 +1,118 @@
+🧠 1. Pare de “cortar linha reta” no raster
+
+O erro mais comum no corte longitudinal é isso:
+
+👉 você pega pontos fixos (ex: X a cada 10m)
+👉 e lê o pixel mais próximo
+
+Isso gera um perfil “quebrado” e artificial.
+
+✔️ Melhor solução: amostragem contínua (interpolação)
+
+Use interpolação espacial:
+
+bilinear (mínimo)
+bicúbica (melhor)
+
+📌 Resultado:
+o perfil longitudinal fica suave e fiel ao relevo real
+
+🌄 2. Corte deve seguir o terreno (não o grid)
+
+Se seu corte é tipo:
+
+A ---------------------- B (reta)
+
+Isso quase sempre erra morros e vales.
+
+🔥 Melhor ideia:
+
+Faça o corte como uma “linha geodésica amostrada”
+
+interpola vários pontos ao longo da linha
+aumenta densidade em áreas de relevo forte
+📈 3. Use densidade adaptativa (isso muda tudo)
+
+Em vez de amostrar igual:
+
+1 ponto a cada 10m ❌
+
+Use:
+
+plano → poucos pontos
+inclinação alta → mais pontos
+
+Exemplo:
+
+| slope < 5%     → 1 ponto / 20m
+| 5% - 20%       → 1 ponto / 5m
+| > 20%          → 1 ponto / 1m
+
+👉 Isso deixa o corte MUITO mais realista
+
+🧱 4. Construa o 3D como “malha”, não como linhas
+
+Para o relevo 3D ficar bom:
+
+✔️ Correto:
+grid regular (DEM)
+cada pixel = vértice
+triangulação (mesh)
+❌ Errado:
+desenhar curvas de nível e “extrudar”
+conectar linhas manualmente
+🌄 5. Use hillshade junto com altitude (efeito realista)
+
+Mesmo sem mudar geometria, isso melhora MUITO o visual:
+
+gera sombreamento simulado
+dá percepção de relevo real
+
+👉 você pode usar:
+
+declividade + orientação (aspect)
+🧭 6. “Corte longitudinal perfeito” (técnica profissional)
+
+Use esse pipeline:
+
+1. Traça linha do corte
+coordenadas reais (não pixels)
+2. Reamostra linha em alta densidade
+ex: 100–500 pontos
+3. Para cada ponto:
+converte lat/lon → raster coords
+aplica interpolação bilinear no DEM
+4. Gera perfil
+distância acumulada (eixo X)
+altitude (eixo Y)
+🔥 7. Truque avançado (muito usado em GIS)
+Suavização do perfil (pós-processamento)
+
+Depois de gerar o corte:
+
+aplica Savitzky–Golay
+ou
+média móvel leve
+
+👉 remove serrilhado sem “achatar” o relevo
+
+🧱 8. Para o 3D ficar realmente realista
+
+Use 3 coisas juntas:
+
+✔️ Base (obrigatório)
+
+Digital Elevation Model (DEM)
+
+✔️ Mesh correto
+triangulação (TIN ou grid)
+✔️ Exagero vertical controlado
+zScale = 1.2 a 2.5 (depende da área)
+💡 O que provavelmente está errado no seu sistema hoje
+
+Pelo que você descreveu, normalmente é:
+
+amostragem linear demais no corte
+interpolação inexistente ou “nearest pixel”
+escala vertical mal ajustada
+3D baseado em curvas ao invés do DEM

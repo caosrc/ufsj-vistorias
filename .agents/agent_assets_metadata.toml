@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "D1CBy3-mogbm-6hCeBZCu"
+uri = "file://geovistorias_terreno.zip"
+type = "unspecified"
+title = "Código-fonte — Curvas de Nível, Interpolação e Relevo 3D"

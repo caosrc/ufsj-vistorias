@@ -1,0 +1,303 @@
+
+Skip to main content
+
+
+G
+Switch teams
+Upgrade
+
+S
+Projects
+geo-vistorias
+Switch projects
+
+News
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Support
+Project navigation
+Project overview
+Project configuration
+Deploys
+Preview Servers
+Agent runs
+Logs & metrics
+Web security
+Domain management
+Forms
+Blobs
+Database
+Deploy detailsYour deploy failed due to an error
+Deploy failed for geo-vistorias
+A failure prevented us from deploying your project.
+Why did it fail?
+Improve build process reliability and dependency handling Update the build command in netlify.toml to use `npm ci` with `NODE_ENV=development` and rely on `.npmrc` for dependency settings, ensuring successful builds by correctly installing dev dependencies and avoiding npm internal errors. Replit-Commit-Author: Agent Replit-Commit-Session-Id: 8cf29956-adb0-4c7c-87c6-c5d862f69330 Replit-Commit-Checkpoint-Type: full_checkpoint Replit-Commit-Event-Id: 0096ce2e-d7df-41de-91f6-f3f499e5f019 Replit-Commit-Screenshot-Url: https://storage.googleapis.com/screenshot-production-us-central1/7731b1f4-e763-4322-80d4-2db8cff1e27c/8cf29956-adb0-4c7c-87c6-c5d862f69330/5ZwWikD Replit-Helium-Checkpoint-Created: true
+Today at 3:57 PM, by caosrccaosrc on GitHub
+
+Production: main@72e3a84
+
+Retry
+Deploy settings
+Delete deploy
+Fancy a game?
+This deploy is done, but hey, you can still play if you want to!
+
+Play game
+Deploy log
+Why did it fail?
+
+
+
+
+Maximize log
+Initializing
+Complete
+Building
+Failed
+3:58:42 PM: Netlify Build                                                 
+3:58:42 PM: ────────────────────────────────────────────────────────────────
+3:58:42 PM: ​
+3:58:42 PM: ❯ Version
+3:58:42 PM:   @netlify/build 36.0.0
+3:58:42 PM: ​
+3:58:42 PM: ❯ Flags
+3:58:42 PM:   accountId: 6a3a989c3054330dab955bda
+3:58:42 PM:   baseRelDir: true
+3:58:42 PM:   buildId: 6a3ad712dc25ee0008375e79
+3:58:42 PM:   deployId: 6a3ad712dc25ee0008375e7b
+3:58:42 PM: ​
+3:58:42 PM: ❯ Current directory
+3:58:42 PM:   /opt/build/repo/defesa-civil
+3:58:42 PM: ​
+3:58:42 PM: ❯ Config file
+3:58:42 PM:   /opt/build/repo/netlify.toml
+3:58:42 PM: ​
+3:58:42 PM: ❯ Context
+3:58:42 PM:   production
+3:58:42 PM: ​
+3:58:42 PM: build.command from netlify.toml                               
+3:58:42 PM: ────────────────────────────────────────────────────────────────
+3:58:42 PM: ​
+3:58:42 PM: $ NODE_ENV=development npm ci && npm run build
+3:59:54 PM: Failed during stage 'building site': Build script returned non-zero exit code: 2 (https://ntl.fyi/exit-code-2)
+3:59:53 PM: npm error Exit handler never called!
+3:59:53 PM: npm error This is an error with npm itself. Please report this error at:
+3:59:53 PM: npm error   <https://github.com/npm/cli/issues&gt;
+3:59:53 PM: npm error A complete log of this run can be found in: /opt/buildhome/.npm/_logs/2026-06-23T18_58_42_823Z-debug-0.log
+3:59:53 PM: > defesa-civil@0.0.0 build
+3:59:53 PM: > vite build
+3:59:53 PM: sh: 1: vite: not found
+3:59:53 PM: ​
+3:59:53 PM: "build.command" failed                                        
+3:59:53 PM: ────────────────────────────────────────────────────────────────
+3:59:53 PM: ​
+3:59:53 PM:   Error message
+3:59:53 PM:   Command failed with exit code 127: NODE_ENV=development npm ci && npm run build (https://ntl.fyi/exit-code-127)
+3:59:53 PM: ​
+3:59:53 PM:   Error location
+3:59:53 PM:   In build.command from netlify.toml:
+3:59:53 PM:   NODE_ENV=development npm ci && npm run build
+3:59:53 PM: ​
+3:59:53 PM:   Resolved config
+3:59:53 PM:   build:
+3:59:53 PM:     base: /opt/build/repo/defesa-civil
+3:59:53 PM:     command: NODE_ENV=development npm ci && npm run build
+3:59:53 PM:     commandOrigin: config
+3:59:53 PM:     environment:
+3:59:53 PM:       - NODE_VERSION
+3:59:53 PM:     publish: /opt/build/repo/defesa-civil/dist
+3:59:53 PM:     publishOrigin: config
+3:59:53 PM:   redirects:
+3:59:54 PM:     - from: /*
+      status: 200
+      to: /index.html
+  redirectsOrigin: config
+3:59:54 PM: Build failed due to a user error: Build script returned non-zero exit code: 2
+3:59:54 PM: Failing build: Failed to build site
+3:59:54 PM: Finished processing build request in 2m30.152s
+Deploying
+Skipped
+Cleanup
+Skipped
+Post-processing
+Skipped
+Docs
+Pricing
+Support
+Blog
+Changelog
+Terms
+© 2026 Netlify
+

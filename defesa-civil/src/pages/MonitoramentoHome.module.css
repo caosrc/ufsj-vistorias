@@ -1,0 +1,104 @@
+.container { max-width: 900px; }
+.intro { margin-bottom: 32px; }
+.title { font-size: 2rem; font-weight: 700; color: #111827; margin: 0 0 6px; }
+.sub { color: #6b7280; margin: 0; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
+
+.card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 24px;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.card:hover { border-color: #2563eb; box-shadow: 0 4px 20px rgba(37,99,235,0.12); }
+
+.cardContent { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.cardTitle { font-size: 1.1rem; font-weight: 600; color: #111827; margin: 0 0 6px; }
+.cardDesc { font-size: 0.85rem; color: #6b7280; margin: 0; }
+.cardIcon { font-size: 2rem; color: #2563eb; flex-shrink: 0; }
+.rainIcon { color: #0ea5e9; }
+
+.cardFooter { display: flex; justify-content: flex-end; }
+.cardLink {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.875rem; font-weight: 500; color: #2563eb;
+}
+.arrow { transition: transform 0.2s; }
+.card:hover .arrow { transform: translateX(4px); }
+
+/* ── Precipitation card ── */
+.precipCard {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.precipFile {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  color: #0369a1;
+}
+
+.precipStatus {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  color: #166534;
+}
+
+.importMsg {
+  font-size: 0.8rem;
+  padding: 7px 10px;
+  border-radius: 7px;
+}
+.importMsgOk { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+.importMsgErr { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+
+.precipActions { display: flex; gap: 8px; align-items: center; }
+
+.btnImport {
+  display: flex; align-items: center; gap: 6px;
+  background: #0ea5e9; color: white; border: none;
+  border-radius: 8px; padding: 8px 14px;
+  font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; transition: background 0.15s;
+}
+.btnImport:hover { background: #0284c7; }
+.btnImport:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btnClear {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  background: #fef2f2; color: #ef4444; border: 1px solid #fecaca;
+  border-radius: 8px; cursor: pointer; transition: background 0.15s;
+}
+.btnClear:hover { background: #fee2e2; }
+
+.precipHint {
+  font-size: 0.75rem; color: #9ca3af; margin: 0;
+  border-top: 1px solid #f3f4f6; padding-top: 8px;
+}

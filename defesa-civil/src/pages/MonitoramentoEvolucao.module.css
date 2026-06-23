@@ -1,0 +1,102 @@
+.layout { display: flex; min-height: 100vh; background: #f8fafc; }
+.content { flex: 1; padding: 24px 32px; overflow-y: auto; padding-bottom: 80px; }
+@media (max-width: 768px) { .content { padding: 16px; } }
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.backLink { font-size: 0.8rem; color: #6b7280; text-decoration: none; display: block; margin-bottom: 4px; }
+.title { font-size: 1.5rem; font-weight: 700; margin: 0 0 4px; }
+.subtitle { font-size: 0.875rem; color: #6b7280; margin: 0; }
+.btnPrint {
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ── Gráfico de Precipitação — sticky ─────────────────────── */
+.precipWrap {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: white;
+  border: 1px solid #e0f2fe;
+  border-radius: 12px;
+  padding: 10px 12px 14px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px rgba(14,165,233,0.10), 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.precipHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.precipTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0369a1;
+}
+
+.precipLegend {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.68rem;
+  color: #6b7280;
+}
+
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-right: 3px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+/* Altura dinâmica: suficiente para ver as barras, não ocupar demais */
+.precipChart {
+  position: relative;
+  height: 160px;
+}
+
+/* ── Anomaly charts ──────────────────────────────────────── */
+.empty { text-align: center; padding: 60px 24px; }
+.emptyIcon { font-size: 3rem; margin-bottom: 12px; }
+.empty h3 { font-size: 1.25rem; margin: 0 0 8px; }
+.empty p { color: #6b7280; margin: 0 0 20px; }
+.btnNew {
+  padding: 10px 18px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.chartsGrid { display: flex; flex-direction: column; gap: 24px; }
+.chartCard { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; }
+
+.loading { padding: 48px; text-align: center; color: #6b7280; }
+
+@media print {
+  .btnPrint { display: none; }
+  .precipWrap { position: static !important; box-shadow: none; break-inside: avoid; }
+}

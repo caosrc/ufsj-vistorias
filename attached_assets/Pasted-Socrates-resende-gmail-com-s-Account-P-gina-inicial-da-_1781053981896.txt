@@ -1,0 +1,140 @@
+Socrates.resende@gmail.com's Account
+Página inicial da conta
+
+Recentes
+
+
+
+
+
+
+Domínios
+Observe
+
+Investigate
+
+Análise
+Build
+
+Computação
+Workers e Pages
+Observability
+Workers for Platforms
+Containers
+Durable Objects
+Queues
+Fluxos de trabalho
+Execução do navegador
+VPC
+Beta
+
+Serviço de hospedagem de email
+Planos do Workers
+Carro-chefe
+Beta
+
+IA
+
+Armazenamento e bancos de dados
+
+Mídia
+Proteja e conecte
+
+Segurança do aplicativo
+Zero Trust
+
+Rede
+
+Entrega e desempenho
+
+Gerenciar conta
+Workers e Pages
+geovistorias
+Visão geral
+Métrica
+Implantações
+Associações
+Observability
+Domínios
+Configurações
+Variáveis e segredos
+Defina as variáveis de ambiente e segredos para seu Worker usado em tempo de execução
+
+Tipo
+Nome
+Valor
+Secreto
+AUTH_USERS_JSON
+Valor criptografado
+
+
+Eventos de gatilho
+Defina os eventos que acionam o Worker
+
+Configure maneiras de invocar seu Worker por meio de tarefas agendadas e eventos de mensagens
+Observabilidade
+Colete logs e rastreamentos para depurar seu Worker, persista no painel ou exporte para provedores externos
+
+Logs no Workers
+Habilitado
+Rastreamentos dos Workers
+desativada
+Exportações
+Nenhum destino configurado
+Amostragem
+Logs no Workers: 100%
+Tail Worker
+Nenhum Tail Worker conectado
+Tempo de execução
+Posicionamento
+Padrão
+Data de compatibilidade
+May 17, 2026
+Sinalizadores de compatibilidade
+nodejs_compat
+Build
+Conecte seu Worker a um repositório Git para compilações e implantações automáticas
+
+Repositório Git
+Geral
+Nome
+geovistorias
+Exclua permanentemente todos os arquivos, configurações, versões e implantações associadas a esse Worker.
+Variáveis e segredos
+Eventos de gatilho
+Observabilidade
+Tempo de execução
+Build
+Geral
+Configuração do Workers
+Suporte
+Status do sistema
+Carreiras
+Termos de uso
+Relatar problemas de segurança
+Política de Privacidade
+Uma pílula azul e branca com uma marca de seleção e um x, representando as opções de privacidade.Preferências de cookies
+© 2026 Cloudflare, Inc.
+Need more help?
+
+Good evening.
+What are we doing today?
+
+
+Bind R2 to a Worker
+Connect object storage
+
+Environment variables
+Add or update secrets
+
+Find my account ID
+Locate account and zone IDs
+
+Create an API token
+Set up API access
+
+Orange vs Gray Cloud
+What is the difference?
+Chats are recorded to improve the service and are processed in accordance with our Privacy Policy.
+
+What can we help you with?

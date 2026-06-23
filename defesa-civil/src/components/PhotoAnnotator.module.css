@@ -1,0 +1,54 @@
+.annotator { display: flex; flex-direction: column; gap: 12px; }
+.hidden { display: none; }
+.loading { padding: 24px; text-align: center; color: #6b7280; }
+
+.toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.title { font-size: 1rem; font-weight: 600; flex: 1; margin: 0; }
+.code { color: #2563eb; }
+.tabs { display: flex; gap: 4px; }
+.tab { padding: 6px 14px; border-radius: 6px; border: 1px solid #d1d5db; background: #f9fafb; font-size: 0.85rem; cursor: pointer; }
+.tabActive { background: #2563eb; color: white; border-color: #2563eb; }
+.actions { display: flex; gap: 6px; margin-left: auto; }
+.btnIcon { width: 36px; height: 36px; border-radius: 6px; border: 1px solid #d1d5db; background: #f9fafb; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.btnDanger { border-color: #fca5a5; background: #fef2f2; color: #dc2626; }
+
+.hint { font-size: 0.8rem; color: #6b7280; text-align: center; margin: 0; }
+
+.imageContainer { position: relative; width: 100%; border: 2px dashed #d1d5db; border-radius: 8px; overflow: hidden; user-select: none; }
+.crosshair { cursor: crosshair; }
+.img { width: 100%; height: auto; display: block; pointer-events: none; }
+
+.point { position: absolute; width: 24px; height: 24px; transform: translate(-50%, -50%); border-radius: 50%; background: black; color: white; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; }
+.pointClickable { cursor: pointer; }
+.pointSelected { background: #f59e0b; transform: translate(-50%, -50%) scale(1.3); }
+
+.svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+
+.obsSection { display: flex; flex-direction: column; gap: 4px; }
+.label { font-size: 0.875rem; font-weight: 500; color: #374151; }
+.textarea { width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem; resize: vertical; font-family: inherit; box-sizing: border-box; }
+
+.btnSave { padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 500; cursor: pointer; width: 100%; }
+.btnSave:hover { background: #1d4ed8; }
+
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+.dialog { background: white; border-radius: 12px; padding: 24px; max-width: 400px; width: 100%; display: flex; flex-direction: column; gap: 14px; }
+.dialog h3 { margin: 0; font-size: 1.1rem; }
+.dialog p { margin: 0; font-size: 0.875rem; color: #6b7280; }
+.dialogBtns { display: flex; gap: 10px; justify-content: flex-end; }
+.btnOutline { padding: 8px 16px; border: 1px solid #d1d5db; border-radius: 6px; background: white; cursor: pointer; font-size: 0.875rem; flex: 1; }
+.btnPrimary { padding: 8px 16px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.875rem; }
+.btnPrimary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btnCancel { padding: 8px 16px; border: 1px solid #d1d5db; border-radius: 6px; background: white; cursor: pointer; font-size: 0.875rem; }
+.btnDangerFull { background: #dc2626; }
+.input { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem; box-sizing: border-box; }
+.video { width: 100%; border-radius: 8px; background: #000; max-height: 320px; }
+.previewImg { width: 100%; border-radius: 6px; max-height: 180px; object-fit: contain; background: #f3f4f6; }
+
+.measureGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.measureField { display: flex; flex-direction: column; gap: 4px; }
+.measureLabel { font-size: 0.75rem; font-weight: 500; text-align: center; }
+
+.toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 8px; font-size: 0.875rem; font-weight: 500; z-index: 2000; background: #1f2937; color: white; }
+.toast.error { background: #dc2626; }
+.toast.info { background: #1f2937; }

@@ -1,0 +1,99 @@
+Dentro de Vistoria Residencial na parte de Cadastrar no Monitoramento, os dados importantes do cadastro da Vistoria Residencial vá para o Monitoramento, Proprietário, Celular, Cidade, Endereço. A parte de GPS do Imóvel não precisa ter no cadastro do monitoramento. Depois que for fazer registrar os Relatórios, quero que apareça o desenho do imovel que foi feito na Localização da área em Vistoria Residencial, e ali que vai poder cadastrar os pontos das anomalias e traçar as linhas das trincas e a direção, vai poder ter o nome somente de T1, T2, T3, T4, T5...O restante vai entrar na parte de colocar a foto e fazer os pontos e medir as trincas como já funciona a prte do monitoramento para criar os relatórios. Quero que faça funcionar direitinho no banco de dados do Cloudflare, onde o app ta publicado.
+Gostaria de usar o app na parte do cadastro da vistorias e quando colocar as anomalia, poder colocar a direção delas para saber onde esta deslocando e desenhar como é a posição da trinca, se ta sendo reta ou diagonal, daí com a direção e junto com as curvas de nivel e declive do terreno e curvas de nivel traçar a direção e comparar com a direção das trincas para saber se há Correlação que indica risco
+
+Se você encontrar isso:
+
+Trincas alinhadas
+Direção ≈ direção da máxima declividade
+Casa em encosta ou aterro
+
+👉 🔴 Forte indício de:
+
+rastejo (creep)
+escorregamento lento
+instabilidade do maciço
+
+📊 Terreno + comportamento das trincas
+📍 Caso 1 — Movimento de massa
+Trincas inclinadas ou diagonais
+Abertura progressiva
+Mesma direção da encosta
+👉 Muito provável instabilidade
+
+📍 Caso 2 — Recalque de fundação
+Trincas verticais
+Localizadas
+Sem relação com declive
+
+👉 Problema estrutural/local
+
+📍 Caso 3 — Empuxo de solo
+Trincas horizontais
+Próximo a muros
+
+👉 Problema de contenção/drenagem
+
+⚠️ SINAIS DE ALERTA (importante pro seu app)
+
+Se tiver:
+
+trincas abrindo com o tempo
+portas/janelas desalinhando
+piso trincando na mesma direção
+terreno com histórico de corte/aterro
+
+👉 classifique como RISCO GEOTÉCNICO
+
+🚀 COMO LEVAR ISSO PRO SEU APP
+
+Você já tem mapa + polígono → dá pra evoluir muito:
+
+🔹 1. Calcular direção do terreno
+usar modelo digital de terreno (SRTM ou Mapbox Terrain)
+🔹 2. Comparar com trincas
+usuário marca direção da trinca (linha)
+app calcula ângulo
+🔹 3. Resultado automático
+
+Quero que mostre isso na parte do 3D RELEVO e em relatórios. Quero que dentro de monitoramentos
+
+
+Show more
+31 minutes ago
+
+Planning core feature development (44 seconds)
+Entered plan mode
+
+Planning data normalization and reporting (8 seconds)
+Deixa eu explorar os arquivos chave para planejar tudo corretamente:
+
+
+5 actions
+Entendi o pedido completo. É um conjunto grande de funcionalidades interligadas. Deixa eu apresentar o plano detalhado antes de executar:
+
+O que será implementado:
+
+1. Corrigir envio ao Monitoramento
+
+Remover GPS (lat/lng) do cadastro, manter só: Proprietário, Celular, Cidade, Endereço
+Incluir também os vértices do polígono do imóvel (area_vertices) e as anomalias do Edificio3D (construcoes) para uso nos relatórios
+2. Mapeador de Trincas 2D (CrackMapper) nos Relatórios
+
+Componente canvas que renderiza o polígono do imóvel em planta (vista de cima), vindo da Vistoria Residencial
+Permite marcar pontos T1, T2, T3... no desenho
+Traçar linhas de trinca com direção (ângulo) e tipo (reta / diagonal / horizontal / vertical)
+Integrado na tela de criar novo relatório do Monitoramento
+3. Direção das anomalias na Vistoria Residencial (Edificio3D)
+
+Ao marcar uma anomalia no modelo 3D, além do nome T1/T2... será possível indicar direção e tipo de trinca
+Dados salvos junto com as anomalias no banco
+4. Análise de Correlação Geotécnica
+
+Compara ângulo das trincas com a direção de máxima declividade do terreno
+Classifica automaticamente: Movimento de massa / Recalque de fundação / Empuxo de solo
+Resultado exibido no Relevo 3D e nos Relatórios
+5. Cloudflare D1 / Worker
+
+Atualizar schema.sql para adicionar vertices_casa e campo de análise de correlação
+Atualizar worker.js para suportar todos os novos campos
+Confirma que eu prossiga com tudo isso? É bastante trabalho — vou implementar na seguinte ordem: (1) corrigir envio ao Monitoramento, (2) atualizar Cloudflare D1, (3) CrackMapper 2D nos relatórios, (4) análise de correlação. Pode levar alguns minutos.

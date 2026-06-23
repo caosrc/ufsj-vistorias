@@ -1,0 +1,208 @@
+Socrates.resende@gmail.com's Account
+Página inicial da conta
+
+Recentes
+
+Domínios
+Observe
+
+Investigate
+
+Análise
+Build
+
+Computação
+Workers e Pages
+Observability
+Workers for Platforms
+Containers
+Durable Objects
+Queues
+Fluxos de trabalho
+Execução do navegador
+VPC
+
+Serviço de hospedagem de email
+Planos do Workers
+Carro-chefe
+
+IA
+
+Armazenamento e bancos de dados
+
+Mídia
+Proteja e conecte
+
+Segurança do aplicativo
+Zero Trust
+
+Rede
+
+Entrega e desempenho
+
+Gerenciar conta
+
+Workers e Pages
+geovistorias-api
+Visão geral
+Métrica
+Implantações
+Associações
+Observability
+Domínios
+Configurações
+geovistorias-api.rc26.workers.dev
+por socrates.resende
+10 dias atrás
+workers.dev
+geovistorias-api.rc26.workers.dev
+
+Domínios personalizados
+Adicionar um domínio personalizado
+Rotas
+Adicionar uma rota
+geovistorias-api
+
+Observability
+Logs do Workers
+
+Desativado
+Rastreamentos do Workers
+
+Desativado
+Adicionar uma vinculação
+Banco de dados D1
+DB
+geovistorias
+
+
+Métrica
+Último 24 horas
+
+Solicitações
+2
+200.00%
+
+Erros
+0
+
+Tempo da CPU
+0,61
+ms
+61.30%
+Versões
+ef91ff4a
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+10 d atrás
+4db424bf
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+10 d atrás
+fa675448
+Segredo atualizado: AUTH_USERS_JSON
+Painel
+
+por socrates.resende
+14 d atrás
+67b8207d
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+14 d atrás
+1f4785c7
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+14 d atrás
+1b70dc86
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+14 d atrás
+39229216
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+14 d atrás
+776716ba
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+14 d atrás
+767bb602
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+15 d atrás
+b29559c0
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+15 d atrás
+Domínios e rotas
+workers.dev
+geovistorias-api.rc26.workers.dev
+
+Domínios personalizados
+—
+
+Rotas
+—
+
+Próximas etapas
+Conecte um domínio personalizado
+
+Use seu próprio domínio para servir seu Worker para obter uma aparência profissional.
+
+Automatize sua CI
+
+Conecte seu repositório Git para habilitar a implantação contínua.
+
+Habilitar observabilidade
+
+Monitore o desempenho do seu worker com logs e rastreamento.
+
+Suporte
+Status do sistema
+Carreiras
+Termos de uso
+Relatar problemas de segurança
+Política de Privacidade
+Uma pílula azul e branca com uma marca de seleção e um x, representando as opções de privacidade.Preferências de cookies
+© 2026 Cloudflare, Inc.
+Need more help?
+
+Good evening.
+What are we doing today?
+
+
+Orange vs Gray Cloud
+What is the difference?
+
+Durable Objects
+Explain how they work
+
+Create an API token
+Set up API access
+
+Bind R2 to a Worker
+Connect object storage
+
+Transfer a domain
+Walk me through the process
+Chats are recorded to improve the service and are processed in accordance with our Privacy Policy.
+
+What can we help you with?
+4

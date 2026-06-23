@@ -1,0 +1,194 @@
+1. Análise Automática de Risco (Prioridade Alta)
+Classificação automática de risco
+Baixo
+Médio
+Alto
+Muito Alto
+
+Baseado em:
+
+Declividade
+Distância da residência
+Área afetada
+Tipo da ocorrência
+Histórico do local
+API Gratuita
+Dados locais calculados pelo próprio sistema (não precisa API)
+2. Simulador de Movimentação de Massa
+
+Melhorar o que você já possui:
+
+Adicionar:
+Trajetória provável do deslizamento
+Área de alcance
+Volume estimado movimentado
+Imóveis atingidos
+API Gratuita
+
+Modelo local usando:
+
+MDT/SRTM
+Dados já obtidos do terreno
+
+Sem API paga.
+
+3. Mapa de Calor de Incêndio
+Mostrar:
+Pontos queimados
+Frequência histórica
+Intensidade
+Evolução temporal
+APIs Gratuitas
+NASA FIRMS
+
+Monitoramento mundial de focos de calor.
+
+NASA FIRMS
+
+4. Alerta Meteorológico Automático
+
+Cruzar ocorrências com previsão.
+
+Mostrar:
+Chuva nas próximas horas
+Tempestades
+Raios
+Ventos fortes
+APIs Gratuitas
+Open-Meteo
+
+100% gratuita.
+
+Open-Meteo API
+
+INMET
+
+Dados meteorológicos do Brasil.
+
+INMET API
+
+5. Alerta de Enxurrada
+Sistema calcula:
+Contribuição hídrica
+Direção do escoamento
+Áreas de acúmulo
+API Gratuita
+OpenTopography
+
+Modelo digital de terreno.
+
+OpenTopography
+
+6. Histórico Inteligente de Ocorrências
+
+Ao clicar em um imóvel:
+
+Mostrar:
+
+Quantidade de vistorias
+Quantidade de ocorrências
+Fotos antigas
+Evolução do problema
+
+Sem API.
+
+Banco local.
+
+7. Dashboard Operacional
+Indicadores
+Incêndios ativos
+Áreas queimadas
+Interdições
+Muros em risco
+Taludes em risco
+Pessoas afetadas
+
+Gráficos automáticos.
+
+Sem API.
+
+8. Integração com Satélite
+
+Visualização antes/depois.
+
+APIs Gratuitas
+Sentinel Hub
+
+Imagens Sentinel.
+
+Sentinel Hub
+
+Copernicus
+
+Satélites europeus.
+
+Copernicus Data Space Ecosystem
+
+9. Análise Automática de Imagem com IA
+
+Ao tirar foto:
+
+Detectar:
+
+Trincas
+Rachaduras
+Erosão
+Deslizamentos
+Queimadas
+APIs Gratuitas
+Roboflow
+
+Possui plano gratuito.
+
+Roboflow
+
+10. Sistema de Rotas de Emergência
+Calcular:
+Melhor rota
+Pontes interditadas
+Ruas bloqueadas
+APIs Gratuitas
+OpenRouteService
+
+OpenRouteService
+
+OpenStreetMap
+
+OpenStreetMap
+
+11. Mapa de Vulnerabilidade do Município
+
+Camadas:
+
+Incêndio
+Inundação
+Deslizamento
+Erosão
+Queda de árvores
+
+Gerar automaticamente.
+
+12. Funcionalidade que impressiona muito
+Geração Automática de Relatório Técnico
+
+Com um clique:
+
+Fotos
+Coordenadas
+Área afetada
+Risco
+Recomendações
+Conclusão
+
+Exportar:
+
+PDF
+DOCX
+APIs Gratuitas
+PDFMake
+
+PDFMake
+
+jsPDF
+
+jsPDF

@@ -1,0 +1,175 @@
+Melhor solução
+
+✅ Usar o GeoTIFF (DEM) que você já possui
+
+✅ Gerar as curvas de nível no próprio servidor do Replit
+
+✅ Usar API apenas para complementar altitudes quando não existir TIF
+
+Isso é mais rápido, mais preciso e não depende de limites de APIs. A própria comunidade GIS recomenda gerar curvas diretamente a partir de um DEM usando ferramentas GIS, em vez de tentar obter curvas prontas de serviços online.
+
+APIs gratuitas recomendadas
+1. Open-Elevation
+
+Ideal para:
+
+Consultar altitude de um ponto
+Perfil de terreno
+
+Limite gratuito disponível.
+
+Código JavaScript
+async function obterAltitude(lat, lon) {
+  const url =
+    `https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  return data.results[0].elevation;
+}
+
+Uso:
+
+const altitude = await obterAltitude(
+  -20.530,
+  -44.063
+);
+
+console.log(altitude);
+2. OpenZenith
+
+Sem chave API.
+
+Possui:
+
+Elevação
+Perfil
+Terreno global
+
+Utiliza dados Copernicus/SRTM.
+
+Código
+async function getElevation(lat, lon) {
+
+  const response = await fetch(
+    `https://openzenith.cyopsys.com/api/elevation?lat=${lat}&lon=${lon}`
+  );
+
+  const data = await response.json();
+
+  return data.elevation;
+}
+Melhor arquitetura para o GeoVistorias
+Backend
+
+Instale:
+
+npm install geotiff
+npm install marchingsquares
+npm install @turf/turf
+Ler o GeoTIFF
+import GeoTIFF from 'geotiff';
+
+const tiff = await GeoTIFF.fromUrl('/dem.tif');
+
+const image = await tiff.getImage();
+
+const raster = await image.readRasters();
+
+console.log(raster[0]);
+Gerar curvas
+
+Instale:
+
+npm install marchingsquares
+
+Código:
+
+import { isoLines } from 'marchingsquares';
+
+const curvas = isoLines(
+  matrizElevacao,
+  1000
+);
+
+Onde:
+
+1000
+
+é a curva de 1000 metros.
+
+Converter para GeoJSON
+const geojson = {
+  type: "FeatureCollection",
+  features: curvas.map(line => ({
+    type: "Feature",
+    properties: {
+      elevation: 1000
+    },
+    geometry: {
+      type: "LineString",
+      coordinates: line
+    }
+  }))
+};
+Mostrar no Leaflet
+L.geoJSON(geojson, {
+
+  style: {
+    color: '#663300',
+    weight: 1
+  }
+
+}).addTo(map);
+Prompt para a IA do Replit
+
+Envie exatamente isto:
+
+Remover o sistema atual de curvas de nível.
+
+Criar módulo baseado em GeoTIFF DEM.
+
+Utilizar geotiff.js para leitura dos pixels de elevação.
+
+Utilizar MarchingSquares para gerar isolinhas.
+
+Gerar curvas com intervalos configuráveis:
+1m
+5m
+10m
+20m
+50m
+
+Converter resultado para GeoJSON.
+
+Renderizar no Leaflet.
+
+Adicionar ferramenta de consulta de altitude ao clicar no mapa.
+
+Exibir:
+Altitude
+Latitude
+Longitude
+
+Adicionar estatísticas para polígonos desenhados:
+
+Altitude mínima
+Altitude máxima
+Altitude média
+Diferença de nível
+
+Permitir exportar curvas para GeoJSON.
+Funcionalidade que eu adicionaria
+
+Para a Defesa Civil:
+
+Curvas de nível
+Altitude do ponto
+Declividade (%)
+Perfil do terreno
+Direção do escoamento superficial
+Delimitação automática de bacias
+Simulação de propagação de incêndio baseada em declividade
+
+Essas últimas funcionalidades aproveitam o mesmo GeoTIFF e agregam muito valor ao GeoVistorias.

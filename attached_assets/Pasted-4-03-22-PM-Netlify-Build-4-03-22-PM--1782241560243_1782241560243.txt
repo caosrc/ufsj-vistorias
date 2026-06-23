@@ -1,0 +1,61 @@
+4:03:22 PM: Netlify Build                                                 
+4:03:22 PM: ────────────────────────────────────────────────────────────────
+4:03:22 PM: ​
+4:03:22 PM: ❯ Version
+4:03:22 PM:   @netlify/build 36.0.0
+4:03:22 PM: ​
+4:03:22 PM: ❯ Flags
+4:03:22 PM:   accountId: 6a3a989c3054330dab955bda
+4:03:22 PM:   baseRelDir: true
+4:03:22 PM:   buildId: 6a3ad82c63719f000875535c
+4:03:22 PM:   deployId: 6a3ad82c63719f000875535e
+4:03:22 PM: ​
+4:03:22 PM: ❯ Current directory
+4:03:22 PM:   /opt/build/repo/defesa-civil
+4:03:22 PM: ​
+4:03:22 PM: ❯ Config file
+4:03:22 PM:   /opt/build/repo/netlify.toml
+4:03:22 PM: ​
+4:03:22 PM: ❯ Context
+4:03:22 PM:   production
+4:03:22 PM: ​
+4:03:22 PM: build.command from netlify.toml                               
+4:03:22 PM: ────────────────────────────────────────────────────────────────
+4:03:22 PM: ​
+4:03:22 PM: $ npm install --legacy-peer-deps && npm run build
+4:04:33 PM: npm error Exit handler never called!
+4:04:33 PM: npm error This is an error with npm itself. Please report this error at:
+4:04:33 PM: npm error   <https://github.com/npm/cli/issues&gt;
+4:04:33 PM: npm error A complete log of this run can be found in: /opt/buildhome/.npm/_logs/2026-06-23T19_03_22_896Z-debug-0.log
+4:04:33 PM: > defesa-civil@0.0.0 build
+4:04:33 PM: > vite build
+4:04:33 PM: sh: 1: vite: not found
+4:04:33 PM: ​
+4:04:33 PM: "build.command" failed                                        
+4:04:33 PM: ────────────────────────────────────────────────────────────────
+4:04:33 PM: ​
+4:04:33 PM:   Error message
+4:04:33 PM:   Command failed with exit code 127: npm install --legacy-peer-deps && npm run build (https://ntl.fyi/exit-code-127)
+4:04:33 PM: ​
+4:04:33 PM:   Error location
+4:04:33 PM:   In build.command from netlify.toml:
+4:04:33 PM:   npm install --legacy-peer-deps && npm run build
+4:04:33 PM: ​
+4:04:33 PM:   Resolved config
+4:04:33 PM:   build:
+4:04:33 PM:     base: /opt/build/repo/defesa-civil
+4:04:33 PM:     command: npm install --legacy-peer-deps && npm run build
+4:04:33 PM:     commandOrigin: config
+4:04:33 PM:     environment:
+4:04:33 PM:       - NODE_VERSION
+4:04:33 PM:     publish: /opt/build/repo/defesa-civil/dist
+4:04:33 PM:     publishOrigin: config
+4:04:33 PM:   redirects:
+4:04:34 PM: Failed during stage 'building site': Build script returned non-zero exit code: 2 (https://ntl.fyi/exit-code-2)
+4:04:34 PM:     - from: /*
+      status: 200
+      to: /index.html
+  redirectsOrigin: config
+4:04:34 PM: Build failed due to a user error: Build script returned non-zero exit code: 2
+4:04:34 PM: Failing build: Failed to build site
+4:04:34 PM: Finished processing build request in 2m29.65s

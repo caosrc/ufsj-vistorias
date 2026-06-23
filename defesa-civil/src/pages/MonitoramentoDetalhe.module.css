@@ -1,0 +1,36 @@
+.back { margin-bottom: 16px; }
+.backLink { font-size: 0.875rem; color: #6b7280; text-decoration: none; }
+.backLink:hover { color: #2563eb; }
+
+.header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+.title { font-size: 2rem; font-weight: 700; color: #111827; margin: 0 0 6px; }
+.addr { font-size: 0.9rem; color: #6b7280; margin: 0 0 4px; }
+.phone { display: flex; align-items: center; gap: 6px; font-size: 0.875rem; color: #6b7280; }
+.btnEdit { padding: 8px 16px; background: white; border: 1px solid #e5e7eb; border-radius: 8px; text-decoration: none; font-size: 0.875rem; color: #374151; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.07); }
+.btnEdit:hover { border-color: #d1d5db; background: #f9fafb; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
+
+.card {
+  display: flex; flex-direction: column; gap: 16px;
+  background: white; border: 1px solid #e5e7eb; border-radius: 12px;
+  padding: 24px; text-decoration: none; color: inherit;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.card:hover { border-color: #2563eb; box-shadow: 0 4px 20px rgba(37,99,235,0.12); }
+
+.cardTop { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.cardTitle { font-size: 1.25rem; font-weight: 600; color: #111827; margin: 0 0 6px; }
+.cardDesc { font-size: 0.875rem; color: #6b7280; margin: 0; }
+.cardIcon { font-size: 2rem; color: #2563eb; flex-shrink: 0; }
+.cardFooter { display: flex; justify-content: flex-end; }
+.cardLink { display: flex; align-items: center; gap: 6px; font-size: 0.875rem; font-weight: 500; color: #6b7280; }
+.card:hover .cardLink { color: #2563eb; }
+.arrow { transition: transform 0.2s; }
+.card:hover .arrow { transform: translateX(4px); }
+
+.loading { padding: 48px; text-align: center; color: #6b7280; }
+.notFound { text-align: center; padding: 48px; }
+.notFound h2 { margin-bottom: 12px; }
+.notFound a { color: #2563eb; text-decoration: none; }

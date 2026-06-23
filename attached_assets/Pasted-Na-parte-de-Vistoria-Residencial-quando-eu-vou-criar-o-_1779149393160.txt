@@ -1,0 +1,188 @@
+Na parte de Vistoria Residencial, quando eu vou criar o desenho da casa, área, com as coordenadas, quero que me ajude a aparecer o imovél no mapa, e também quando gerar o relevo 3D,aparecer também a casa, se acaso el tiver dentro, mas não atrapalhe o funcionamento do relevo 3d.
+Para ajudar a criar a geometria da casa me ajude a continuar na criação da vistoria, com as coordenadas e também um botão de altura do imvóel, para sugestão:
+Base de mapa gratuita
+
+OpenStreetMap
+
+Mas o ideal é usar tiles gratuitos compatíveis com MapLibre:
+
+OpenFreeMap
+
+ou
+
+OpenMapTiles
+
+Como salvar o polígono
+
+Você deve salvar os dados em:
+
+PostgreSQL + PostGIS (melhor opção)
+OU
+MongoDB
+OU
+até JSON simples inicialmente
+
+O formato ideal:
+
+{
+  "type": "Feature",
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [[
+      [-43.7701, -20.6601],
+      [-43.7702, -20.6601],
+      [-43.7702, -20.6602],
+      [-43.7701, -20.6602],
+      [-43.7701, -20.6601]
+    ]]
+  },
+  "properties": {
+    "altura": 8,
+    "nome": "Casa João"
+  }
+}
+
+Isso é padrão GeoJSON.
+
+Como calcular a área automaticamente
+
+Use:
+
+Turf.js
+
+Ele calcula:
+
+área
+distância
+perímetro
+interseção
+centro do polígono
+
+Exemplo:
+
+const area = turf.area(polygon);
+Como criar o “bloco 3D” da casa
+
+A parte mais legal:
+SIM, dá para transformar o polígono em uma construção 3D.
+
+No MapLibre você usa:
+
+type: 'fill-extrusion'
+
+e passa:
+
+'fill-extrusion-height': ['get', 'altura']
+
+Resultado:
+
+aparece uma “caixa”
+igual prédios 3D do Google Maps
+usando sua própria altura
+
+Exemplo oficial:
+
+Arquitetura ideal do seu app
+Frontend
+React
+MapLibre GL JS
+Turf.js
+Backend
+Node.js
+Express
+Banco
+PostgreSQL + PostGIS
+Hospedagem
+Cloudflare Pages (frontend)
+Render/Railway/Fly.io (backend grátis)
+Melhor forma de desenhar o polígono
+
+Use:
+
+mapbox-gl-draw
+
+Funciona com MapLibre também.
+
+Ele permite:
+
+clicar no mapa
+criar polígonos
+editar
+mover pontos
+salvar automaticamente
+Fluxo completo ideal
+
+Usuário:
+
+abre mapa
+desenha casa
+informa altura
+salva
+
+Sistema:
+
+gera GeoJSON
+calcula área
+salva no banco
+renderiza polígono
+renderiza extrusão 3D
+Exemplo visual do que você consegue
+
+Você pode chegar nisso:
+
+lote desenhado
+casa em 3D
+altura real
+sombra
+telhado
+várias construções no mapa
+
+Tudo grátis usando:
+
+OpenStreetMap
+MapLibre
+GeoJSON
+Exemplo básico do código 3D
+map.addLayer({
+  id: 'casas-3d',
+  type: 'fill-extrusion',
+  source: 'casas',
+  paint: {
+    'fill-extrusion-color': '#ff0000',
+    'fill-extrusion-height': ['get', 'altura'],
+    'fill-extrusion-opacity': 0.7
+  }
+});
+O que eu recomendaria para você HOJE
+
+Troque:
+
+Leaflet → MapLibre GL JS
+
+Mantenha:
+
+OpenStreetMap
+Cloudflare
+GitHub
+
+Adicione:
+
+Turf.js
+GeoJSON
+PostGIS
+
+Porque aí você já terá:
+
+polígonos corretos
+áreas automáticas
+visual 3D
+escalabilidade
+
+
+Mantenha o app funcionando bem.O botão Clima não ta funcionando, faça funcionar o clima da cidade de Ouro Branco ou Congonhas, basta ver qual cidade está selecionada.
+Quando vou em Decliv., em poligono eu clico para criar o poligono, na hora de fechar o poligono, custo encontrar o pontocerto no circulo verde para fechar, torne mais fácil para fechar o poligono, qualquer coisa, se colocar o ultimo ponto ja dentro da bolinha verde, já pode completar o poligono.
+Dentro do Relevo ED do Polígono,na parte de Amplificar, deixe primeiro no 1x, se quiser amplificar é só ir arrastando para aumentar. Se puder uses de 1 em 1 metro para calcular o relevo certo, mostrando o relevo mais acertivo.
+Em Decliv., no botão Medir, eu meço e as linhas continua, se eu clicar na lixeira, pode removar as linhas.
+Na parte de Medir, quando clico em Resultado,abre uma telinha no lado direito, pode aumentar na tela toda e mostre o quadro do Corte Longitudinalnum tamanho maior, não precisa deixar ele quadrado, pode deixar ele retangular,pois as curvas geradas estão ficando apertadas e da a impressão que as curvas vão muit acentuadas, quero que o grafico do CORTE LONGITUDINAL seja padrão tanto notamanho da Cota quanto no tamanho da Distância, coloque de 1 em 1 metro tanto para a Cota e a Distância, faça as curvas serem mais onduladas e suaves, poara o gráficoficar certo.
+Na parte da declividade considere de 10 em 10 metros de distancia em relação a altura para calcular os trecho com as declividades, coloque uma opção para mostrar as cores e também para escolher os pontos de declividade de acordo com os graus e a porcentagem,exemplo: 10°, 17°, 30°, 60° e 90°.
+Faça o melhor para o app funcionar, faça testes para entregar tudo funcionando, quero que funcione bem.

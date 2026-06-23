@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="96" fill="#0b1220"/>
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f2040"/>
+      <stop offset="100%" stop-color="#0b1220"/>
+    </linearGradient>
+    <linearGradient id="peak2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="40%" stop-color="#f97316"/>
+      <stop offset="70%" stop-color="#eab308"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg2)"/>
+  <polygon points="256,72 400,350 112,350" fill="url(#peak2)" opacity="0.9"/>
+  <polygon points="136,350 256,186 376,350" fill="#0f2040" opacity="0.4"/>
+  <rect x="72" y="350" width="368" height="36" rx="18" fill="#22c55e" opacity="0.85"/>
+  <path d="M 158,295 Q 256,258 354,295" fill="none" stroke="#38bdf8" stroke-width="6" opacity="0.6"/>
+  <path d="M 182,240 Q 256,205 330,240" fill="none" stroke="#38bdf8" stroke-width="5" opacity="0.5"/>
+  <path d="M 208,185 Q 256,158 304,185" fill="none" stroke="#38bdf8" stroke-width="4" opacity="0.4"/>
+  <circle cx="256" cy="158" r="26" fill="#38bdf8" opacity="0.9"/>
+  <circle cx="256" cy="158" r="13" fill="#0b1220"/>
+  <text x="256" y="450" text-anchor="middle" font-family="system-ui,sans-serif" font-size="48" font-weight="800" fill="#38bdf8" letter-spacing="6">GV</text>
+</svg>

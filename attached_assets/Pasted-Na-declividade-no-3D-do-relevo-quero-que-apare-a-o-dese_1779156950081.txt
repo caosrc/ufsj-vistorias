@@ -1,0 +1,191 @@
+Na declividade, no 3D do relevo quero que apareça o desenho geometrico do imovel que foi feito a vistoria que ta aparecendo no mapa tambem no relevo, se tiver dentro do poligono, faça o desenho 3d da casa de acordo com a posiçao, area e altura.
+estou clicando em Medir e depois em Resultado, ta me dando o desenho do CORTE LONGITUDINAL e também o 3D como se fosse as curvas de nível, quero algo mais preciso utilizando as cotas de onde passa a linha para ter precisão nas curvas e não gerar linhas retas de 10 em 10 metros,  1 em 1 metro é melhor.
+Tenta essas recomendaçãoes para melhor, me entregue o app funcionando bem. Para gerar:
+
+corte longitudinal preciso,
+terreno 3D real,
+relevo suavizado,
+taludes corretos,
+cotas intermediárias de 1 em 1 metro,
+
+você precisa parar de depender apenas de curvas e passar a usar um DEM/MDT (Modelo Digital de Terreno).
+
+A melhor solução gratuita hoje para seu stack (Replit + GitHub + Cloudflare) é:
+
+Melhor opção gratuita (recomendada)
+1) MapTiler Terrain RGB
+
+Use DEM em tiles RGB.
+
+Site oficial:
+
+MapTiler Terrain RGB
+
+Documentação:
+
+MapTiler Deck.gl Terrain Example
+
+Vantagens:
+
+gratuito no plano inicial,
+muito leve,
+funciona perfeito com Cloudflare,
+ideal para WebGL,
+excelente para cortes longitudinais,
+gera relevo 3D suave,
+funciona com deck.gl,
+aceita interpolação de altitude,
+melhor que usar apenas curvas.
+Melhor arquitetura para seu caso
+
+Você deve trocar isto:
+
+Curvas de nível -> 3D
+
+por isto:
+
+DEM / Terrain RGB -> malha 3D -> curvas -> corte longitudinal
+
+A diferença de qualidade é absurda.
+
+Melhor stack gratuita para você
+
+Como você já usa:
+
+Replit
+GitHub
+Cloudflare
+
+o ideal é:
+
+Função	Tecnologia
+mapa	MapLibre
+relevo	Terrain RGB
+3D	deck.gl
+corte longitudinal	amostragem DEM
+interpolação	bilinear
+malha terreno	TerrainLayer
+A MELHOR extensão/biblioteca para você
+deck.gl TerrainLayer
+
+Documentação:
+
+deck.gl Terrain Layer
+
+Extensão:
+
+deck.gl Terrain Extension
+
+Ela resolve:
+
+terreno 3D real,
+drape das linhas,
+cotas automáticas,
+suavização,
+renderização GPU,
+corte longitudinal ultra preciso.
+Como obter cotas de 1 em 1 metro
+
+Você NÃO deve interpolar pelas curvas.
+
+O correto:
+
+pegar altitude do DEM,
+amostrar a cada metro da linha,
+gerar perfil longitudinal.
+
+Exemplo ideal:
+
+Linha da estrada
+↓
+sampleTerrain()
+↓
+1m spacing
+↓
+perfil longitudinal
+O que você precisa implementar
+Fluxo correto
+1. Terrain RGB
+
+Você carrega tiles DEM:
+
+https://api.maptiler.com/tiles/terrain-rgb/{z}/{x}/{y}.png?key=KEY
+2. Decodificar altitude
+
+Fórmula padrão:
+
+height = -10000 + ((R * 256 * 256 + G * 256 + B) * 0.1)
+
+Precisão:
+
+até 10 cm vertical.
+3. Amostrar cotas
+
+Você pega pontos:
+
+a cada 1 metro,
+ao longo da polyline.
+4. Gerar corte
+
+Então:
+
+gráfico longitudinal,
+perfil real,
+taludes,
+volume,
+seção transversal.
+Melhor alternativa GRATUITA MESMO
+
+Se quiser totalmente grátis sem API paga:
+
+AWS Terrain Tiles (Terrarium)
+
+Use:
+
+https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png
+
+Exemplo oficial:
+
+Terrain Layer Example (Terrarium)
+
+Isso é excelente.
+
+Melhor solução PROFISSIONAL gratuita
+CesiumJS + Quantized Mesh
+
+Se quiser o melhor 3D possível:
+
+Cesium Terrain 3D
+
+ou:
+
+deck.gl 3D Tiles
+
+Você terá:
+
+terreno ultra real,
+navegação 3D,
+câmera real,
+corte preciso,
+malha triangular real.
+O maior erro do seu sistema hoje
+
+Provavelmente você faz:
+
+curva -> triangulação -> extrusão
+
+Isso gera:
+
+degraus,
+buracos,
+suavização errada,
+perfil longitudinal falso.
+O correto
+
+Você precisa:
+
+DEM raster
+→ sample elevation
+→ TIN mesh
+→ terrain shader
+→ profile extraction

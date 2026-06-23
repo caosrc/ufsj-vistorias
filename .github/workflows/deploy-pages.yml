@@ -1,0 +1,41 @@
+name: Deploy Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'defesa-civil/**'
+      - '.github/workflows/deploy-pages.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Build & Deploy Frontend (Pages)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: defesa-civil/package-lock.json
+
+      - name: Install dependencies
+        working-directory: defesa-civil
+        run: npm ci
+
+      - name: Build
+        working-directory: defesa-civil
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      - name: Deploy to Cloudflare Pages
+        working-directory: defesa-civil
+        run: npx wrangler pages deploy dist --project-name=geovistorias --commit-dirty=true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

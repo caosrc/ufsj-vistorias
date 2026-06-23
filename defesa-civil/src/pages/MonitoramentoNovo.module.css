@@ -1,0 +1,199 @@
+.back { padding: 8px 16px 0; }
+.backLink { font-size: 0.875rem; color: #6b7280; text-decoration: none; }
+.backLink:hover { color: #2563eb; }
+
+.pageTitle { font-size: 1.35rem; font-weight: 700; color: #111827; padding: 10px 16px 0; }
+
+/* ── Abas ─────────────────────────────────────────────────── */
+.tabs {
+  display: flex; gap: 0; border-bottom: 2px solid #e5e7eb;
+  margin: 14px 16px 0; overflow: hidden; border-radius: 8px 8px 0 0;
+}
+.tabBtn {
+  flex: 1; padding: 10px 6px; font-size: 0.82rem; font-weight: 500;
+  background: #f3f4f6; border: none; border-bottom: none; cursor: pointer;
+  color: #6b7280; transition: all .18s;
+}
+.tabBtn:hover { background: #e5e7eb; color: #374151; }
+.tabBtnActive { background: white; color: #2563eb; border-top: 2px solid #2563eb; }
+
+/* ── Seção ────────────────────────────────────────────────── */
+.section {
+  background: white; border: 1px solid #e5e7eb; border-top: none;
+  border-radius: 0 0 10px 10px; margin: 0 16px; padding: 18px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+.hint { font-size: 0.82rem; color: #6b7280; margin: 0; line-height: 1.5; }
+
+/* ── SubSection ───────────────────────────────────────────── */
+.subSection { display: flex; flex-direction: column; gap: 10px;
+  padding-top: 12px; border-top: 1px solid #f0f0f0; }
+.subTitle { font-size: 0.88rem; font-weight: 600; color: #374151; }
+
+/* ── Fields ───────────────────────────────────────────────── */
+.field { display: flex; flex-direction: column; gap: 5px; }
+.label { font-size: 0.85rem; font-weight: 500; color: #374151; }
+.input {
+  padding: 9px 11px; border: 1px solid #d1d5db; border-radius: 8px;
+  font-size: 0.9rem; background: white; box-sizing: border-box; width: 100%;
+}
+.input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,.1); }
+.textarea {
+  padding: 9px 11px; border: 1px solid #d1d5db; border-radius: 8px;
+  font-size: 0.9rem; resize: vertical; font-family: inherit;
+  box-sizing: border-box; width: 100%;
+}
+
+/* ── GPS Box ──────────────────────────────────────────────── */
+.gpsBox {
+  border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px;
+  background: #f9fafb; display: flex; flex-direction: column; gap: 10px;
+}
+.gpsHeader { display: flex; align-items: center; justify-content: space-between; }
+.btnGps {
+  padding: 7px 12px; background: white; border: 1px solid #d1d5db;
+  border-radius: 6px; font-size: 0.82rem; cursor: pointer;
+}
+.btnGps:disabled { opacity: .5; }
+.gpsCoords { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.coordField { display: flex; flex-direction: column; gap: 3px; }
+.coordField label { font-size: 0.78rem; font-weight: 500; color: #6b7280; }
+
+/* ── Capture / Manual ─────────────────────────────────────── */
+.captureBtns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btnCapture {
+  flex: 1; padding: 10px 12px; background: #2563eb; color: white;
+  border: none; border-radius: 8px; font-size: 0.88rem; font-weight: 500; cursor: pointer;
+  min-width: 160px;
+}
+.btnCapture:disabled { opacity: .5; }
+
+.manualRow { display: flex; gap: 8px; align-items: center; }
+.inputSm {
+  flex: 1; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 7px;
+  font-size: 0.85rem; box-sizing: border-box;
+}
+.inputSm:focus { outline: none; border-color: #2563eb; }
+.btnAdd {
+  padding: 8px 12px; background: #16a34a; color: white; border: none;
+  border-radius: 7px; font-size: 0.85rem; font-weight: 500; cursor: pointer; white-space: nowrap;
+}
+.btnAdd:hover { background: #15803d; }
+
+/* ── Vertex list ──────────────────────────────────────────── */
+.vertList { display: flex; flex-direction: column; gap: 6px; }
+.vertItem {
+  display: flex; align-items: center; gap: 8px;
+  background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 7px 10px;
+}
+.vertBadge {
+  font-size: 0.75rem; font-weight: 700; background: #dbeafe; color: #2563eb;
+  border-radius: 4px; padding: 2px 6px; min-width: 28px; text-align: center;
+}
+.vertCoord { flex: 1; font-size: 0.8rem; color: #374151; font-family: monospace; }
+.btnRemove {
+  padding: 3px 7px; background: #fee2e2; color: #ef4444; border: none;
+  border-radius: 5px; font-size: 0.8rem; cursor: pointer;
+}
+.btnRemove:hover { background: #fecaca; }
+
+.emptyHint { font-size: 0.82rem; color: #9ca3af; text-align: center; padding: 12px; }
+
+/* ── Map toggle ───────────────────────────────────────────── */
+.btnToggleMap {
+  padding: 7px 12px; background: white; border: 1px solid #d1d5db;
+  border-radius: 7px; font-size: 0.82rem; cursor: pointer; text-align: center;
+}
+.btnToggleMap:hover { background: #f3f4f6; }
+.miniMap { height: 220px; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb; }
+
+/* ── Altura ───────────────────────────────────────────────── */
+.alturaRow { display: flex; gap: 10px; align-items: center; }
+.alturaRow .input { max-width: 120px; }
+.alturaUnit { font-size: 0.9rem; color: #6b7280; }
+
+/* ── Trincas ──────────────────────────────────────────────── */
+.trincaList { display: flex; flex-direction: column; gap: 8px; }
+.trincaItem {
+  background: #fff5f5; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.trincaHeader { display: flex; align-items: center; justify-content: space-between; }
+.trincaBadge {
+  font-size: 0.88rem; font-weight: 700; background: #ef4444; color: white;
+  border-radius: 5px; padding: 2px 8px;
+}
+.trincaActions { display: flex; gap: 6px; align-items: center; }
+.btnGpsSmall {
+  padding: 4px 9px; background: white; border: 1px solid #ef4444; color: #ef4444;
+  border-radius: 5px; font-size: 0.78rem; cursor: pointer;
+}
+.btnGpsSmall:hover { background: #fee2e2; }
+.trincaCoord { font-size: 0.77rem; color: #6b7280; font-family: monospace; }
+
+.btnAddTrinca {
+  padding: 10px; background: #fff; border: 1.5px dashed #ef4444; color: #ef4444;
+  border-radius: 8px; font-size: 0.9rem; font-weight: 500; cursor: pointer; text-align: center;
+}
+.btnAddTrinca:hover { background: #fff5f5; }
+
+/* ── Diagrama 2D ──────────────────────────────────────────── */
+.diagramWrap {
+  display: flex; flex-direction: column; gap: 6px; align-items: center;
+  border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; background: #f9fafb;
+}
+.diagramLabel { font-size: 0.8rem; color: #6b7280; text-align: center; }
+.diagramCanvas {
+  border-radius: 6px; border: 1px solid #d1d5db; touch-action: none;
+  cursor: crosshair; max-width: 100%; display: block;
+}
+
+.marcandoAlert {
+  background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px;
+  padding: 10px 14px; font-size: 0.85rem; color: #92400e;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.btnCancelMarca {
+  padding: 4px 10px; background: white; border: 1px solid #f59e0b;
+  color: #92400e; border-radius: 5px; font-size: 0.8rem; cursor: pointer;
+}
+
+/* ── Salvar ───────────────────────────────────────────────── */
+.saveRow { padding: 16px; }
+.btnSave {
+  display: block; width: 100%; padding: 13px; background: #2563eb; color: white;
+  border: none; border-radius: 9px; font-size: 0.98rem; font-weight: 600; cursor: pointer;
+}
+.btnSave:hover { background: #1d4ed8; }
+.btnSave:disabled { opacity: .5; }
+
+/* ── Toast ────────────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  padding: 10px 20px; border-radius: 8px; font-size: 0.875rem;
+  font-weight: 500; z-index: 2000; background: #1f2937; color: white;
+  white-space: nowrap; pointer-events: none;
+}
+.toast.error { background: #dc2626; }
+
+/* ── Dialog ───────────────────────────────────────────────── */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.5);
+  display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px;
+}
+.dialog {
+  background: white; border-radius: 12px; padding: 24px;
+  max-width: 380px; width: 100%; display: flex; flex-direction: column; gap: 14px;
+}
+.dialog h3 { margin: 0; font-size: 1.05rem; }
+.dialog p  { margin: 0; font-size: 0.875rem; color: #6b7280; }
+.dialogBtns { display: flex; gap: 10px; justify-content: flex-end; }
+.btnCancel {
+  padding: 8px 16px; border: 1px solid #d1d5db; border-radius: 6px;
+  background: white; cursor: pointer; font-size: 0.9rem;
+}
+.btnPrimary {
+  padding: 8px 16px; background: #2563eb; color: white;
+  border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 500;
+}

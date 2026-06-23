@@ -1,0 +1,390 @@
+/* ══════════════════════════════════════════════════════════════
+   TELA — layout normal
+   ══════════════════════════════════════════════════════════════ */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.backLink { font-size: 0.875rem; color: #6b7280; text-decoration: none; }
+.backLink:hover { color: #2563eb; }
+.btnPrint  { padding: 8px 16px; background: white;   border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.875rem; cursor: pointer; }
+.btnEdit   { padding: 8px 16px; background: #2563eb; border: none; border-radius: 8px; font-size: 0.875rem; color: white; cursor: pointer; }
+.btnEdit:hover { background: #1d4ed8; }
+.btnSave   { padding: 8px 16px; background: #16a34a; border: none; border-radius: 8px; font-size: 0.875rem; color: white; cursor: pointer; }
+.btnSave:hover { background: #15803d; }
+.btnSave:disabled { opacity: 0.6; cursor: default; }
+.btnCancel { padding: 8px 16px; background: white;   border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.875rem; cursor: pointer; }
+
+.reportWrap {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 32px;
+  max-width: 900px;
+}
+@media (max-width: 768px) { .reportWrap { padding: 16px; } }
+
+.reportHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid #2563eb;
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.reportTitle { font-size: 1.5rem; font-weight: 700; color: #2563eb; margin: 0 0 4px; }
+.reportSub   { font-size: 0.8rem; color: #6b7280; margin: 0; }
+.reportDate  { font-size: 0.875rem; color: #6b7280; }
+
+.section      { margin-bottom: 28px; }
+.sectionTitle { font-size: 1.1rem; font-weight: 600; border-left: 4px solid #2563eb; padding-left: 10px; margin: 0 0 14px; }
+.dataGrid     { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 24px; font-size: 0.875rem; }
+.fullRow      { grid-column: 1 / -1; }
+.noData       { color: #6b7280; font-size: 0.875rem; }
+
+/* ── Grade de fotos na TELA ── */
+.anomalyGrid        { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+.anomalyGrid.single { grid-template-columns: 1fr; max-width: 500px; }
+@media (max-width: 768px) { .anomalyGrid { grid-template-columns: 1fr; } }
+
+.anomalyCard {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  break-inside: avoid;
+}
+.anomalyCardHeader {
+  background: #f9fafb;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.anomalyImgWrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: #f3f4f6;
+  border-bottom: 1px solid #e5e7eb;
+}
+.anomalyImg {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  margin: auto;
+}
+.pointOverlay {
+  position: absolute;
+  width: 24px; height: 24px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: black;
+  color: white;
+  border: 2px solid white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: bold;
+}
+.svgOverlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+/* ── Tabela de medições ── */
+.measTable { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.measTable th,
+.measTable td { border: 1px solid #e5e7eb; padding: 6px 10px; text-align: left; }
+.measTable th  { background: #f9fafb; font-weight: 600; }
+
+.obs { padding: 10px 14px; font-size: 0.825rem; border-top: 1px solid #e5e7eb; color: #374151; }
+
+/* ── Campos de edição ── */
+.editDateInput  { border: 1.5px solid #2563eb; border-radius: 6px; padding: 4px 8px; font-size: 0.85rem; color: #1e293b; outline: none; }
+.editMeasBlock  { padding: 10px 14px; border-top: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; }
+.editMeasRow    { display: flex; flex-direction: column; gap: 4px; }
+.editMeasLabel  { font-size: 0.78rem; font-weight: 600; color: #374151; }
+.editMeasInputs { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.editMeasField  { display: flex; align-items: center; gap: 4px; font-size: 0.78rem; color: #6b7280; }
+.editMeasInput  { width: 72px; border: 1px solid #d1d5db; border-radius: 5px; padding: 4px 6px; font-size: 0.82rem; outline: none; }
+.editMeasInput:focus { border-color: #2563eb; }
+.editMeasAvg    { font-size: 0.78rem; color: #16a34a; margin-left: 4px; white-space: nowrap; }
+
+/* ── Rodapé de tela ── */
+.reportFooter { margin-top: 32px; }
+.footerLine   { border: none; border-top: 1px solid #e5e7eb; margin-bottom: 12px; }
+.footerText   { display: flex; justify-content: space-between; font-size: 0.75rem; color: #9ca3af; }
+
+.loading  { padding: 48px; text-align: center; color: #6b7280; }
+.notFound { text-align: center; padding: 48px; }
+.notFound a { color: #2563eb; text-decoration: none; }
+
+/* ── Visibilidade tela vs impressão ── */
+.printOnly  { display: none; }
+.screenOnly { display: grid; }
+.printHeader { display: none; }
+
+
+/* ══════════════════════════════════════════════════════════════
+   IMPRESSÃO / PDF — Documento técnico A4 profissional
+   ══════════════════════════════════════════════════════════════ */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm 18mm 18mm 18mm;
+  }
+
+  /* ── Ocultar controles de tela ── */
+  .toolbar     { display: none !important; }
+  .screenOnly  { display: none !important; }
+  .reportHeader { display: none !important; }
+
+  /* ── Ativar conteúdo de impressão ── */
+  .printOnly  { display: block !important; }
+
+  /* ── Documento ocupa a página toda ── */
+  .reportWrap {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  /* ── Cabeçalho técnico ── */
+  .printHeader {
+    display: block !important;
+    margin-bottom: 6mm;
+  }
+  .printHeaderTop {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid #1a3a6b;
+    padding-bottom: 4mm;
+    margin-bottom: 3mm;
+  }
+  .printOrgName {
+    font-size: 14pt;
+    font-weight: 700;
+    color: #1a3a6b;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .printOrgSub {
+    font-size: 8pt;
+    color: #555;
+    margin-top: 1mm;
+  }
+  .printMetaBlock {
+    text-align: right;
+    font-size: 8pt;
+    color: #444;
+    line-height: 1.7;
+  }
+  .printMetaBlock strong { color: #111; }
+  .printDocTitleBlock {
+    text-align: center;
+    margin: 2mm 0 3mm;
+  }
+  .printDocTitle {
+    font-size: 12pt;
+    font-weight: 700;
+    color: #1a3a6b;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .printHeaderDivider {
+    border: none;
+    border-top: 1px solid #b0b8c8;
+    margin: 0;
+  }
+
+  /* ── Seções ── */
+  .section {
+    margin-bottom: 5mm;
+    page-break-inside: avoid;
+  }
+  .sectionTitle {
+    font-size: 10pt !important;
+    font-weight: 700 !important;
+    color: #1a3a6b !important;
+    border-left: 3px solid #1a3a6b !important;
+    padding-left: 3mm !important;
+    margin: 0 0 3mm !important;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── Dados do imóvel ── */
+  .dataGrid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1.5mm 8mm !important;
+    font-size: 9pt !important;
+    border: 1px solid #ccd3dd;
+    border-radius: 2px;
+    padding: 3mm 4mm;
+    background: #f7f9fc;
+  }
+  .dataGrid > div { line-height: 1.5; }
+  .fullRow { grid-column: 1 / -1 !important; }
+
+  /* ══════════════════════════════════════════════════════════
+     PAR DE FOTOS — 2 por página, layout horizontal
+     ══════════════════════════════════════════════════════════ */
+  .fotoPair {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6mm !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    /* Evita que a última página quebre desnecessariamente */
+  }
+  .fotoPair:last-child {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  /* Cada card de foto ocupa o espaço vertical disponível */
+  .pairCard {
+    border: 1px solid #b0b8c8 !important;
+    border-radius: 2px !important;
+    overflow: hidden !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .anomalyCardHeader {
+    background: #eef1f7 !important;
+    padding: 2mm 3mm !important;
+    border-bottom: 1px solid #b0b8c8 !important;
+    font-size: 9pt !important;
+    font-weight: 700 !important;
+    color: #1a3a6b !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* ── Foto: ocupa o máximo de espaço disponível ── */
+  .anomalyImgWrap {
+    position: relative !important;
+    width: 100% !important;
+    aspect-ratio: unset !important;
+    height: 110mm !important;
+    max-height: 110mm !important;
+    background: #f0f2f5 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+  .anomalyImg {
+    width: 100% !important;
+    height: 110mm !important;
+    max-height: 110mm !important;
+    object-fit: contain !important;
+    display: block !important;
+  }
+
+  /* ── Ocultar linhas e medições sobrepostas na foto ── */
+  .svgOverlay { display: none !important; }
+
+  /* Pontos de referência menores (mas ainda visíveis como âncoras) */
+  .pointOverlay {
+    width: 14px !important;
+    height: 14px !important;
+    font-size: 6px !important;
+    border-width: 1.5px !important;
+  }
+
+  /* ── Tabela de medições — compacta e limpa abaixo da foto ── */
+  .measTable {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 7.5pt !important;
+    margin: 0 !important;
+    flex-shrink: 0 !important;
+  }
+  .measTable th,
+  .measTable td {
+    border: 1px solid #b0b8c8 !important;
+    padding: 1.5mm 2.5mm !important;
+    text-align: left !important;
+  }
+  .measTable th {
+    background: #eef1f7 !important;
+    font-weight: 700 !important;
+    color: #1a3a6b !important;
+  }
+
+  /* ── Observações ── */
+  .obs {
+    padding: 1.5mm 3mm !important;
+    font-size: 7.5pt !important;
+    border-top: 1px solid #ccd3dd !important;
+    color: #333 !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* ── Tabelas inline (trincas, etc.) ── */
+  table {
+    font-size: 8.5pt !important;
+    border-collapse: collapse !important;
+  }
+  th, td {
+    border: 1px solid #b0b8c8 !important;
+    padding: 1.5mm 3mm !important;
+  }
+  thead tr { background: #eef1f7 !important; }
+
+  /* ── Textos gerais ── */
+  body, p, div, span {
+    font-family: 'Arial', 'Helvetica', sans-serif !important;
+  }
+  p     { font-size: 9pt !important; color: #222 !important; }
+  strong { color: #111 !important; }
+
+  /* ── Rodapé do documento ── */
+  .reportFooter {
+    margin-top: 6mm !important;
+    page-break-inside: avoid !important;
+  }
+  .footerLine {
+    border: none !important;
+    border-top: 1px solid #b0b8c8 !important;
+    margin-bottom: 2mm !important;
+  }
+  .footerText {
+    display: flex !important;
+    justify-content: space-between !important;
+    font-size: 7pt !important;
+    color: #777 !important;
+  }
+
+  /* ── Sem links com URL visível ── */
+  a[href]::after { content: '' !important; }
+
+  /* ── Forçar cores de fundo na impressão ── */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

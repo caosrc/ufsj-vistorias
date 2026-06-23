@@ -1,0 +1,216 @@
+Socrates.resende@gmail.com's Account
+Página inicial da conta
+
+Recentes
+Observability
+Computação
+
+defesacivil
+Workers
+
+geovistorias
+Workers
+
+geovistorias-api
+Workers
+
+Workers e Pages
+Computação
+
+
+Domínios
+Observe
+
+Investigate
+
+Análise
+Build
+
+Computação
+Workers e Pages
+Observability
+Workers for Platforms
+Containers
+Durable Objects
+Queues
+Fluxos de trabalho
+Execução do navegador
+VPC
+
+Serviço de hospedagem de email
+Planos do Workers
+Carro-chefe
+
+IA
+
+Armazenamento e bancos de dados
+
+Mídia
+Proteja e conecte
+
+Segurança do aplicativo
+Zero Trust
+
+Rede
+
+Entrega e desempenho
+
+Gerenciar conta
+
+Workers e Pages
+geovistorias
+Visão geral
+Métrica
+Implantações
+Associações
+Observability
+Domínios
+Configurações
+Falha na última build
+geovistorias.rc26.workers.dev
+caosrc/ufsj-vistorias
+por socrates.resende
+3 dias atrás
+geovistorias
+
+Observability
+Logs do Workers
+
+Ativado
+Rastreamentos do Workers
+
+Desativado
+Adicionar uma vinculação
+Banco de dados D1
+DB
+geovistorias
+
+Métrica
+Último 24 horas
+
+Solicitações
+15
+650.00%
+
+Erros
+0
+
+Tempo da CPU
+1,35
+ms
+88.10%
+Versões
+7f1c9177
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+3 d atrás
+e6c82f5e
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+3 d atrás
+b4784ad2
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+3 d atrás
+e0b3a8c1
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+3 d atrás
+ed8bb9a9
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+3 d atrás
+100b8bd0
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+3 d atrás
+7c8c2ea8
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+4 d atrás
+f4f4479c
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+4 d atrás
+f703669a
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+4 d atrás
+7f4ab40f
+Implantado manualmente
+Wrangler
+
+por socrates.resende
+4 d atrás
+Domínios e rotas
+workers.dev
+geovistorias.rc26.workers.dev
+
+Domínios personalizados
+—
+
+Rotas
+—
+
+Próximas etapas
+Conecte um domínio personalizado
+
+Use seu próprio domínio para servir seu Worker para obter uma aparência profissional.
+
+Automatize com o Workflows
+
+Crie aplicativos confiáveis de várias etapas com o Workflows para lógica de negócios complexa.
+
+Colabore em tempo real
+
+Adicione o Durable Objects para colaboração e coordenação em tempo real.
+
+Suporte
+Status do sistema
+Carreiras
+Termos de uso
+Relatar problemas de segurança
+Política de Privacidade
+Uma pílula azul e branca com uma marca de seleção e um x, representando as opções de privacidade.Preferências de cookies
+© 2026 Cloudflare, Inc.
+Need more help?
+
+Good afternoon.
+What are we doing today?
+
+
+Domain settings
+Show my configuration
+
+Transfer a domain
+Walk me through the process
+
+Environment variables
+Add or update secrets
+
+Encrypted Client Hello
+Enable ECH for my zone
+
+Bind R2 to a Worker
+Connect object storage
+Chats are recorded to improve the service and are processed in accordance with our Privacy Policy.
+
+What can we help you with?

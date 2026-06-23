@@ -1,0 +1,607 @@
+app no Replit, eu usaria este conjunto:
+
+GeoTIFF.js → ler o TIF
+Marching Squares → gerar curvas
+Turf.js → análises
+OpenTopography API → baixar DEM automaticamente por área
+OpenTopoData → consultar altitude de pontos
+Hillshade + Slope (local) → destacar taludes
+
+O GeoTIFF.js já suporta leitura de GeoTIFF e metadados geoespaciais no navegador e Node.js.
+
+Instalação no Replit:
+
+npm install geotiff
+npm install @turf/turf
+npm install marchingsquares
+1) Ler o GeoTIFF
+
+Crie:
+
+import GeoTIFF from 'geotiff';
+
+export async function carregarDEM(arquivo){
+
+const tiff = await GeoTIFF.fromArrayBuffer(
+ await arquivo.arrayBuffer()
+);
+
+const image = await tiff.getImage();
+
+const raster = await image.readRasters();
+
+const largura=image.getWidth();
+const altura=image.getHeight();
+
+return{
+
+dados:raster[0],
+largura,
+altura,
+
+bbox:image.getBoundingBox(),
+
+resolucao:image.getResolution()
+
+};
+
+}
+
+GeoTIFF.js permite leitura de rasters e resolução do DEM.
+
+2) Melhorar geração das curvas
+
+Seu problema provavelmente está aqui.
+
+Troque para:
+
+import {isoLines} from 'marchingsquares';
+
+export function gerarCurvas(matriz){
+
+const curvas=[];
+
+for(
+let cota=700;
+cota<=1900;
+cota+=1
+){
+
+const linhas=
+isoLines(
+matriz,
+cota
+);
+
+curvas.push({
+
+elevacao:cota,
+linhas
+
+});
+
+}
+
+return curvas;
+
+}
+
+Mudança importante:
+
+Antes:
+
+5 m
+10 m
+
+Depois:
+
+1 m
+3) Adicionar mapa de declividade
+
+Taludes aparecem muito melhor assim:
+
+export function calcularSlope(
+dados,
+largura,
+altura
+){
+
+const slope=[];
+
+for(
+let y=1;
+y<altura-1;
+y++
+){
+
+for(
+let x=1;
+x<largura-1;
+x++
+){
+
+const i=y*largura+x;
+
+const dzdx=
+(dados[i+1]-dados[i-1])/2;
+
+const dzdy=
+(
+dados[i+largura]-
+dados[i-largura]
+)/2;
+
+const angulo=
+Math.atan(
+Math.sqrt(
+dzdx*dzdx+
+dzdy*dzdy
+)
+)*180/Math.PI;
+
+slope[i]=angulo;
+
+}
+
+}
+
+return slope;
+
+}
+
+Depois destacar automaticamente:
+
+if(slope>30){
+
+// provável talude
+
+}
+4) Hillshade
+
+Para barragem e mineração isso melhora muito:
+
+export function hillshade(
+slope,
+aspect
+){
+
+return 255*(
+
+Math.cos(
+45*Math.PI/180
+)*
+Math.cos(
+slope*Math.PI/180
+)
+
++
+
+Math.sin(
+45*Math.PI/180
+)
+
+*
+
+Math.sin(
+slope*Math.PI/180
+)
+
+*
+
+Math.cos(
+315*Math.PI/180
+-aspect
+
+)
+
+);
+
+}
+5) Buscar DEM automaticamente
+
+Para não depender de upload manual:
+
+OpenTopography Developers
+
+Exemplo:
+
+const url=
+`https://portal.opentopography.org/API/globaldem?demtype=COP30&south=${south}&north=${north}&west=${west}&east=${east}&API_Key=SUA_CHAVE`;
+
+OpenTopography fornece DEMs por área e API gratuita com cadastro.
+
+6) Consultar altitude ao clicar
+
+OpenTopoData API Docs
+
+async function altitude(
+lat,
+lon
+){
+
+const resposta=
+await fetch(
+
+`https://api.opentopodata.org/v1/srtm30m?locations=${lat},${lon}`
+
+);
+
+const dados=
+await resposta.json();
+
+return dados.results[0].elevation;
+
+}
+
+OpenTopoData fornece consulta gratuita de altitude para coordenadas.
+
+Prompt pronto para colar no Replit:
+
+Melhorar o módulo de curvas do GeoVistorias.
+
+Instalar:
+
+geotiff
+marchingsquares
+@turf/turf
+
+Implementar:
+
+- Leitura de GeoTIFF
+- Curvas com equidistância 1m
+- Remover simplificação excessiva
+- Hillshade
+- Mapa de declividade
+- Destacar áreas >30°
+- Identificar possíveis taludes
+- Consultar altitude ao clicar
+- Buscar DEM automaticamente via OpenTopography
+- Estatísticas de altitude em polígonos desenhados
+- Exportar GeoJSON
+
+1. Ler o GeoTIFF
+
+import GeoTIFF from 'geotiff';
+
+export async function carregarDEM(file){
+
+const tiff=
+await GeoTIFF.fromArrayBuffer(
+await file.arrayBuffer()
+);
+
+const image=
+await tiff.getImage();
+
+const raster=
+await image.readRasters();
+
+return{
+
+dados:raster[0],
+width:image.getWidth(),
+height:image.getHeight(),
+bbox:image.getBoundingBox()
+
+};
+
+}
+
+2. Gerar curvas de 1 m
+
+Troque qualquer geração atual por:
+
+import {isoLines} from 'marchingsquares';
+
+function gerarCurvas(matriz){
+
+let curvas=[];
+
+const min=660;
+const max=1905;
+
+for(
+let elev=min;
+elev<=max;
+elev+=1
+){
+
+const linhas=
+isoLines(
+matriz,
+elev
+);
+
+curvas.push({
+
+elevation:elev,
+lines:linhas
+
+});
+
+}
+
+return curvas;
+
+}
+
+3. Gerar Slope
+
+Isso é o que vai fazer os taludes “saltarem” na tela:
+
+function calcularSlope(
+dados,
+largura,
+altura
+){
+
+let slope=[];
+
+for(
+let y=1;
+y<altura-1;
+y++
+){
+
+for(
+let x=1;
+x<largura-1;
+x++
+){
+
+const i=
+y*largura+x;
+
+const dzdx=
+(
+dados[i+1]
+-
+dados[i-1]
+)/2;
+
+const dzdy=
+(
+dados[i+largura]
+-
+dados[i-largura]
+)/2;
+
+const angulo=
+
+Math.atan(
+
+Math.sqrt(
+dzdx*dzdx+
+dzdy*dzdy
+)
+
+)
+
+*180/Math.PI;
+
+slope[i]=angulo;
+
+}
+
+}
+
+return slope;
+
+}
+
+Destacar automaticamente:
+
+if(slope>30){
+
+// provável talude
+
+}
+
+4. Gerar Hillshade
+
+function hillshade(
+slope,
+aspect
+){
+
+return 255*(
+Math.cos(
+45*Math.PI/180
+)
+
+*
+
+Ma...
+
+
+Remover suavização excessiva do terreno 3D.
+
+Não usar:
+
+- Bicubic interpolation
+- Bilinear interpolation excessiva
+- Smooth terrain
+- Simplify geometry
+
+Preservar mudanças abruptas de altitude (breaklines).
+
+Aplicar suavização adaptativa:
+
+- Diferenças pequenas (<1m): suavizar
+- Diferenças médias (1–3m): suavizar pouco
+- Diferenças grandes (>3m): não suavizar
+
+Preservar taludes, bermas, cortes e escavações.
+
+Adicionar fator de exagero vertical configurável (1x–5x).
+
+Código para substituir a suavização atual:
+
+function suavizacaoAdaptativa(
+altura,
+largura,
+alturaRaster
+){
+
+let resultado=
+new Float32Array(
+altura.length
+);
+
+for(
+let y=1;
+y<alturaRaster-1;
+y++
+){
+
+for(
+let x=1;
+x<largura-1;
+x++
+){
+
+const i=
+y*largura+x;
+
+const centro=
+altura[i];
+
+const vizinhos=[
+
+altura[i-1],
+altura[i+1],
+
+altura[i-largura],
+altura[i+largura]
+
+];
+
+const media=
+
+vizinhos.reduce(
+(a,b)=>a+b
+)/4;
+
+const diferenca=
+Math.abs(
+centro-media
+);
+
+if(
+diferenca<1
+){
+
+resultado[i]=
+(centro+media)/2;
+
+}
+
+else if(
+diferenca<3
+){
+
+resultado[i]=
+centro*0.8+
+media*0.2;
+
+}
+
+else{
+
+resultado[i]=
+centro;
+
+}
+
+}
+
+}
+
+return resultado;
+
+}
+
+Esse código faz:
+
+ruído pequeno → suaviza
+terreno normal → suaviza pouco
+talude → preserva
+
+Outra coisa importante: em motores 3D como Three.js, normalmente o terreno está achatado porque a escala vertical é pequena.
+
+Troque algo parecido com:
+
+vertex.z=
+elevacao;
+
+por:
+
+const exageroVertical=3;
+
+vertex.z=
+elevacao*
+exageroVertical;
+
+ou coloque um slider:
+
+const exageroVertical=
+1.0;
+
+até
+
+const exageroVertical=
+5.0;
+
+Para barragens e mineração:
+
+1x → real
+2x → boa visualização
+3x → ótimo para taludes
+5x → exagerado
+
+Também substitua interpolação bilinear por vizinho mais próximo.
+
+Se existir algo assim:
+
+const alturaInterpolada=
+bilinearInterpolation(
+x,
+y
+);
+
+troque por:
+
+const alturaInterpolada=
+
+dados[
+Math.floor(y)*largura+
+Math.floor(x)
+];
+
+Porque a interpolação bilinear tende a transformar:
+
+1000m
+1000m
+1000m
+990m
+980m
+
+em:
+
+1000m
+998m
+995m
+992m
+989m
+
+que cria exatamente esse “morro suave de 1 km”.
+
+Para o GeoVistorias eu adicionaria ainda:
+
+☑ Exagero vertical
+☑ Preservar taludes
+☑ Modo mineração
+☑ Modo terreno natural
+☑ Mostrar linhas de quebra
+
+Melhore o app para funcionar no netlify, vou publicar ele no netlify pelo gituhub desse app

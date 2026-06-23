@@ -1,0 +1,323 @@
+O OpenStreetMap é uma ÓTIMA base para ruas e endereços, mas ele sozinho não possui:
+
+relevo
+declividade
+erosão
+encostas
+taludes
+
+Essas informações vêm de:
+
+DEM + GIS + análise espacial.
+
+A boa notícia:
+
+você consegue adicionar tudo isso no seu app.
+O QUE VOCÊ PRECISA
+1. BASE DO MAPA
+
+Você já tem:
+
+✅ OpenStreetMap
+2. CAMADAS DE RELEVO
+
+Adicionar:
+
+✅ Terrain RGB
+
+ou
+
+✅ OpenTopoMap
+3. ANÁLISE DE DECLIVIDADE
+
+Usar:
+
+✅ Turf.js
+✅ DEM
+4. DESENHO/EDIÇÃO
+
+Usar:
+
+✅ Terra Draw
+5. CAMADAS GIS
+
+Usar:
+
+✅ GeoJSON
+✅ WMS/WFS
+MELHOR ESTRUTURA PARA VOCÊ
+Função	Melhor ferramenta
+mapa	MapLibre
+ruas	OpenStreetMap
+topografia	OpenTopoMap
+relevo real	Terrain RGB
+análise espacial	Turf.js
+desenho GIS	Terra Draw
+dados MG	IDE-SISEMA
+satélite	ESRI
+chuva	RainViewer
+banco GIS	Supabase/PostGIS
+1. RELEVO E CURVAS DE NÍVEL
+MELHOR OPÇÃO GRATUITA:
+✅ OpenTopoMap
+
+Site:
+
+OpenTopoMap
+
+ELE MOSTRA
+
+✅ curvas
+✅ relevo
+✅ elevação
+✅ montanhas
+✅ vales
+
+COMO USAR
+
+Adicionar no:
+
+MapLibre
+
+Como raster layer.
+
+2. ELEVAÇÃO REAL
+MELHOR:
+✅ Terrain RGB
+O QUE ELE FAZ
+
+O mapa possui:
+
+altitude
+elevação
+relevo
+
+Em cada pixel.
+
+ISSO É MUITO IMPORTANTE
+
+Porque você consegue:
+
+calcular inclinação automática.
+MELHOR GRATUITO
+✅ MapTiler Terrain RGB
+
+MapTiler Terrain RGB
+
+3. INCLINAÇÃO (SLOPE)
+ESSA É A CAMADA MAIS IMPORTANTE
+
+Porque:
+
+risco geotécnico = declividade.
+COMO FUNCIONA
+
+Sistema:
+
+lê elevação
+calcula inclinação %
+gera cores
+EXEMPLO
+Inclinação	Cor
+0–15%	verde
+15–30%	amarelo
+30–45%	laranja
+>45%	vermelho
+COMO CRIAR
+USE:
+✅ Turf.js
+ELE CONSEGUE
+
+✅ análise espacial
+✅ grids
+✅ polígonos
+✅ buffers
+✅ classificação
+
+4. ENCOSTAS
+COMO DETECTAR
+
+Regra simples:
+
+if (slope > 30) {
+   encosta = true
+}
+MELHORAR DETECÇÃO
+
+Cruzar:
+
+slope
+chuva
+solo
+EXEMPLO
+if (
+  slope > 35 &&
+  chuva72h > 100
+) {
+   risco = "alto"
+}
+RESULTADO
+
+Mapa:
+
+pinta encosta
+gera manchas
+
+Automaticamente.
+
+5. TALUDES
+
+Taludes geralmente precisam:
+
+desenho manual
+ou
+dados GIS
+MELHOR OPÇÃO
+IDE-SISEMA MG
+
+Você pode carregar:
+
+mineração
+erosão
+geologia
+LINK
+
+IDE SISEMA MG GeoServer
+
+6. EROSÃO
+
+Você já encontrou a camada:
+
+risco_erosao_pol
+
+Isso é EXCELENTE.
+
+VOCÊ PODE:
+
+✅ carregar no mapa
+✅ cruzar com chuva
+✅ cruzar com slope
+
+7. MONITORAMENTO AUTOMÁTICO
+O MAIS PROFISSIONAL
+
+Sistema:
+
+lê chuva
+lê slope
+gera risco
+EXEMPLO
+if (
+ slope > 40 &&
+ chuva72h > 120
+) {
+   risco = "Muito Alto"
+}
+8. DESENHAR ÁREAS
+MELHOR:
+✅ Terra Draw
+VOCÊ CONSEGUIRÁ
+
+✅ desenhar polígonos
+✅ editar
+✅ salvar
+✅ mover
+✅ excluir
+
+9. CAMADAS IMPORTANTES PARA VOCÊ
+PRIORIDADE
+1.
+
+Declividade
+
+2.
+
+Chuva 72h
+
+3.
+
+Hidrografia
+
+4.
+
+Erosão
+
+5.
+
+Mineração
+
+6.
+
+Taludes
+
+10. HILLSHADE
+MUITO BONITO E ÚTIL
+
+Mostra:
+
+sombras do relevo
+morros
+vales
+MELHOR:
+Terrain RGB + Hillshade
+11. HEATMAP
+
+Mostrar:
+
+concentração de ocorrências
+12. GRID DE RISCO
+MUITO PROFISSIONAL
+
+Dividir mapa:
+
+em pequenos quadrados
+
+Cada quadrado:
+
+recebe risco automático
+EXEMPLO
+Grid	Risco
+A1	alto
+A2	baixo
+13. BANCO DE ENCOSTAS
+
+Cadastrar:
+
+altura
+solo
+risco
+drenagem
+14. CRUZAMENTO DE CAMADAS
+
+Você pode cruzar:
+
+chuva
+slope
+erosão
+solo
+RESULTADO
+risco automático real.
+O QUE EU FARIA NO SEU APP
+FASE 1
+adicionar:
+
+✅ OpenTopoMap
+✅ Terrain RGB
+
+FASE 2
+adicionar:
+
+✅ slope automático
+✅ manchas automáticas
+
+FASE 3
+adicionar:
+
+✅ chuva 72h
+✅ RainViewer
+
+FASE 4
+adicionar:
+
+✅ edição GIS
+✅ Terra Draw

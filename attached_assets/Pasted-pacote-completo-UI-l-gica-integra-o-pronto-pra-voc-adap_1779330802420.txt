@@ -1,0 +1,170 @@
+pacote completo (UI + lógica + integração) pronto pra você adaptar no Replit 👇
+
+🌧️ 1. FONTE GRATUITA DE PREVISÃO
+
+Use a API gratuita da Open-Meteo
+
+👉 Documentação:
+Open-Meteo API Docs
+
+✔ Não precisa de API key
+✔ Previsão até 16 dias
+✔ Tem precipitação (mm)
+
+🔹 Função para buscar chuva
+async function getPrevisao(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=precipitation_sum&timezone=auto`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  return data.daily;
+}
+🧩 2. CRIAR ABA “SIMULAÇÃO DE CHUVA”
+🟢 HTML
+<div id="aba-chuva" style="padding:10px;">
+  <h3>🌧️ Simulação de Chuva</h3>
+
+  <label>Precipitação (mm):</label>
+  <input type="number" id="chuvaManual" value="50" />
+
+  <label>Dias consecutivos:</label>
+  <input type="number" id="dias" value="1" />
+
+  <button id="btnSimular">Simular</button>
+  <button id="btnPrevisao">Usar previsão</button>
+
+  <br><br>
+
+  <label>Solo saturado:</label>
+  <input type="checkbox" id="soloSaturado" />
+
+  <br><br>
+
+  <button id="btnAnimar">Animar água 💧</button>
+  <button id="btn3D">Mapa 3D</button>
+  <button id="btnRelatorio">Exportar relatório</button>
+</div>
+⚙️ 3. LÓGICA DA SIMULAÇÃO (COM DIAS + SATURAÇÃO)
+🟢 Função principal
+function simularChuvaAvancada(mm, dias, saturado) {
+  const fatorSaturacao = saturado ? 1.5 : 1;
+
+  grid.forEach(c => {
+    const coef = getCoeficiente(c);
+
+    // chuva acumulada ao longo dos dias
+    const chuvaTotal = mm * dias;
+
+    // redução de infiltração se solo saturado
+    const infiltracao = saturado ? 0.1 : 0.4;
+
+    c.agua = chuvaTotal * coef * fatorSaturacao * (1 - infiltracao);
+    c.acumulado = 0;
+  });
+
+  propagarAgua();
+  renderMapa();
+}
+🟢 Botões
+btnSimular.onclick = () => {
+  const mm = Number(chuvaManual.value);
+  const dias = Number(diasInput.value);
+  const saturado = soloSaturado.checked;
+
+  simularChuvaAvancada(mm, dias, saturado);
+};
+🌦️ 4. USAR PREVISÃO REAL
+btnPrevisao.onclick = async () => {
+  const previsao = await getPrevisao(-20.51, -43.69);
+
+  const chuvaTotal = previsao.precipitation_sum.reduce((a, b) => a + b, 0);
+
+  simularChuvaAvancada(chuvaTotal, previsao.time.length, true);
+};
+💧 5. ANIMAÇÃO DA ÁGUA
+function animarAgua() {
+  grid.forEach(c => {
+    if (!c.fluxo) return;
+
+    const linha = L.polyline([c.center, c.fluxo.center], {
+      color: "cyan",
+      weight: 2,
+      opacity: 0.7
+    }).addTo(map);
+
+    let offset = 0;
+
+    setInterval(() => {
+      offset += 1;
+      linha.setStyle({
+        dashArray: "5,10",
+        dashOffset: offset
+      });
+    }, 100);
+  });
+}
+
+btnAnimar.onclick = animarAgua;
+🏔️ 6. MAPA 3D (SIMPLES E FUNCIONAL)
+
+Use Mapbox GL JS
+
+map.addLayer({
+  id: "terrain",
+  type: "hillshade",
+  source: "mapbox-dem",
+  paint: {}
+});
+
+👉 Ou com exaggeration:
+
+map.setTerrain({ source: "mapbox-dem", exaggeration: 2 });
+📄 7. EXPORTAR RELATÓRIO TÉCNICO
+function gerarRelatorio() {
+  const pontosCriticos = grid.filter(c => c.acumulado > 200);
+
+  const texto = `
+RELATÓRIO DE SIMULAÇÃO DE CHUVA
+
+Precipitação: ${chuvaManual.value} mm
+Dias: ${diasInput.value}
+Solo saturado: ${soloSaturado.checked ? "Sim" : "Não"}
+
+Pontos críticos: ${pontosCriticos.length}
+`;
+
+  const blob = new Blob([texto], { type: "text/plain" });
+  const link = document.createElement("a");
+
+  link.href = URL.createObjectURL(blob);
+  link.download = "relatorio.txt";
+  link.click();
+}
+
+btnRelatorio.onclick = gerarRelatorio;
+🎯 8. MELHORIAS BASEADAS EM NORMA (ENGENHARIA)
+
+👉 Para ficar mais realista:
+
+✔ Chuva acumulada:
+chuvaTotal = Σ(mm por dia)
+✔ Solo saturado:
+reduz infiltração
+aumenta escoamento
+✔ Tempo de concentração (simplificado):
+Tc = (0.87 * L^0.385) / (H^0.385)
+
+👉 pode usar depois pra refinar
+
+🚀 RESULTADO FINAL
+
+Você terá no seu app:
+
+✔ Aba “Simulação de chuva”
+✔ Input manual + previsão real
+✔ Simulação multi-dia
+✔ Solo saturado
+✔ Animação 💧
+✔ Mapa 3D
+✔ Relatório técnico

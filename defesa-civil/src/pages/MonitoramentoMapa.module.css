@@ -1,0 +1,273 @@
+/* ── Container principal: expande saindo do padding do .main ── */
+.mapaContainer {
+  position: relative;
+  margin: -16px -16px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header flutuante sobre o mapa ─────────────────────────── */
+.mapaHeader {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 800;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255,255,255,0.93);
+  backdrop-filter: blur(6px);
+  border-radius: 10px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+}
+.mapaHeaderLeft { display: flex; flex-direction: column; gap: 1px; }
+.mapaTitulo { font-size: 0.85rem; font-weight: 700; color: #111827; }
+.mapaSubtitulo { font-size: 0.7rem; color: #6b7280; }
+
+.btnKmz {
+  padding: 6px 12px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 7px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btnKmz:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Seletor de camada ──────────────────────────────────────── */
+.camadaSel {
+  position: absolute;
+  top: 66px;
+  right: 8px;
+  z-index: 800;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.camadaBtn {
+  padding: 5px 10px;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: #374151;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+.camadaBtnActive {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+/* ── Mapa Leaflet ───────────────────────────────────────────── */
+.leafletMap {
+  width: 100%;
+  height: calc(100vh - 200px);
+  min-height: 360px;
+}
+
+/* ── Loading ────────────────────────────────────────────────── */
+.loadingMap {
+  width: 100%;
+  height: calc(100vh - 200px);
+  min-height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  font-size: 0.9rem;
+  background: #f3f4f6;
+}
+
+/* ── Legenda ────────────────────────────────────────────────── */
+.legenda {
+  position: absolute;
+  bottom: 100px;
+  left: 8px;
+  z-index: 800;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(4px);
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.legendaItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  color: #374151;
+  font-weight: 500;
+}
+.legendaDot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Controles do polígono ──────────────────────────────────── */
+.polyControls {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 800;
+  display: flex;
+  justify-content: center;
+}
+
+.btnDesenho {
+  padding: 10px 22px;
+  background: #1d4ed8;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(37,99,235,0.5);
+  letter-spacing: 0.2px;
+}
+.btnDesenho:active { transform: scale(0.97); }
+
+.polyStatus {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(6px);
+  border-radius: 10px;
+  padding: 8px 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  width: 100%;
+  justify-content: space-between;
+}
+.polyStatusText {
+  font-size: 0.78rem;
+  color: #1d4ed8;
+  font-weight: 600;
+  flex: 1;
+}
+.btnCancelar {
+  background: #fee2e2;
+  color: #dc2626;
+  border: none;
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ── Painel de resultados ───────────────────────────────────── */
+.resultadoPanel {
+  margin: 12px 0 0;
+  background: white;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+  overflow: hidden;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.resultadoHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.resultadoTitulo { font-size: 0.95rem; font-weight: 700; color: #111827; }
+.btnFecharResult {
+  background: #f3f4f6;
+  border: none;
+  border-radius: 6px;
+  width: 26px; height: 26px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: #6b7280;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.resultadoGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.resultadoCard {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-align: center;
+}
+.resultadoValor { font-size: 1.1rem; font-weight: 700; color: #1d4ed8; }
+.resultadoLabel { font-size: 0.7rem; color: #6b7280; font-weight: 500; margin-top: 2px; }
+
+.resultadoImoveis {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  color: #1e40af;
+}
+
+.btn3D {
+  padding: 12px;
+  background: linear-gradient(135deg, #0d1117 0%, #1e3a5f 100%);
+  color: #93c5fd;
+  border: 1px solid #1e3a5f;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  letter-spacing: 0.3px;
+}
+.btn3D:active { opacity: 0.9; }
+
+.btnNovoPoligono {
+  padding: 9px;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+}
+
+/* ── Toast ──────────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  z-index: 9999;
+  background: #1f2937;
+  color: white;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.toast.error { background: #dc2626; }

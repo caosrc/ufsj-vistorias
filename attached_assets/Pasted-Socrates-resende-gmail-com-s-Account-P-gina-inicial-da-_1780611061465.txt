@@ -1,0 +1,151 @@
+Socrates.resende@gmail.com's Account
+Página inicial da conta
+
+Recentes
+
+
+
+
+
+
+Domínios
+Observe
+
+Investigate
+
+Análise
+Build
+
+Computação
+Workers e Pages
+Observability
+Workers for Platforms
+Containers
+Durable Objects
+Queues
+Fluxos de trabalho
+Execução do navegador
+VPC
+Beta
+
+Serviço de hospedagem de email
+Planos do Workers
+Carro-chefe
+Beta
+
+IA
+
+Armazenamento e bancos de dados
+
+Mídia
+Proteja e conecte
+
+Segurança do aplicativo
+Zero Trust
+
+Rede
+
+Entrega e desempenho
+
+Gerenciar conta
+Workers e Pages
+ufsj-vistorias
+Implantações
+Métrica
+Domínios personalizados
+Configurações
+Escolher ambiente:
+Build
+Repositório Git
+caosrc/ufsj-vistorias
+Configuração da build
+Comando da build:
+cd defesa-civil && npm install && npm run build
+Saída da build:
+defesa-civil/dist
+Diretório raiz:
+/
+Comentários da build:
+Habilitado
+Cache da build
+Desabilitado
+Controle da ramificação
+Ramificação de produção:
+main
+Implantações automáticas:
+Habilitado
+Compilar caminhos de inspeção
+Incluir caminhos:
+*
+Versão do sistema de build
+Versão 3
+Ganchos de implantação
+Nenhum gancho de implantação definido
+Variáveis e segredos
+Defina as variáveis de texto, segredo ou compilação para o seu projeto
+
+Tipo
+Nome
+Valor
+Texto não criptografado
+VITE_API_URL
+https://geovistorias-api.socrates-resende.workers.dev
+
+
+Associações
+Defina o conjunto de recursos disponíveis para suas Pages Functions
+
+
+Configure maneiras de interagir com armazenamento, bancos de dados, IA e muito mais do seu Worker
+Tempo de execução
+Defina a configuração de tempo de execução para sua Pages Functions
+
+Posicionamento
+Padrão
+Data de compatibilidade
+May 17, 2026
+Sinalizadores de compatibilidade
+Nenhuma sinalização definida
+Falha ao abrir/fechar
+Falha ao abrir
+Geral
+Nome
+ufsj-vistorias
+Notificações
+Assine determinados eventos adicionando uma notificação ao seu projeto
+Acesso à pré-visualização
+Implantações de pré-visualização são públicas por padrão. Restrinja as pré-visualizações com o Cloudflare Access para que os visitantes devam fazer login antes de visualizá-las.
+Você pode personalizar quem tem permissão no Zero Trust.
+Isso protege apenas URLs de implantação de pré-visualização. Domínios pages.dev de produção e domínios personalizados são gerenciados separadamente no Zero Trust.
+Exclua permanentemente este projeto do Pages, incluindo implantações, ativos, funções e configurações associadas a ele.
+Suporte
+Status do sistema
+Carreiras
+Termos de uso
+Relatar problemas de segurança
+Política de Privacidade
+Uma pílula azul e branca com uma marca de seleção e um x, representando as opções de privacidade.Preferências de cookies
+© 2026 Cloudflare, Inc.
+Need more help?
+
+Good evening.
+What are we doing today?
+
+
+Domain settings
+Show my configuration
+
+Deploy a Worker
+Help me get started
+
+Find my account ID
+Locate account and zone IDs
+
+Transfer a domain
+Walk me through the process
+
+Bind R2 to a Worker
+Connect object storage
+Chats are recorded to improve the service and are processed in accordance with our Privacy Policy.
+
+What can we help you with?

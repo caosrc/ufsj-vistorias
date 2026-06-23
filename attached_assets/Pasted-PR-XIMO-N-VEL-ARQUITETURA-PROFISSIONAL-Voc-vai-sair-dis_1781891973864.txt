@@ -1,0 +1,150 @@
+PRÓXIMO NÍVEL (ARQUITETURA PROFISSIONAL)
+
+Você vai sair disso:
+
+mapa 3D simples
+
+Para isso:
+
+Google Earth + dados próprios + vistorias georreferenciadas
+
+🧠 VISÃO GERAL DO SISTEMA
+MAPBOX SATELLITE (base visual)
+        +
+DEM MAPBOX (terreno global)
+        +
+SEU GeoTIFF (detalhe local)
+        +
+VISTORIAS (clusters geográficos)
+        +
+CÂMERA 3D (Google Earth style)
+🛰️ 1. OVERLAY DO SEU GeoTIFF EM CIMA DO MAPBOX
+🎯 objetivo
+
+Usar seu .tif como “camada de precisão local”
+
+🔧 solução correta
+
+Você não joga o TIFF direto no Mapbox.
+
+Você faz:
+
+✔ converter GeoTIFF → texture raster
+
+Usando:
+
+geotiff.js
+
+Depois:
+
+✔ overlay como custom layer
+💡 conceito
+Mapbox Terrain (base)
+        +
+GeoTIFF (displacement local)
+        =
+Terreno híbrido
+⚙️ abordagem prática
+carregar TIFF
+normalizar altitude
+criar canvas texture
+aplicar como layer
+🛰️ 2. MISTURA SATÉLITE + DEM LOCAL
+🎯 objetivo
+
+Combinar:
+
+Mapbox terrain global
+seu DEM de alta precisão
+🔥 estratégia profissional
+
+Você usa:
+
+✔ Mapbox terrain como base
+✔ seu DEM como “delta elevation”
+final_height =
+  mapbox_height +
+  local_tif_height_offset
+💡 resultado
+visão global suave
+detalhe local extremamente preciso
+🧭 3. CÂMERA GOOGLE EARTH (Three.js overlay)
+
+Aqui é onde fica “insano”.
+
+Você usa:
+
+three.js
+🎯 comportamento:
+zoom contínuo (sem quebra)
+tilt suave
+rotação orbital
+transição altitude fluida
+🧠 técnica usada
+camera = orbit controls + damping + altitude scaling
+💡 controle estilo Earth:
+scroll → zoom altitude
+drag → rotate globe
+shift+drag → tilt
+smooth easing
+🧱 4. CLUSTERS DE VISTORIAS 3D
+
+Agora entra seu sistema real 👇
+
+🎯 objetivo
+
+Mostrar vistorias como:
+
+pontos 3D no terreno
+agrupados por zoom
+com expansão dinâmica
+🔧 tecnologia
+
+mapbox-gl-js
+
+💡 implementação
+Cluster layer:
+zoom out → cluster
+zoom in → pontos individuais
+🧠 no 3D:
+ponto sobe no terreno (altura real)
+ícone flutua
+click abre inspeção
+🚀 ARQUITETURA FINAL (PRO)
+                MAPBOX SATELLITE
+                        ↓
+                TERRAIN GLOBAL
+                        ↓
+            THREE.JS CAMERA LAYER
+                        ↓
+     ┌──────────────┬───────────────┐
+     │              │               │
+ GeoTIFF       Vistorias       UI React
+ (DEM local)    (clusters)     (painel)
+🔥 COMO IMPLEMENTAR SEM QUEBRAR SEU PROJETO
+✔ passo 1
+
+Deixar Mapbox rodando 3D (você já tem)
+
+✔ passo 2
+
+Adicionar GeoTIFF overlay (canvas texture)
+
+✔ passo 3
+
+Adicionar camada de vistorias (GeoJSON)
+
+✔ passo 4
+
+Evoluir câmera para smooth Earth navigation
+
+🧠 ORDEM CERTA (IMPORTANTE)
+
+Não faça tudo de uma vez.
+
+Faça assim:
+
+1️⃣ Mapbox 3D (já pronto)
+2️⃣ Vistorias (GeoJSON clusters)
+3️⃣ GeoTIFF overlay
+4️⃣ câmera avançada
