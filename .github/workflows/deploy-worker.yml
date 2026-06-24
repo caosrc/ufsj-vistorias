@@ -1,0 +1,39 @@
+name: Deploy Worker only
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy Worker (manual)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Install frontend dependencies
+        working-directory: defesa-civil
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build frontend
+        working-directory: defesa-civil
+        run: pnpm run build
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm install
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: server
