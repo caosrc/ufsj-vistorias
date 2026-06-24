@@ -114,6 +114,7 @@ export default function Mapa() {
   const [gpsAtivo,        setGpsAtivo]        = useState(false)
   const [terreno3D,       setTerreno3D]       = useState(false)
   const [painelVistoria,  setPainelVistoria]  = useState(null)
+  const [webglError,      setWebglError]      = useState(false)
   const navigate = useNavigate()
 
   // ── Inicializar mapa ────────────────────────────────────────
@@ -136,6 +137,7 @@ export default function Mapa() {
       })
     } catch (err) {
       console.warn('Falha ao inicializar MapLibre-GL:', err?.message || err)
+      setWebglError(true)
       return
     }
 
@@ -505,9 +507,9 @@ export default function Mapa() {
   async function carregarClima(cidadeKey) {
     try {
       const [lng, lat] = CIDADES[cidadeKey].center
-      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=precipitation&forecast_days=1&timezone=America%2FSao_Paulo`)
+      const res = await fetch(`/api/clima?lat=${lat}&lng=${lng}`)
       const data = await res.json()
-      setPrecipitacao(data.current?.precipitation ?? 0)
+      setPrecipitacao(data?.precipitation ?? 0)
     } catch { setPrecipitacao(0) }
   }
 
@@ -592,7 +594,7 @@ export default function Mapa() {
 
       const lats = pts.map(p => p.lat.toFixed(5)).join(',')
       const lngs = pts.map(p => p.lng.toFixed(5)).join(',')
-      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&daily=precipitation_sum&timezone=America%2FSao_Paulo&past_days=7&forecast_days=0`, { signal: AbortSignal.timeout(15000) })
+      const res = await fetch(`/api/pluvio-grid?lats=${lats}&lngs=${lngs}`, { signal: AbortSignal.timeout(15000) })
       if (!res.ok) throw new Error('API error')
       const data = await res.json()
       const results = Array.isArray(data) ? data : [data]
@@ -1029,7 +1031,34 @@ export default function Mapa() {
       })()}
 
       {/* Mapa */}
-      <div ref={mapRef} className={styles.map} />
+      <div ref={mapRef} className={styles.map} style={{ position: 'relative' }}>
+        {webglError && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 50,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            background: '#f8fafc', gap: 16,
+          }}>
+            <div style={{ fontSize: 48 }}>🗺️</div>
+            <div style={{ fontWeight: 700, fontSize: 18, color: '#1e293b' }}>WebGL não disponível neste ambiente</div>
+            <div style={{ color: '#64748b', fontSize: 14, textAlign: 'center', maxWidth: 360 }}>
+              O mapa interativo requer aceleração gráfica (WebGL).<br />
+              Abra o app em uma aba separada do navegador para visualizá-lo.
+            </div>
+            <a
+              href={window.location.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                background: '#2563eb', color: '#fff', borderRadius: 8,
+                padding: '10px 24px', fontWeight: 600, fontSize: 14,
+                textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8,
+              }}
+            >
+              🔗 Abrir em nova aba
+            </a>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

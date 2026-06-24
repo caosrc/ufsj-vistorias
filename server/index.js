@@ -471,6 +471,21 @@ app.get('/api/clima', async (req, res) => {
   }
 })
 
+// ── PROXY PLUVIOMÉTRICO GRID ───────────────────────────────────
+app.get('/api/pluvio-grid', async (req, res) => {
+  const { lats, lngs } = req.query
+  if (!lats || !lngs) return res.status(400).json({ error: 'lats e lngs obrigatórios' })
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&daily=precipitation_sum&timezone=America%2FSao_Paulo&past_days=7&forecast_days=0`
+    const r = await fetch(url, { signal: AbortSignal.timeout(15000) })
+    if (!r.ok) return res.status(502).json({ error: 'Falha na API pluviométrica' })
+    const data = await r.json()
+    res.json(data)
+  } catch (e) {
+    res.status(503).json({ error: 'Serviço pluviométrico indisponível' })
+  }
+})
+
 // ── Helper de serialização ────────────────────────────────────
 const toMon = r => ({
   id: r.id, createdAt: r.created_at, proprietario: r.proprietario,

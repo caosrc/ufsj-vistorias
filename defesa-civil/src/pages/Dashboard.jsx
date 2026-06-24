@@ -56,11 +56,10 @@ export default function Dashboard() {
     const cidade = CIDADES[cidadeSelecionada]
     const [lng, lat] = cidade.center
     try {
-      const res = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m&forecast_days=1&timezone=America%2FSao_Paulo`
-      )
+      const res = await fetch(`/api/clima?lat=${lat}&lng=${lng}`)
+      if (!res.ok) throw new Error('Erro clima')
       const data = await res.json()
-      setClima(data.current)
+      setClima(data)
     } catch (e) {
       console.error('Erro clima', e)
     }
