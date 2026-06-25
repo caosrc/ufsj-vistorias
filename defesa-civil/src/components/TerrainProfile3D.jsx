@@ -1351,18 +1351,18 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
       const horizMax = Math.max(size.x, size.z)
       const vertMax  = Math.max(size.y, 1)
       if (mode === 'poligono') {
-        // Câmera ao sudeste do terreno, olhando para noroeste
-        // (eixo X já invertido → leste aparece à direita, norte ao fundo = mesmo que mapa 2D)
-        camera.position.set(
-          center.x + horizMax * 0.7,
-          center.y + vertMax  * 2.5 + horizMax * 0.4,
-          center.z - horizMax * 1.5,
-        )
-      } else {
+        // Câmera ao noroeste do terreno, olhando para sudeste
+        // Leste aparece à DIREITA, norte ao FUNDO = mesmo que mapa 2D
         camera.position.set(
           center.x - horizMax * 0.7,
           center.y + vertMax  * 2.5 + horizMax * 0.4,
           center.z + horizMax * 1.5,
+        )
+      } else {
+        camera.position.set(
+          center.x + horizMax * 0.7,
+          center.y + vertMax  * 2.5 + horizMax * 0.4,
+          center.z - horizMax * 1.5,
         )
       }
       controls.target.copy(center)
