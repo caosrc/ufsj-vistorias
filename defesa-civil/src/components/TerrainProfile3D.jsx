@@ -251,7 +251,7 @@ function calcContourInterval(range) {
 
 // ── Marching squares — extrai segmentos de curvas de nível da grade ───────────
 // Retorna array de objetos { level, isMajor, segs: [[x,y,z],[x,y,z], ...] }
-function buildContourLines3D(points, cols, rows, minE, maxE, vExag, maxXPoly, forcedInterval) {
+function buildContourLines3D(points, cols, rows, minE, maxE, vExag, maxXPoly, forcedInterval, maxZFlip = 0) {
   const range    = maxE - minE
   const interval = (forcedInterval && forcedInterval > 0) ? forcedInterval : calcContourInterval(range)
   if (!interval || cols < 2 || rows < 2 || points.length < cols * rows) return []
@@ -283,10 +283,11 @@ function buildContourLines3D(points, cols, rows, minE, maxE, vExag, maxXPoly, fo
           if (y1 === y2) return
           if ((y1 <= level && y2 > level) || (y1 > level && y2 <= level)) {
             const t = (level - y1) / (y2 - y1)
+            const zCross = p1.z + t * (p2.z - p1.z)
             crossings.push([
               p1.x + t * (p2.x - p1.x),
               (level - minE) * vExag + 0.4,
-              p1.z + t * (p2.z - p1.z),
+              maxZFlip > 0 ? maxZFlip - zCross : zCross,
             ])
           }
         }
@@ -339,7 +340,7 @@ function makeTextSprite(scene, text, color, x, y, z, scaleX, scaleY) {
 // ── Grade do polígono — com exagero vertical opcional ─────────
 // uvParams (opcional): { bbox:[minLng,minLat,maxLng,maxLat], totalLngMin, totalLngMax, totalLatMin, totalLatMax }
 // Quando presente, gera UVs mapeando cada ponto (lng, lat) → (u, v) na textura costurada.
-function buildGridMesh(points, cols, rows, minE, maxE, vExag = 1, uvParams = null) {
+function buildGridMesh(points, cols, rows, minE, maxE, vExag = 1, uvParams = null, flipZ = false) {
   const maxX   = points.length > 0 ? points.reduce((m, p) => Math.max(m, p.x), -Infinity) : 0
   const maxZ   = points.length > 0 ? points.reduce((m, p) => Math.max(m, p.z), -Infinity) : 0
   const total  = points.length
@@ -353,7 +354,7 @@ function buildGridMesh(points, cols, rows, minE, maxE, vExag = 1, uvParams = nul
     const relY = (p.y - minE) * vExag
     positions[i*3]   = p.x
     positions[i*3+1] = relY
-    positions[i*3+2] = p.z
+    positions[i*3+2] = flipZ ? (maxZ - p.z) : p.z
 
     let c
     if (p.slopePct !== undefined) {
@@ -612,7 +613,8 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
       setInfo({ minE, maxE, range: realRange, interval: calcContourInterval(realRange) })
 
       maxXPoly = points.length > 0 ? points.reduce((m, p) => Math.max(m, p.x), -Infinity) : 0
-      geo = buildGridMesh(points, cols, rows, minE, maxE, vExag)
+      const maxZFlip = points.length > 0 ? points.reduce((m, p) => Math.max(m, p.z), 0) : 0
+      geo = buildGridMesh(points, cols, rows, minE, maxE, vExag, null, true)
       gridInternalRef.current = { points, cols, rows, minE, maxXPoly, bbox: gridData.bbox }
 
       // Wireframe leve
@@ -621,7 +623,7 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
 
       // ── Curvas de nível 3D (marching squares sobre grade COP30) ──────────
       {
-        const contourData = buildContourLines3D(points, cols, rows, minE, maxE, vExag, maxXPoly, contourInterval)
+        const contourData = buildContourLines3D(points, cols, rows, minE, maxE, vExag, maxXPoly, contourInterval, maxZFlip)
         const cGroup = new THREE.Group()
         cGroup.visible = true
         contourGroupRef.current = cGroup
@@ -651,10 +653,11 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
         // Tamanho dos marcadores de vértice proporcional à cena
         const vtxR = Math.max((gridData.cols > 0 ? (points[points.length - 1]?.x || 50) / gridData.cols : 1) * 0.7, 0.4)
 
+        const fz = v => maxZFlip - v.z   // helper: inverte Z do polígono
         const borderPts = polyVerts.map(v => new THREE.Vector3(
           v.x,
           (v.y - realMinE) * vExag + 0.8,
-          v.z
+          fz(v)
         ))
         borderPts.push(borderPts[0].clone())  // fechar
         const borderGeo = new THREE.BufferGeometry().setFromPoints(borderPts)
@@ -664,7 +667,7 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
         // Labels pequenos nos vértices do polígono (sem esferas)
         polyVerts.forEach((v, i) => {
           makeTextSprite(scene, `V${i+1}`, '#fbbf24',
-            v.x, (v.y - realMinE) * vExag + Math.max(vtxR * 1.5, 1.2), v.z,
+            v.x, (v.y - realMinE) * vExag + Math.max(vtxR * 1.5, 1.2), fz(v),
             Math.max(vtxR * 6, 7), Math.max(vtxR * 1.5, 2))
         })
 
@@ -673,7 +676,7 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
 
         // Linha de topo das paredes
         const topWallPts = polyVerts.map(v => new THREE.Vector3(
-          v.x, (v.y - realMinE) * vExag + wallH * vExag + 0.8, v.z
+          v.x, (v.y - realMinE) * vExag + wallH * vExag + 0.8, fz(v)
         ))
         topWallPts.push(topWallPts[0].clone())
         scene.add(new THREE.Line(
@@ -687,13 +690,15 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
           const v2 = polyVerts[(wi + 1) % polyVerts.length]
           const x1 = v1.x
           const x2 = v2.x
+          const z1 = fz(v1)
+          const z2 = fz(v2)
           const y1b = (v1.y - realMinE) * vExag + 0.8
           const y2b = (v2.y - realMinE) * vExag + 0.8
           const y1t = y1b + wallH * vExag
           const y2t = y2b + wallH * vExag
           const wallPos = new Float32Array([
-            x1, y1b, v1.z,  x2, y2b, v2.z,  x2, y2t, v2.z,
-            x1, y1b, v1.z,  x2, y2t, v2.z,  x1, y1t, v1.z,
+            x1, y1b, z1,  x2, y2b, z2,  x2, y2t, z2,
+            x1, y1b, z1,  x2, y2t, z2,  x1, y1t, z1,
           ])
           const wGeo = new THREE.BufferGeometry()
           wGeo.setAttribute('position', new THREE.BufferAttribute(wallPos, 3))
@@ -1351,12 +1356,12 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
       const horizMax = Math.max(size.x, size.z)
       const vertMax  = Math.max(size.y, 1)
       if (mode === 'poligono') {
-        // Câmera ao sudoeste do terreno, olhando para nordeste
-        // Leste aparece à DIREITA e norte fica ao FUNDO/TOPO = igual ao mapa 2D
+        // Câmera ao noroeste do terreno (Z invertido na geometria = norte fica no fundo/topo)
+        // Vetor "direita" aponta para leste (+X) → leste aparece à DIREITA como no mapa 2D
         camera.position.set(
           center.x - horizMax * 0.7,
           center.y + vertMax  * 2.5 + horizMax * 0.4,
-          center.z - horizMax * 1.5,
+          center.z + horizMax * 1.5,
         )
       } else {
         camera.position.set(
