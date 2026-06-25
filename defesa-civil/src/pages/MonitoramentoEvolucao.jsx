@@ -92,6 +92,10 @@ function toDMM(date) {
   const d = new Date(date)
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`
 }
+function toDMY(date) {
+  const d = new Date(date)
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+}
 
 function barColor(v, max) {
   const r = max > 0 ? v / max : 0
@@ -147,18 +151,28 @@ export default function MonitoramentoEvolucao() {
     return days
   }, [imovel])
 
-  /* ── Datas de vistoria em DD/MM (para linhas azuis) ─────────── */
+  /* ── Datas de vistoria em DD/MM (para o gráfico de chuva) ────── */
   const vistoriaDMM = useMemo(() => {
     if (!imovel?.relatoriosSalvos?.length) return []
     return [...imovel.relatoriosSalvos]
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
       .map(r => toDMM(new Date(r.createdAt)))
   }, [imovel])
 
-  /* ── Gráficos de anomalias usando o intervalo completo ──────── */
+  /* ── Datas de vistoria em DD/MM/AAAA (para gráficos de anomalia) */
+  const vistoriaDMY = useMemo(() => {
+    if (!imovel?.relatoriosSalvos?.length) return []
+    return [...imovel.relatoriosSalvos]
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+      .map(r => toDMY(new Date(r.createdAt)))
+  }, [imovel])
+
+  /* ── Gráficos de anomalias — labels = datas das vistorias ─────── */
   useEffect(() => {
-    if (!imovel?.relatoriosSalvos?.length || !fullDays.length) { setCharts([]); return }
+    if (!imovel?.relatoriosSalvos?.length) { setCharts([]); return }
 
     const sorted = [...imovel.relatoriosSalvos].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    const labels = sorted.map(r => toDMY(new Date(r.createdAt)))
 
     const anomaliesMap = new Map()
     sorted.forEach(rel => {
@@ -179,15 +193,12 @@ export default function MonitoramentoEvolucao() {
       { bg: 'rgba(0,128,0,0.2)', border: 'green' },
     ]
 
-    const labels = fullDays.map(d => d.label)
-
     Array.from(anomaliesMap.keys()).sort(sortAnomalyKeys).forEach(code => {
       const lines = anomaliesMap.get(code)
-      const relRel = sorted.filter(r => r.fotosAnomalias?.some(f => f.codigoTrinca.toUpperCase() === code))
 
       lines.forEach(({ label, index }) => {
         let initAvg = undefined
-        for (const rel of relRel) {
+        for (const rel of sorted) {
           const foto = rel.fotosAnomalias?.find(f => f.codigoTrinca.toUpperCase() === code)
           if (foto?.linhas?.[index]) {
             const valid = foto.linhas[index].comprimentos.filter(c => typeof c === 'number' && c > 0)
@@ -195,10 +206,8 @@ export default function MonitoramentoEvolucao() {
           }
         }
 
-        const data = fullDays.map(day => {
-          const dayReport = relRel.find(r => toYMD(new Date(r.createdAt)) === day.ymd)
-          if (!dayReport) return null
-          const foto = dayReport.fotosAnomalias?.find(f => f.codigoTrinca.toUpperCase() === code)
+        const data = sorted.map(rel => {
+          const foto = rel.fotosAnomalias?.find(f => f.codigoTrinca.toUpperCase() === code)
           if (!foto?.linhas?.[index]) return null
           const valid = foto.linhas[index].comprimentos.filter(c => typeof c === 'number' && c > 0)
           if (!valid.length || initAvg === undefined) return null
@@ -225,7 +234,7 @@ export default function MonitoramentoEvolucao() {
       })
     })
     setCharts(result)
-  }, [imovel, fullDays])
+  }, [imovel])
 
   /* ── Dados do gráfico de precipitação ─────────────────────── */
   const precipChartData = useMemo(() => {
@@ -307,18 +316,10 @@ export default function MonitoramentoEvolucao() {
       },
       x: {
         ticks: {
-          font: { size: 9 },
+          font: { size: 10 },
           maxRotation: 45,
           minRotation: 0,
-          autoSkip: false,
-          color: (ctx) => {
-            const label = fullDays[ctx.index]?.label ?? ''
-            return vistoriaDMM.includes(label) ? '#1d4ed8' : '#d1d5db'
-          },
-          callback: function (val) {
-            const label = this.getLabelForValue(val)
-            return vistoriaDMM.includes(label) ? label : ''
-          },
+          color: '#1d4ed8',
         },
         title: { display: true, text: 'Data da Vistoria' },
         grid: { display: false },
@@ -334,7 +335,7 @@ export default function MonitoramentoEvolucao() {
             : 'Sem Medição'
         }
       },
-      vistoriaLines: { dates: vistoriaDMM },
+      vistoriaLines: { dates: vistoriaDMY },
     }
   })
 
