@@ -32,20 +32,20 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd server && npm install && node index.js"
+args = "cd server && node index.js"
 waitForPort = 5000
 
 [[workflows.workflow]]
 name = "Vite Frontend"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd defesa-civil && npm install && npm run dev"
-waitForPort = 5173
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd defesa-civil && npm run dev"
+waitForPort = 5173
 
 [[ports]]
 localPort = 5000
