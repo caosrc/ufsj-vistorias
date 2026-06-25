@@ -2156,7 +2156,14 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
           </>
         ) : (
           <>
-            {[['#22c55e','Cota baixa'],['#eab308','Cota média'],['#f97316','Cota alta'],['#ef4444','Cota máxima']].map(([cor,txt]) => (
+            {[
+              ['#22c55e','0–3% — Plano'],
+              ['#84cc16','3–8% — Suave'],
+              ['#eab308','8–20% — Moderado'],
+              ['#f97316','20–45% — Forte'],
+              ['#ef4444','45–75% — Muito forte'],
+              ['#7c3aed','> 75% — Escarpado'],
+            ].map(([cor,txt]) => (
               <span key={txt} style={{ display:'flex', alignItems:'center', gap:5 }}>
                 <span style={{ width:11, height:11, borderRadius:3, background:cor, display:'inline-block' }}/>
                 {txt}
