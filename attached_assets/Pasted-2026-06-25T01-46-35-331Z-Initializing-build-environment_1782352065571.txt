@@ -1,0 +1,275 @@
+2026-06-25T01:46:35.331Z	Initializing build environment...
+2026-06-25T01:46:50.859Z	Success: Finished initializing build environment
+2026-06-25T01:46:51.549Z	Cloning repository...
+2026-06-25T01:46:53.999Z	No build output detected to cache. Skipping.
+2026-06-25T01:46:53.999Z	No dependencies detected to cache. Skipping.
+2026-06-25T01:46:54.001Z	Detected the following tools from environment: 
+2026-06-25T01:46:54.099Z	Executing user build command: cd defesa-civil && pnpm install --no-frozen-lockfile && pnpm run build
+2026-06-25T01:46:56.048Z	 WARN  A pnpm-lock.yaml file exists. The current configuration prohibits to read or write a lockfile
+2026-06-25T01:46:56.292Z	Progress: resolved 1, reused 0, downloaded 0, added 0
+2026-06-25T01:46:57.345Z	Progress: resolved 21, reused 0, downloaded 10, added 0
+2026-06-25T01:46:58.345Z	Progress: resolved 150, reused 0, downloaded 14, added 0
+2026-06-25T01:46:59.347Z	Progress: resolved 318, reused 0, downloaded 15, added 0
+2026-06-25T01:46:59.615Z	Packages: +330
+2026-06-25T01:46:59.617Z	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+2026-06-25T01:47:00.347Z	Progress: resolved 358, reused 0, downloaded 70, added 61
+2026-06-25T01:47:01.347Z	Progress: resolved 358, reused 0, downloaded 192, added 182
+2026-06-25T01:47:02.353Z	Progress: resolved 358, reused 0, downloaded 230, added 216
+2026-06-25T01:47:03.349Z	Progress: resolved 358, reused 0, downloaded 312, added 304
+2026-06-25T01:47:03.599Z	Progress: resolved 358, reused 0, downloaded 335, added 330, done
+2026-06-25T01:47:03.669Z	.../core-js@3.49.0/node_modules/core-js postinstall$ node -e "try{require('./postinstall')}catch(e){}"
+2026-06-25T01:47:03.740Z	.../core-js@3.49.0/node_modules/core-js postinstall: Done
+2026-06-25T01:47:04.383Z	
+2026-06-25T01:47:04.384Z	dependencies:
+2026-06-25T01:47:04.385Z	+ @turf/turf 7.3.5
+2026-06-25T01:47:04.385Z	+ chart.js 4.5.1
+2026-06-25T01:47:04.385Z	+ geotiff 3.0.5
+2026-06-25T01:47:04.385Z	+ jspdf 4.2.1
+2026-06-25T01:47:04.385Z	+ jszip 3.10.1
+2026-06-25T01:47:04.385Z	+ leaflet 1.9.4
+2026-06-25T01:47:04.385Z	+ maplibre-gl 5.24.0
+2026-06-25T01:47:04.385Z	+ marchingsquares 1.3.3
+2026-06-25T01:47:04.385Z	+ react 19.2.7
+2026-06-25T01:47:04.385Z	+ react-chartjs-2 5.3.1
+2026-06-25T01:47:04.385Z	+ react-dom 19.2.7
+2026-06-25T01:47:04.385Z	+ react-icons 5.6.0
+2026-06-25T01:47:04.386Z	+ react-leaflet 5.0.0
+2026-06-25T01:47:04.386Z	+ react-router-dom 7.18.0
+2026-06-25T01:47:04.386Z	+ three 0.184.0
+2026-06-25T01:47:04.386Z	+ xlsx 0.18.5
+2026-06-25T01:47:04.386Z	
+2026-06-25T01:47:04.386Z	devDependencies:
+2026-06-25T01:47:04.386Z	+ @types/react 19.2.17
+2026-06-25T01:47:04.386Z	+ @types/react-dom 19.2.3
+2026-06-25T01:47:04.388Z	+ @vitejs/plugin-react 6.0.3
+2026-06-25T01:47:04.388Z	+ eslint 10.5.0
+2026-06-25T01:47:04.389Z	+ vite 8.1.0
+2026-06-25T01:47:04.389Z	
+2026-06-25T01:47:04.389Z	Done in 9.2s
+2026-06-25T01:47:05.128Z	
+2026-06-25T01:47:05.128Z	> ufsj-vistorias@1.0.0 build /opt/buildhome/repo/defesa-civil
+2026-06-25T01:47:05.128Z	> vite build
+2026-06-25T01:47:05.128Z	
+2026-06-25T01:47:05.459Z	vite v8.1.0 building client environment for production...
+2026-06-25T01:47:07.126Z	
+transforming...✓ 621 modules transformed.
+2026-06-25T01:47:07.475Z	rendering chunks...
+2026-06-25T01:47:08.214Z	computing gzip size...
+2026-06-25T01:47:08.268Z	dist/index.html                               1.63 kB │ gzip:   0.61 kB
+2026-06-25T01:47:08.269Z	dist/assets/map-vendor-DnljdJYD.css          84.90 kB │ gzip:  16.60 kB
+2026-06-25T01:47:08.270Z	dist/assets/index-xY-Pv1Tu.css              110.99 kB │ gzip:  19.29 kB
+2026-06-25T01:47:08.270Z	dist/assets/rolldown-runtime-aKtaBQYM.js      1.08 kB │ gzip:   0.62 kB
+2026-06-25T01:47:08.270Z	dist/assets/turf-vendor-BsEmWkAa.js          21.75 kB │ gzip:   7.33 kB
+2026-06-25T01:47:08.271Z	dist/assets/purify.es-Bu4Grnl0.js            26.10 kB │ gzip:  10.27 kB
+2026-06-25T01:47:08.271Z	dist/assets/index.es-Dn6Pv4UP.js            151.42 kB │ gzip:  48.90 kB
+2026-06-25T01:47:08.271Z	dist/assets/html2canvas-DwCAe7Se.js         199.57 kB │ gzip:  46.78 kB
+2026-06-25T01:47:08.271Z	dist/assets/chart-vendor-DDiqzojP.js        202.30 kB │ gzip:  69.33 kB
+2026-06-25T01:47:08.271Z	dist/assets/react-vendor-C5ZLUQ66.js        255.29 kB │ gzip:  78.22 kB
+2026-06-25T01:47:08.271Z	dist/assets/geo-vendor-hvRPQdtD.js          282.76 kB │ gzip: 103.97 kB
+2026-06-25T01:47:08.273Z	dist/assets/three-vendor-d_IBeTu3.js        581.77 kB │ gzip: 146.80 kB
+2026-06-25T01:47:08.274Z	dist/assets/map-vendor-BGlYnIyJ.js        1,176.85 kB │ gzip: 315.95 kB
+2026-06-25T01:47:08.274Z	dist/assets/index-MMMPBzHD.js             1,235.22 kB │ gzip: 376.09 kB
+2026-06-25T01:47:08.274Z	
+2026-06-25T01:47:08.274Z	✓ built in 2.81s
+2026-06-25T01:47:08.275Z	[INEFFECTIVE_DYNAMIC_IMPORT] src/services/api.js is dynamically imported by src/pages/Vistoria.jsx but also statically imported by src/components/Mapa.jsx, src/components/ModalMapaPoligono.jsx, src/components/PhotoAnnotator.jsx, src/pages/Dashboard.jsx, src/pages/Declividade.jsx, ..., dynamic import will not move module into another chunk.
+2026-06-25T01:47:08.275Z	
+2026-06-25T01:47:08.338Z	Success: Build command completed
+2026-06-25T01:47:08.635Z	Executing user deploy command: npx wrangler deploy
+2026-06-25T01:47:10.524Z	npm warn exec The following package was not found and will be installed: wrangler@4.104.0
+2026-06-25T01:47:21.356Z	
+2026-06-25T01:47:21.357Z	 ⛅️ wrangler 4.104.0
+2026-06-25T01:47:21.357Z	────────────────────
+2026-06-25T01:47:22.421Z	🌀 Building list of assets...
+2026-06-25T01:47:22.424Z	✨ Read 86 files from the assets directory /opt/buildhome/repo/defesa-civil/dist
+2026-06-25T01:47:22.486Z	🌀 Starting asset upload...
+2026-06-25T01:46:35.331Z	Initializing build environment...
+2026-06-25T01:46:50.859Z	Success: Finished initializing build environment
+2026-06-25T01:46:51.549Z	Cloning repository...
+2026-06-25T01:46:53.999Z	No build output detected to cache. Skipping.
+2026-06-25T01:46:53.999Z	No dependencies detected to cache. Skipping.
+2026-06-25T01:46:54.001Z	Detected the following tools from environment: 
+2026-06-25T01:46:54.099Z	Executing user build command: cd defesa-civil && pnpm install --no-frozen-lockfile && pnpm run build
+2026-06-25T01:46:56.048Z	 WARN  A pnpm-lock.yaml file exists. The current configuration prohibits to read or write a lockfile
+2026-06-25T01:46:56.292Z	Progress: resolved 1, reused 0, downloaded 0, added 0
+2026-06-25T01:46:57.345Z	Progress: resolved 21, reused 0, downloaded 10, added 0
+2026-06-25T01:46:58.345Z	Progress: resolved 150, reused 0, downloaded 14, added 0
+2026-06-25T01:46:59.347Z	Progress: resolved 318, reused 0, downloaded 15, added 0
+2026-06-25T01:46:59.615Z	Packages: +330
+2026-06-25T01:46:59.617Z	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+2026-06-25T01:47:00.347Z	Progress: resolved 358, reused 0, downloaded 70, added 61
+2026-06-25T01:47:01.347Z	Progress: resolved 358, reused 0, downloaded 192, added 182
+2026-06-25T01:47:02.353Z	Progress: resolved 358, reused 0, downloaded 230, added 216
+2026-06-25T01:47:03.349Z	Progress: resolved 358, reused 0, downloaded 312, added 304
+2026-06-25T01:47:03.599Z	Progress: resolved 358, reused 0, downloaded 335, added 330, done
+2026-06-25T01:47:03.669Z	.../core-js@3.49.0/node_modules/core-js postinstall$ node -e "try{require('./postinstall')}catch(e){}"
+2026-06-25T01:47:03.740Z	.../core-js@3.49.0/node_modules/core-js postinstall: Done
+2026-06-25T01:47:04.383Z	
+2026-06-25T01:47:04.384Z	dependencies:
+2026-06-25T01:47:04.385Z	+ @turf/turf 7.3.5
+2026-06-25T01:47:04.385Z	+ chart.js 4.5.1
+2026-06-25T01:47:04.385Z	+ geotiff 3.0.5
+2026-06-25T01:47:04.385Z	+ jspdf 4.2.1
+2026-06-25T01:47:04.385Z	+ jszip 3.10.1
+2026-06-25T01:47:04.385Z	+ leaflet 1.9.4
+2026-06-25T01:47:04.385Z	+ maplibre-gl 5.24.0
+2026-06-25T01:47:04.385Z	+ marchingsquares 1.3.3
+2026-06-25T01:47:04.385Z	+ react 19.2.7
+2026-06-25T01:47:04.385Z	+ react-chartjs-2 5.3.1
+2026-06-25T01:47:04.385Z	+ react-dom 19.2.7
+2026-06-25T01:47:04.385Z	+ react-icons 5.6.0
+2026-06-25T01:47:04.386Z	+ react-leaflet 5.0.0
+2026-06-25T01:47:04.386Z	+ react-router-dom 7.18.0
+2026-06-25T01:47:04.386Z	+ three 0.184.0
+2026-06-25T01:47:04.386Z	+ xlsx 0.18.5
+2026-06-25T01:47:04.386Z	
+2026-06-25T01:47:04.386Z	devDependencies:
+2026-06-25T01:47:04.386Z	+ @types/react 19.2.17
+2026-06-25T01:47:04.386Z	+ @types/react-dom 19.2.3
+2026-06-25T01:47:04.388Z	+ @vitejs/plugin-react 6.0.3
+2026-06-25T01:47:04.388Z	+ eslint 10.5.0
+2026-06-25T01:47:04.389Z	+ vite 8.1.0
+2026-06-25T01:47:04.389Z	
+2026-06-25T01:47:04.389Z	Done in 9.2s
+2026-06-25T01:47:05.128Z	
+2026-06-25T01:47:05.128Z	> ufsj-vistorias@1.0.0 build /opt/buildhome/repo/defesa-civil
+2026-06-25T01:47:05.128Z	> vite build
+2026-06-25T01:47:05.128Z	
+2026-06-25T01:47:05.459Z	vite v8.1.0 building client environment for production...
+2026-06-25T01:47:07.126Z	
+transforming...✓ 621 modules transformed.
+2026-06-25T01:47:07.475Z	rendering chunks...
+2026-06-25T01:47:08.214Z	computing gzip size...
+2026-06-25T01:47:08.268Z	dist/index.html                               1.63 kB │ gzip:   0.61 kB
+2026-06-25T01:47:08.269Z	dist/assets/map-vendor-DnljdJYD.css          84.90 kB │ gzip:  16.60 kB
+2026-06-25T01:47:08.270Z	dist/assets/index-xY-Pv1Tu.css              110.99 kB │ gzip:  19.29 kB
+2026-06-25T01:47:08.270Z	dist/assets/rolldown-runtime-aKtaBQYM.js      1.08 kB │ gzip:   0.62 kB
+2026-06-25T01:47:08.270Z	dist/assets/turf-vendor-BsEmWkAa.js          21.75 kB │ gzip:   7.33 kB
+2026-06-25T01:47:08.271Z	dist/assets/purify.es-Bu4Grnl0.js            26.10 kB │ gzip:  10.27 kB
+2026-06-25T01:47:08.271Z	dist/assets/index.es-Dn6Pv4UP.js            151.42 kB │ gzip:  48.90 kB
+2026-06-25T01:47:08.271Z	dist/assets/html2canvas-DwCAe7Se.js         199.57 kB │ gzip:  46.78 kB
+2026-06-25T01:47:08.271Z	dist/assets/chart-vendor-DDiqzojP.js        202.30 kB │ gzip:  69.33 kB
+2026-06-25T01:47:08.271Z	dist/assets/react-vendor-C5ZLUQ66.js        255.29 kB │ gzip:  78.22 kB
+2026-06-25T01:47:08.271Z	dist/assets/geo-vendor-hvRPQdtD.js          282.76 kB │ gzip: 103.97 kB
+2026-06-25T01:47:08.273Z	dist/assets/three-vendor-d_IBeTu3.js        581.77 kB │ gzip: 146.80 kB
+2026-06-25T01:47:08.274Z	dist/assets/map-vendor-BGlYnIyJ.js        1,176.85 kB │ gzip: 315.95 kB
+2026-06-25T01:47:08.274Z	dist/assets/index-MMMPBzHD.js             1,235.22 kB │ gzip: 376.09 kB
+2026-06-25T01:47:08.274Z	
+2026-06-25T01:47:08.274Z	✓ built in 2.81s
+2026-06-25T01:47:08.275Z	[INEFFECTIVE_DYNAMIC_IMPORT] src/services/api.js is dynamically imported by src/pages/Vistoria.jsx but also statically imported by src/components/Mapa.jsx, src/components/ModalMapaPoligono.jsx, src/components/PhotoAnnotator.jsx, src/pages/Dashboard.jsx, src/pages/Declividade.jsx, ..., dynamic import will not move module into another chunk.
+2026-06-25T01:47:08.275Z	
+2026-06-25T01:47:08.338Z	Success: Build command completed
+2026-06-25T01:47:08.635Z	Executing user deploy command: npx wrangler deploy
+2026-06-25T01:47:10.524Z	npm warn exec The following package was not found and will be installed: wrangler@4.104.0
+2026-06-25T01:47:21.356Z	
+2026-06-25T01:47:21.357Z	 ⛅️ wrangler 4.104.0
+2026-06-25T01:47:21.357Z	────────────────────
+2026-06-25T01:47:22.421Z	🌀 Building list of assets...
+2026-06-25T01:47:22.424Z	✨ Read 86 files from the assets directory /opt/buildhome/repo/defesa-civil/dist
+2026-06-25T01:47:22.486Z	🌀 Starting asset upload...
+2026-06-25T01:47:24.989Z	🌀 Found 82 new or modified static assets to upload. Proceeding with upload...
+2026-06-25T01:47:24.989Z	+ /manifest.json
+2026-06-25T01:47:24.989Z	+ /icon-512.svg
+2026-06-25T01:47:24.989Z	+ /image5.png
+2026-06-25T01:47:24.989Z	+ /workers/simWorker.js
+2026-06-25T01:47:24.990Z	+ /image46.png
+2026-06-25T01:47:24.991Z	+ /contours.geojson
+2026-06-25T01:47:24.991Z	+ /image33.png
+2026-06-25T01:47:24.991Z	+ /image76.png
+2026-06-25T01:47:24.992Z	+ /image17.png
+2026-06-25T01:47:24.992Z	+ /image13.png
+2026-06-25T01:47:24.992Z	+ /image75.png
+2026-06-25T01:47:24.992Z	+ /image8.png
+2026-06-25T01:47:24.992Z	+ /image81.png
+2026-06-25T01:47:24.993Z	+ /image55.png
+2026-06-25T01:47:24.993Z	+ /favicon.svg
+2026-06-25T01:47:24.993Z	+ /image52.png
+2026-06-25T01:47:24.993Z	+ /image37.png
+2026-06-25T01:47:24.993Z	+ /image43.png
+2026-06-25T01:47:24.994Z	+ /assets/turf-vendor-BsEmWkAa.js
+2026-06-25T01:47:24.994Z	+ /image20.png
+2026-06-25T01:47:24.994Z	+ /image34.png
+2026-06-25T01:47:24.994Z	+ /image89.png
+2026-06-25T01:47:24.994Z	+ /image92.png
+2026-06-25T01:47:24.994Z	+ /assets/index-xY-Pv1Tu.css
+2026-06-25T01:47:24.994Z	+ /assets/html2canvas-DwCAe7Se.js
+2026-06-25T01:47:24.994Z	+ /image93.png
+2026-06-25T01:47:24.995Z	+ /solos.png
+2026-06-25T01:47:24.995Z	+ /icone.png
+2026-06-25T01:47:24.995Z	+ /assets/rolldown-runtime-aKtaBQYM.js
+2026-06-25T01:47:24.995Z	+ /icon-192.svg
+2026-06-25T01:47:24.995Z	+ /image2.png
+2026-06-25T01:47:24.995Z	+ /image47.png
+2026-06-25T01:47:24.995Z	+ /image12.png
+2026-06-25T01:47:24.995Z	+ /image69.png
+2026-06-25T01:47:24.997Z	+ /image11.png
+2026-06-25T01:47:24.998Z	+ /image10.png
+2026-06-25T01:47:24.998Z	+ /image65.png
+2026-06-25T01:47:24.998Z	+ /image7.png
+2026-06-25T01:47:24.998Z	+ /image15.png
+2026-06-25T01:47:24.998Z	+ /image1.png
+2026-06-25T01:47:24.998Z	+ /image85.png
+2026-06-25T01:47:24.998Z	+ /image19.png
+2026-06-25T01:47:24.998Z	+ /image60.png
+2026-06-25T01:47:24.998Z	+ /image39.png
+2026-06-25T01:47:24.999Z	+ /image38.png
+2026-06-25T01:47:24.999Z	+ /image44.png
+2026-06-25T01:47:24.999Z	+ /image23.png
+2026-06-25T01:47:24.999Z	+ /image26.png
+2026-06-25T01:47:24.999Z	+ /image3.png
+2026-06-25T01:47:24.999Z	+ /image35.png
+2026-06-25T01:47:24.999Z	+ /image70.png
+2026-06-25T01:47:24.999Z	+ /assets/index.es-Dn6Pv4UP.js
+2026-06-25T01:47:24.999Z	+ /assets/chart-vendor-DDiqzojP.js
+2026-06-25T01:47:25.000Z	+ /assets/geo-vendor-hvRPQdtD.js
+2026-06-25T01:47:25.000Z	+ /assets/map-vendor-BGlYnIyJ.js
+2026-06-25T01:47:25.000Z	+ /image21.png
+2026-06-25T01:47:25.000Z	+ /index.html
+2026-06-25T01:47:25.000Z	+ /image71.png
+2026-06-25T01:47:25.000Z	+ /image18.png
+2026-06-25T01:47:25.000Z	+ /icons.svg
+2026-06-25T01:47:25.000Z	+ /image68.png
+2026-06-25T01:47:25.000Z	+ /image16.png
+2026-06-25T01:47:25.000Z	+ /sw.js
+2026-06-25T01:47:25.000Z	+ /image66.png
+2026-06-25T01:47:25.000Z	+ /image14.png
+2026-06-25T01:47:25.000Z	+ /image9.png
+2026-06-25T01:47:25.000Z	+ /image48.png
+2026-06-25T01:47:25.000Z	+ /image22.png
+2026-06-25T01:47:25.001Z	+ /image36.png
+2026-06-25T01:47:25.001Z	+ /image79.png
+2026-06-25T01:47:25.001Z	+ /image67.png
+2026-06-25T01:47:25.001Z	+ /image45.png
+2026-06-25T01:47:25.001Z	+ /image42.png
+2026-06-25T01:47:25.001Z	+ /assets/purify.es-Bu4Grnl0.js
+2026-06-25T01:47:25.001Z	+ /image6.png
+2026-06-25T01:47:25.001Z	+ /image84.png
+2026-06-25T01:47:25.001Z	+ /assets/map-vendor-DnljdJYD.css
+2026-06-25T01:47:25.001Z	+ /image86.png
+2026-06-25T01:47:25.001Z	+ /image94.png
+2026-06-25T01:47:25.001Z	+ /assets/react-vendor-C5ZLUQ66.js
+2026-06-25T01:47:25.001Z	+ /assets/three-vendor-d_IBeTu3.js
+2026-06-25T01:47:25.001Z	+ /assets/index-MMMPBzHD.js
+2026-06-25T01:47:26.751Z	Uploaded 27 of 82 assets
+2026-06-25T01:47:27.053Z	Uploaded 55 of 82 assets
+2026-06-25T01:47:28.168Z	Uploaded 82 of 82 assets
+2026-06-25T01:47:28.170Z	✨ Success! Uploaded 82 files (3.17 sec)
+2026-06-25T01:47:28.170Z	
+2026-06-25T01:47:28.174Z	Total Upload: 35.06 KiB / gzip: 6.31 KiB
+2026-06-25T01:47:28.923Z	Your Worker has access to the following bindings:
+2026-06-25T01:47:28.924Z	Binding                    Resource         
+2026-06-25T01:47:28.924Z	env.DB (geovistorias)      D1 Database      
+2026-06-25T01:47:28.925Z	
+2026-06-25T01:47:28.928Z	
+2026-06-25T01:47:28.928Z	Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+2026-06-25T01:47:28.933Z	
+2026-06-25T01:47:29.032Z	✘ [ERROR] A request to the Cloudflare API (/accounts/47420566e97c97a628fff971a16f33c7/workers/scripts/geovistorias/versions) failed.
+2026-06-25T01:47:29.034Z	
+2026-06-25T01:47:29.035Z	  Invalid _redirects configuration:
+2026-06-25T01:47:29.035Z	  Line 1: Infinite loop detected in this rule. This would cause a redirect to strip `.html` or `/index` and end up triggering this rule again. [code: 100324]
+2026-06-25T01:47:29.035Z	
+2026-06-25T01:47:29.035Z	  
+2026-06-25T01:47:29.035Z	  If you think this is a bug, please open an issue at: https://github.com/cloudflare/workers-sdk/issues/new/choose
+2026-06-25T01:47:29.035Z	
+2026-06-25T01:47:29.035Z	
+2026-06-25T01:47:29.233Z	🪵  Logs were written to "/opt/buildhome/.config/.wrangler/logs/wrangler-2026-06-25_01-47-20_928.log"
+2026-06-25T01:47:29.496Z	Failed: error occurred while running deploy command
