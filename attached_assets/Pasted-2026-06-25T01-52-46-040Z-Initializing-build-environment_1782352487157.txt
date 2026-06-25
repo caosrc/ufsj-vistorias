@@ -1,0 +1,109 @@
+2026-06-25T01:52:46.040Z	Initializing build environment...
+2026-06-25T01:52:46.040Z	Initializing build environment...
+2026-06-25T01:53:39.474Z	Success: Finished initializing build environment
+2026-06-25T01:53:40.126Z	Cloning repository...
+2026-06-25T01:53:45.208Z	No build output detected to cache. Skipping.
+2026-06-25T01:53:45.208Z	No dependencies detected to cache. Skipping.
+2026-06-25T01:53:45.214Z	Detected the following tools from environment: 
+2026-06-25T01:53:45.484Z	Executing user build command: cd defesa-civil && pnpm install --no-frozen-lockfile && pnpm run build
+2026-06-25T01:53:49.509Z	 WARN  A pnpm-lock.yaml file exists. The current configuration prohibits to read or write a lockfile
+2026-06-25T01:53:49.721Z	Progress: resolved 1, reused 0, downloaded 0, added 0
+2026-06-25T01:53:50.722Z	Progress: resolved 19, reused 0, downloaded 6, added 0
+2026-06-25T01:53:51.734Z	Progress: resolved 59, reused 0, downloaded 11, added 0
+2026-06-25T01:53:52.736Z	Progress: resolved 142, reused 0, downloaded 11, added 0
+2026-06-25T01:53:53.736Z	Progress: resolved 165, reused 0, downloaded 15, added 0
+2026-06-25T01:53:54.739Z	Progress: resolved 165, reused 0, downloaded 111, added 0
+2026-06-25T01:53:55.740Z	Progress: resolved 214, reused 0, downloaded 173, added 0
+2026-06-25T01:53:56.743Z	Progress: resolved 255, reused 0, downloaded 197, added 0
+2026-06-25T01:53:57.747Z	Progress: resolved 290, reused 0, downloaded 239, added 0
+2026-06-25T01:53:58.859Z	Progress: resolved 358, reused 0, downloaded 274, added 0
+2026-06-25T01:53:58.868Z	Packages: +330
+2026-06-25T01:53:58.869Z	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+2026-06-25T01:53:59.867Z	Progress: resolved 358, reused 0, downloaded 293, added 228
+2026-06-25T01:54:00.868Z	Progress: resolved 358, reused 0, downloaded 315, added 304
+2026-06-25T01:54:01.064Z	Progress: resolved 358, reused 0, downloaded 334, added 330, done
+2026-06-25T01:54:01.199Z	.../core-js@3.49.0/node_modules/core-js postinstall$ node -e "try{require('./postinstall')}catch(e){}"
+2026-06-25T01:54:01.363Z	.../core-js@3.49.0/node_modules/core-js postinstall: Done
+2026-06-25T01:54:02.338Z	
+2026-06-25T01:54:02.339Z	dependencies:
+2026-06-25T01:54:02.339Z	+ @turf/turf 7.3.5
+2026-06-25T01:54:02.340Z	+ chart.js 4.5.1
+2026-06-25T01:54:02.341Z	+ geotiff 3.0.5
+2026-06-25T01:54:02.341Z	+ jspdf 4.2.1
+2026-06-25T01:54:02.342Z	+ jszip 3.10.1
+2026-06-25T01:54:02.342Z	+ leaflet 1.9.4
+2026-06-25T01:54:02.342Z	+ maplibre-gl 5.24.0
+2026-06-25T01:54:02.342Z	+ marchingsquares 1.3.3
+2026-06-25T01:54:02.342Z	+ react 19.2.7
+2026-06-25T01:54:02.342Z	+ react-chartjs-2 5.3.1
+2026-06-25T01:54:02.344Z	+ react-dom 19.2.7
+2026-06-25T01:54:02.344Z	+ react-icons 5.6.0
+2026-06-25T01:54:02.344Z	+ react-leaflet 5.0.0
+2026-06-25T01:54:02.344Z	+ react-router-dom 7.18.0
+2026-06-25T01:54:02.344Z	+ three 0.184.0
+2026-06-25T01:54:02.345Z	+ xlsx 0.18.5
+2026-06-25T01:54:02.345Z	
+2026-06-25T01:54:02.345Z	devDependencies:
+2026-06-25T01:54:02.345Z	+ @types/react 19.2.17
+2026-06-25T01:54:02.346Z	+ @types/react-dom 19.2.3
+2026-06-25T01:54:02.346Z	+ @vitejs/plugin-react 6.0.3
+2026-06-25T01:54:02.346Z	+ eslint 10.5.0
+2026-06-25T01:54:02.346Z	+ vite 8.1.0
+2026-06-25T01:54:02.346Z	
+2026-06-25T01:54:02.347Z	Done in 13.9s
+2026-06-25T01:54:03.176Z	
+2026-06-25T01:54:03.182Z	> ufsj-vistorias@1.0.0 build /opt/buildhome/repo/defesa-civil
+2026-06-25T01:54:03.182Z	> vite build
+2026-06-25T01:54:03.182Z	
+2026-06-25T01:54:03.612Z	vite v8.1.0 building client environment for production...
+2026-06-25T01:54:05.263Z	
+transforming...✓ 621 modules transformed.
+2026-06-25T01:54:05.632Z	rendering chunks...
+2026-06-25T01:54:06.211Z	computing gzip size...
+2026-06-25T01:54:06.267Z	dist/index.html                               1.63 kB │ gzip:   0.61 kB
+2026-06-25T01:54:06.271Z	dist/assets/map-vendor-DnljdJYD.css          84.90 kB │ gzip:  16.60 kB
+2026-06-25T01:54:06.271Z	dist/assets/index-xY-Pv1Tu.css              110.99 kB │ gzip:  19.29 kB
+2026-06-25T01:54:06.271Z	dist/assets/rolldown-runtime-aKtaBQYM.js      1.08 kB │ gzip:   0.62 kB
+2026-06-25T01:54:06.272Z	dist/assets/turf-vendor-BsEmWkAa.js          21.75 kB │ gzip:   7.33 kB
+2026-06-25T01:54:06.272Z	dist/assets/purify.es-Bu4Grnl0.js            26.10 kB │ gzip:  10.27 kB
+2026-06-25T01:54:06.272Z	dist/assets/index.es-Dn6Pv4UP.js            151.42 kB │ gzip:  48.90 kB
+2026-06-25T01:54:06.272Z	dist/assets/html2canvas-DwCAe7Se.js         199.57 kB │ gzip:  46.78 kB
+2026-06-25T01:54:06.272Z	dist/assets/chart-vendor-DDiqzojP.js        202.30 kB │ gzip:  69.33 kB
+2026-06-25T01:54:06.272Z	dist/assets/react-vendor-C5ZLUQ66.js        255.29 kB │ gzip:  78.22 kB
+2026-06-25T01:54:06.274Z	dist/assets/geo-vendor-hvRPQdtD.js          282.76 kB │ gzip: 103.97 kB
+2026-06-25T01:54:06.275Z	dist/assets/three-vendor-d_IBeTu3.js        581.77 kB │ gzip: 146.80 kB
+2026-06-25T01:54:06.275Z	dist/assets/map-vendor-BGlYnIyJ.js        1,176.85 kB │ gzip: 315.95 kB
+2026-06-25T01:54:06.276Z	dist/assets/index-MMMPBzHD.js             1,235.22 kB │ gzip: 376.09 kB
+2026-06-25T01:54:06.276Z	
+2026-06-25T01:54:06.277Z	✓ built in 2.65s
+2026-06-25T01:54:06.278Z	[INEFFECTIVE_DYNAMIC_IMPORT] src/services/api.js is dynamically imported by src/pages/Vistoria.jsx but also statically imported by src/components/Mapa.jsx, src/components/ModalMapaPoligono.jsx, src/components/PhotoAnnotator.jsx, src/pages/Dashboard.jsx, src/pages/Declividade.jsx, ..., dynamic import will not move module into another chunk.
+2026-06-25T01:54:06.278Z	
+2026-06-25T01:54:06.323Z	Success: Build command completed
+2026-06-25T01:54:06.717Z	Executing user deploy command: npx wrangler deploy
+2026-06-25T01:54:09.785Z	npm warn exec The following package was not found and will be installed: wrangler@4.104.0
+2026-06-25T01:54:27.406Z	
+2026-06-25T01:54:27.406Z	 ⛅️ wrangler 4.104.0
+2026-06-25T01:54:27.406Z	────────────────────
+2026-06-25T01:54:28.647Z	🌀 Building list of assets...
+2026-06-25T01:54:28.651Z	✨ Read 86 files from the assets directory /opt/buildhome/repo/defesa-civil/dist
+2026-06-25T01:54:28.728Z	🌀 Starting asset upload...
+2026-06-25T01:54:30.491Z	No updated asset files to upload. Proceeding with deployment...
+2026-06-25T01:54:30.494Z	Total Upload: 35.06 KiB / gzip: 6.31 KiB
+2026-06-25T01:54:30.896Z	Your Worker has access to the following bindings:
+2026-06-25T01:54:30.897Z	Binding                    Resource         
+2026-06-25T01:54:30.897Z	env.DB (geovistorias)      D1 Database      
+2026-06-25T01:54:30.897Z	
+2026-06-25T01:54:30.898Z	
+2026-06-25T01:54:30.898Z	Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+2026-06-25T01:54:30.899Z	
+2026-06-25T01:54:30.982Z	✘ [ERROR] A request to the Cloudflare API (/accounts/47420566e97c97a628fff971a16f33c7/workers/scripts/geovistorias/versions) failed.
+2026-06-25T01:54:30.983Z	
+2026-06-25T01:54:30.983Z	  Invalid _redirects configuration:
+2026-06-25T01:54:30.983Z	  Line 1: Infinite loop detected in this rule. This would cause a redirect to strip `.html` or `/index` and end up triggering this rule again. [code: 100324]
+2026-06-25T01:54:30.983Z	
+2026-06-25T01:54:30.983Z	  
+2026-06-25T01:54:30.983Z	  If you think this is a bug, please open an issue at: https://github.com/cloudflare/workers-sdk/issues/new/choose
+2026-06-25T01:54:30.983Z	
+2026-06-25T01:54:30.983Z	
+2026-06-25T01:54:30.992Z	🪵  Logs were written to "/opt/buildhome/.config/.wrangler/logs/wrangler-2026-06-25_01-54-26_705.log"
+2026-06-25T01:54:31.133Z	Failed: error occurred while running deploy command
