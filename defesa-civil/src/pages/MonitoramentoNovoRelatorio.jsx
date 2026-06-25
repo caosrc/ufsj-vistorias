@@ -4,7 +4,6 @@ import MonitoramentoLayout from '../components/MonitoramentoLayout'
 import PhotoAnnotator from '../components/PhotoAnnotator'
 import Edificio3D from '../components/Edificio3D'
 import LocalizacaoEdificacao from '../components/LocalizacaoEdificacao'
-import CrackMapper2D from '../components/CrackMapper2D'
 import styles from './MonitoramentoNovoRelatorio.module.css'
 import { API_BASE } from '../services/api'
 
@@ -31,7 +30,6 @@ export default function MonitoramentoNovoRelatorio() {
   const [anomalias3D, setAnomalias3D] = useState([])
   const [pendingCrackCode, setPendingCrackCode] = useState('')
   const [trincasPlanta, setTrincasPlanta] = useState([])
-  const [direcaoEncosta, setDirecaoEncosta] = useState('')
 
   const showToast = (msg, type = 'info') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3500) }
 
@@ -44,7 +42,6 @@ export default function MonitoramentoNovoRelatorio() {
           data.fotosAnomalias = report ? JSON.parse(JSON.stringify(report.fotosAnomalias || [])) : []
           if (report?.anomalias3D) setAnomalias3D(report.anomalias3D)
           if (report?.trincasPlanta) setTrincasPlanta(report.trincasPlanta)
-          if (report?.direcaoEncosta != null) setDirecaoEncosta(String(report.direcaoEncosta))
         } else {
           data.fotosAnomalias = []
         }
@@ -170,7 +167,6 @@ export default function MonitoramentoNovoRelatorio() {
         fotosAnomalias: fotosCopy,
         anomalias3D: anomalias3D,
         trincasPlanta: trincasPlanta,
-        direcaoEncosta: direcaoEncosta !== '' ? Number(direcaoEncosta) : null,
       }
       const url = isEditing
         ? `${API_BASE}/monitoramento/${id}/relatorios/${relatorioId}`
@@ -288,43 +284,6 @@ export default function MonitoramentoNovoRelatorio() {
         </div>
       )}
 
-      {/* ── Mapeamento de Trincas na Planta Baixa ── */}
-      {imovel?.verticesCasa?.length >= 3 && (
-        <div className={styles.card} style={{ marginBottom: 20 }}>
-          <h2 className={styles.cardTitle}>🗺️ Mapeamento de Trincas — Planta Baixa</h2>
-          <p className={styles.cardDesc}>
-            Marque os locais das trincas (T1, T2, T3…) diretamente na planta do imóvel.
-            Clique em <strong>"📍 Marcar Trinca na Planta"</strong>, clique sobre a planta e confirme o tipo e direção.
-          </p>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-            <label style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>
-              Direção da Encosta (°N):
-            </label>
-            <input
-              type="number"
-              min={0}
-              max={360}
-              placeholder="Ex: 180 = Sul"
-              value={direcaoEncosta}
-              onChange={e => setDirecaoEncosta(e.target.value)}
-              style={{
-                width: 120, fontSize: 13, padding: '5px 8px',
-                borderRadius: 7, border: '1px solid #bfdbfe',
-              }}
-            />
-            <span style={{ fontSize: 11, color: '#94a3b8' }}>0=Norte · 90=Leste · 180=Sul · 270=Oeste</span>
-          </div>
-
-          <CrackMapper2D
-            verticesCasa={imovel.verticesCasa}
-            trincas={trincasPlanta}
-            onUpdate={setTrincasPlanta}
-            direcaoEncosta={direcaoEncosta !== '' ? Number(direcaoEncosta) : null}
-            readonly={false}
-          />
-        </div>
-      )}
 
       {/* ── Fotos de Anomalias ── */}
       <div className={styles.card}>

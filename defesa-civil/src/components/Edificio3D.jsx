@@ -86,9 +86,10 @@ export default function Edificio3D({
   const [edificSalva,    setEdificSalva]    = useState(false)
   const [gpsLoadingEdif, setGpsLoadingEdif] = useState(false)
 
-  const edificAlturaRef     = useRef('')
-  const edificPavimentosRef = useRef('')
-  const selectedFloorRef    = useRef(1)
+  const edificAlturaRef       = useRef('')
+  const edificPavimentosRef   = useRef('')
+  const selectedFloorRef      = useRef(1)
+  const isLoadingFromSavedRef = useRef(false)
 
   useEffect(() => { modoRef.current = modo }, [modo])
   useEffect(() => { anomaliasRef.current = anomalias }, [anomalias])
@@ -491,6 +492,7 @@ export default function Edificio3D({
     if (!transform) return
     const verts = edificacaoSalva.gpsVerts.map(v => gpsToLocal(v.lat, v.lng, transform)).filter(Boolean)
     if (verts.length >= 3) {
+      isLoadingFromSavedRef.current = true
       setEdificVerts3D(verts)
       edificVertsRef3D.current = verts
       setEdificClosed3D(true)
@@ -498,8 +500,25 @@ export default function Edificio3D({
       if (edificacaoSalva.altura) { setEdificAltura(String(edificacaoSalva.altura)); edificAlturaRef.current = String(edificacaoSalva.altura) }
       if (edificacaoSalva.pavimentos) { setEdificPavimentos(String(edificacaoSalva.pavimentos)); edificPavimentosRef.current = String(edificacaoSalva.pavimentos) }
       setEdificSalva(true)
+      setTimeout(() => { isLoadingFromSavedRef.current = false }, 0)
     }
   }, [edificacaoSalva, vertices])
+
+  // ── Auto-salvar edificação ao fechar polígono ─────────────────────
+  useEffect(() => {
+    if (!edificClosed3D || edificVerts3D.length < 3 || !onSaveEdificacao) return
+    if (isLoadingFromSavedRef.current) return
+    const transform = threeRef.current.transform
+    if (!transform) return
+    const gpsVerts = edificVerts3D.map(v => localToGps(v.x, v.z, transform)).filter(Boolean)
+    if (gpsVerts.length < 3) return
+    onSaveEdificacao({
+      gpsVerts,
+      altura: parseFloat(edificAlturaRef.current) > 0 ? parseFloat(edificAlturaRef.current) : parseFloat(altura),
+      pavimentos: parseInt(edificPavimentosRef.current) > 0 ? parseInt(edificPavimentosRef.current) : 1,
+    })
+    setEdificSalva(true)
+  }, [edificClosed3D]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Renderizar edificação desenhada ──────────────────────────────
   useEffect(() => {
