@@ -2020,10 +2020,6 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
               <div style={{ color: '#64748b', fontSize: 10 }}>
                 Intervalo curvas: <b style={{ color: '#7dd3fc' }}>{info.interval} m</b>
               </div>
-              <div style={{ marginTop: 6, color: '#475569', fontSize: 10 }}>
-                Escala: <b style={{ color: '#22c55e' }}>1:1 real</b>
-                <span style={{ color: '#334155' }}> (sem exagero)</span>
-              </div>
             </div>
           </div>
         )}
