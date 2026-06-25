@@ -275,9 +275,10 @@ export default function MonitoramentoEvolucao() {
       },
       x: {
         ticks: {
-          font: { size: 8 },
-          maxRotation: 0,
+          font: { size: 9 },
+          maxRotation: 45,
           minRotation: 0,
+          autoSkip: false,
           color: (ctx) => {
             const label = precipChartData?.labels?.[ctx.index] ?? ''
             return vistoriaDMM.includes(label) ? '#1d4ed8' : '#d1d5db'
@@ -306,9 +307,10 @@ export default function MonitoramentoEvolucao() {
       },
       x: {
         ticks: {
-          font: { size: 8 },
-          maxRotation: 0,
+          font: { size: 9 },
+          maxRotation: 45,
           minRotation: 0,
+          autoSkip: false,
           color: (ctx) => {
             const label = fullDays[ctx.index]?.label ?? ''
             return vistoriaDMM.includes(label) ? '#1d4ed8' : '#d1d5db'
