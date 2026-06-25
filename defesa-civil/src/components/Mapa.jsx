@@ -761,15 +761,6 @@ export default function Mapa() {
             </button>
           )}
 
-          {/* Botão 3D Terreno */}
-          <button
-            className={`${styles.toolBtn} ${terreno3D ? styles.toolBtnActive : ''}`}
-            onClick={() => setTerreno3D(s => !s)}
-            title={terreno3D ? 'Desativar terreno 3D' : 'Ativar terreno 3D'}
-          >
-            <FiZoomIn size={14} />
-            <span>{terreno3D ? '3D On' : '3D'}</span>
-          </button>
 
           <button
             className={`${styles.toolBtn} ${gpsAtivo ? styles.toolBtnGps : ''}`}
