@@ -1,0 +1,165 @@
+2026-06-25T01:39:22.780Z	Initializing build environment...
+2026-06-25T01:39:34.298Z	Success: Finished initializing build environment
+2026-06-25T01:39:34.930Z	Cloning repository...
+2026-06-25T01:39:38.019Z	No build output detected to cache. Skipping.
+2026-06-25T01:39:38.019Z	No dependencies detected to cache. Skipping.
+2026-06-25T01:39:38.021Z	Detected the following tools from environment: 
+2026-06-25T01:39:38.197Z	Executing user build command: cd defesa-civil && pnpm install --no-frozen-lockfile && pnpm run build
+2026-06-25T01:39:40.105Z	 WARN  A pnpm-lock.yaml file exists. The current configuration prohibits to read or write a lockfile
+2026-06-25T01:39:40.346Z	Progress: resolved 1, reused 0, downloaded 0, added 0
+2026-06-25T01:39:41.413Z	Progress: resolved 21, reused 0, downloaded 9, added 0
+2026-06-25T01:39:42.414Z	Progress: resolved 165, reused 0, downloaded 12, added 0
+2026-06-25T01:39:43.421Z	Progress: resolved 193, reused 0, downloaded 17, added 0
+2026-06-25T01:39:44.423Z	Progress: resolved 205, reused 0, downloaded 175, added 0
+2026-06-25T01:39:45.450Z	Progress: resolved 278, reused 0, downloaded 240, added 0
+2026-06-25T01:39:46.452Z	Progress: resolved 358, reused 0, downloaded 304, added 0
+2026-06-25T01:39:46.564Z	Packages: +330
+2026-06-25T01:39:46.566Z	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+2026-06-25T01:39:47.453Z	Progress: resolved 358, reused 0, downloaded 324, added 198
+2026-06-25T01:39:48.053Z	Progress: resolved 358, reused 0, downloaded 335, added 330, done
+2026-06-25T01:39:48.148Z	.../core-js@3.49.0/node_modules/core-js postinstall$ node -e "try{require('./postinstall')}catch(e){}"
+2026-06-25T01:39:48.207Z	.../core-js@3.49.0/node_modules/core-js postinstall: Done
+2026-06-25T01:39:48.925Z	
+2026-06-25T01:39:48.927Z	dependencies:
+2026-06-25T01:39:48.928Z	+ @turf/turf 7.3.5
+2026-06-25T01:39:48.928Z	+ chart.js 4.5.1
+2026-06-25T01:39:48.929Z	+ geotiff 3.0.5
+2026-06-25T01:39:48.931Z	+ jspdf 4.2.1
+2026-06-25T01:39:48.932Z	+ jszip 3.10.1
+2026-06-25T01:39:48.932Z	+ leaflet 1.9.4
+2026-06-25T01:39:48.932Z	+ maplibre-gl 5.24.0
+2026-06-25T01:39:48.932Z	+ marchingsquares 1.3.3
+2026-06-25T01:39:48.932Z	+ react 19.2.7
+2026-06-25T01:39:48.932Z	+ react-chartjs-2 5.3.1
+2026-06-25T01:39:48.932Z	+ react-dom 19.2.7
+2026-06-25T01:39:48.933Z	+ react-icons 5.6.0
+2026-06-25T01:39:48.933Z	+ react-leaflet 5.0.0
+2026-06-25T01:39:48.933Z	+ react-router-dom 7.18.0
+2026-06-25T01:39:48.933Z	+ three 0.184.0
+2026-06-25T01:39:48.933Z	+ xlsx 0.18.5
+2026-06-25T01:39:48.933Z	
+2026-06-25T01:39:48.933Z	devDependencies:
+2026-06-25T01:39:48.933Z	+ @types/react 19.2.17
+2026-06-25T01:39:48.933Z	+ @types/react-dom 19.2.3
+2026-06-25T01:39:48.933Z	+ @vitejs/plugin-react 6.0.3
+2026-06-25T01:39:48.933Z	+ eslint 10.5.0
+2026-06-25T01:39:48.934Z	+ vite 8.1.0
+2026-06-25T01:39:48.934Z	
+2026-06-25T01:39:48.934Z	Done in 9.6s
+2026-06-25T01:39:49.653Z	
+2026-06-25T01:39:49.653Z	> ufsj-vistorias@1.0.0 build /opt/buildhome/repo/defesa-civil
+2026-06-25T01:39:49.653Z	> vite build
+2026-06-25T01:39:49.653Z	
+2026-06-25T01:39:49.903Z	vite v8.1.0 building client environment for production...
+2026-06-25T01:39:22.780Z	Initializing build environment...
+2026-06-25T01:39:34.298Z	Success: Finished initializing build environment
+2026-06-25T01:39:34.930Z	Cloning repository...
+2026-06-25T01:39:38.019Z	No build output detected to cache. Skipping.
+2026-06-25T01:39:38.019Z	No dependencies detected to cache. Skipping.
+2026-06-25T01:39:38.021Z	Detected the following tools from environment: 
+2026-06-25T01:39:38.197Z	Executing user build command: cd defesa-civil && pnpm install --no-frozen-lockfile && pnpm run build
+2026-06-25T01:39:40.105Z	 WARN  A pnpm-lock.yaml file exists. The current configuration prohibits to read or write a lockfile
+2026-06-25T01:39:40.346Z	Progress: resolved 1, reused 0, downloaded 0, added 0
+2026-06-25T01:39:41.413Z	Progress: resolved 21, reused 0, downloaded 9, added 0
+2026-06-25T01:39:42.414Z	Progress: resolved 165, reused 0, downloaded 12, added 0
+2026-06-25T01:39:43.421Z	Progress: resolved 193, reused 0, downloaded 17, added 0
+2026-06-25T01:39:44.423Z	Progress: resolved 205, reused 0, downloaded 175, added 0
+2026-06-25T01:39:45.450Z	Progress: resolved 278, reused 0, downloaded 240, added 0
+2026-06-25T01:39:46.452Z	Progress: resolved 358, reused 0, downloaded 304, added 0
+2026-06-25T01:39:46.564Z	Packages: +330
+2026-06-25T01:39:46.566Z	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+2026-06-25T01:39:47.453Z	Progress: resolved 358, reused 0, downloaded 324, added 198
+2026-06-25T01:39:48.053Z	Progress: resolved 358, reused 0, downloaded 335, added 330, done
+2026-06-25T01:39:48.148Z	.../core-js@3.49.0/node_modules/core-js postinstall$ node -e "try{require('./postinstall')}catch(e){}"
+2026-06-25T01:39:48.207Z	.../core-js@3.49.0/node_modules/core-js postinstall: Done
+2026-06-25T01:39:48.925Z	
+2026-06-25T01:39:48.927Z	dependencies:
+2026-06-25T01:39:48.928Z	+ @turf/turf 7.3.5
+2026-06-25T01:39:48.928Z	+ chart.js 4.5.1
+2026-06-25T01:39:48.929Z	+ geotiff 3.0.5
+2026-06-25T01:39:48.931Z	+ jspdf 4.2.1
+2026-06-25T01:39:48.932Z	+ jszip 3.10.1
+2026-06-25T01:39:48.932Z	+ leaflet 1.9.4
+2026-06-25T01:39:48.932Z	+ maplibre-gl 5.24.0
+2026-06-25T01:39:48.932Z	+ marchingsquares 1.3.3
+2026-06-25T01:39:48.932Z	+ react 19.2.7
+2026-06-25T01:39:48.932Z	+ react-chartjs-2 5.3.1
+2026-06-25T01:39:48.932Z	+ react-dom 19.2.7
+2026-06-25T01:39:48.933Z	+ react-icons 5.6.0
+2026-06-25T01:39:48.933Z	+ react-leaflet 5.0.0
+2026-06-25T01:39:48.933Z	+ react-router-dom 7.18.0
+2026-06-25T01:39:48.933Z	+ three 0.184.0
+2026-06-25T01:39:48.933Z	+ xlsx 0.18.5
+2026-06-25T01:39:48.933Z	
+2026-06-25T01:39:48.933Z	devDependencies:
+2026-06-25T01:39:48.933Z	+ @types/react 19.2.17
+2026-06-25T01:39:48.933Z	+ @types/react-dom 19.2.3
+2026-06-25T01:39:48.933Z	+ @vitejs/plugin-react 6.0.3
+2026-06-25T01:39:48.933Z	+ eslint 10.5.0
+2026-06-25T01:39:48.934Z	+ vite 8.1.0
+2026-06-25T01:39:48.934Z	
+2026-06-25T01:39:48.934Z	Done in 9.6s
+2026-06-25T01:39:49.653Z	
+2026-06-25T01:39:49.653Z	> ufsj-vistorias@1.0.0 build /opt/buildhome/repo/defesa-civil
+2026-06-25T01:39:49.653Z	> vite build
+2026-06-25T01:39:49.653Z	
+2026-06-25T01:39:49.903Z	vite v8.1.0 building client environment for production...
+2026-06-25T01:39:51.252Z	
+transforming...✓ 621 modules transformed.
+2026-06-25T01:39:51.652Z	rendering chunks...
+2026-06-25T01:39:52.190Z	computing gzip size...
+2026-06-25T01:39:52.236Z	dist/index.html                               1.63 kB │ gzip:   0.61 kB
+2026-06-25T01:39:52.236Z	dist/assets/map-vendor-DnljdJYD.css          84.90 kB │ gzip:  16.60 kB
+2026-06-25T01:39:52.236Z	dist/assets/index-xY-Pv1Tu.css              110.99 kB │ gzip:  19.29 kB
+2026-06-25T01:39:52.237Z	dist/assets/rolldown-runtime-aKtaBQYM.js      1.08 kB │ gzip:   0.62 kB
+2026-06-25T01:39:52.237Z	dist/assets/turf-vendor-BsEmWkAa.js          21.75 kB │ gzip:   7.33 kB
+2026-06-25T01:39:52.237Z	dist/assets/purify.es-Bu4Grnl0.js            26.10 kB │ gzip:  10.27 kB
+2026-06-25T01:39:52.237Z	dist/assets/index.es-Dn6Pv4UP.js            151.42 kB │ gzip:  48.90 kB
+2026-06-25T01:39:52.237Z	dist/assets/html2canvas-DwCAe7Se.js         199.57 kB │ gzip:  46.78 kB
+2026-06-25T01:39:52.237Z	dist/assets/chart-vendor-DDiqzojP.js        202.30 kB │ gzip:  69.33 kB
+2026-06-25T01:39:52.237Z	dist/assets/react-vendor-C5ZLUQ66.js        255.29 kB │ gzip:  78.22 kB
+2026-06-25T01:39:52.237Z	dist/assets/geo-vendor-hvRPQdtD.js          282.76 kB │ gzip: 103.97 kB
+2026-06-25T01:39:52.237Z	dist/assets/three-vendor-d_IBeTu3.js        581.77 kB │ gzip: 146.80 kB
+2026-06-25T01:39:52.237Z	dist/assets/map-vendor-BGlYnIyJ.js        1,176.85 kB │ gzip: 315.95 kB
+2026-06-25T01:39:52.237Z	dist/assets/index-MMMPBzHD.js             1,235.22 kB │ gzip: 376.09 kB
+2026-06-25T01:39:52.237Z	
+2026-06-25T01:39:52.243Z	[INEFFECTIVE_DYNAMIC_IMPORT] src/services/api.js is dynamically imported by src/pages/Vistoria.jsx but also statically imported by src/components/Mapa.jsx, src/components/ModalMapaPoligono.jsx, src/components/PhotoAnnotator.jsx, src/pages/Dashboard.jsx, src/pages/Declividade.jsx, ..., dynamic import will not move module into another chunk.
+2026-06-25T01:39:52.244Z	
+2026-06-25T01:39:52.244Z	✓ built in 2.33s
+2026-06-25T01:39:52.292Z	Success: Build command completed
+2026-06-25T01:39:52.493Z	Executing user deploy command: npx wrangler deploy
+2026-06-25T01:39:54.262Z	npm warn exec The following package was not found and will be installed: wrangler@4.104.0
+2026-06-25T01:40:05.011Z	
+2026-06-25T01:40:05.011Z	 ⛅️ wrangler 4.104.0
+2026-06-25T01:40:05.011Z	────────────────────
+2026-06-25T01:40:05.291Z	
+2026-06-25T01:40:05.292Z	Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+2026-06-25T01:40:05.292Z	
+2026-06-25T01:40:05.368Z	✘ [ERROR] Build failed with 2 errors:
+2026-06-25T01:40:05.368Z	
+2026-06-25T01:40:05.368Z	  ✘ [ERROR] Could not resolve "hono"
+2026-06-25T01:40:05.369Z	  
+2026-06-25T01:40:05.369Z	      server/worker.js:1:21:
+2026-06-25T01:40:05.369Z	        1 │ import { Hono } from 'hono'
+2026-06-25T01:40:05.369Z	          ╵                      ~~~~~~
+2026-06-25T01:40:05.370Z	  
+2026-06-25T01:40:05.370Z	    To fix this, you can add an entry to "alias" in your Wrangler configuration.
+2026-06-25T01:40:05.370Z	    For more guidance see: https://developers.cloudflare.com/workers/wrangler/configuration/#bundling-issues
+2026-06-25T01:40:05.370Z	    
+2026-06-25T01:40:05.370Z	  
+2026-06-25T01:40:05.371Z	  
+2026-06-25T01:40:05.371Z	  ✘ [ERROR] Could not resolve "hono/cors"
+2026-06-25T01:40:05.371Z	  
+2026-06-25T01:40:05.371Z	      server/worker.js:2:21:
+2026-06-25T01:40:05.371Z	        2 │ import { cors } from 'hono/cors'
+2026-06-25T01:40:05.371Z	          ╵                      ~~~~~~~~~~~
+2026-06-25T01:40:05.371Z	  
+2026-06-25T01:40:05.371Z	    To fix this, you can add an entry to "alias" in your Wrangler configuration.
+2026-06-25T01:40:05.374Z	    For more guidance see: https://developers.cloudflare.com/workers/wrangler/configuration/#bundling-issues
+2026-06-25T01:40:05.374Z	    
+2026-06-25T01:40:05.374Z	  
+2026-06-25T01:40:05.374Z	  
+2026-06-25T01:40:05.375Z	
+2026-06-25T01:40:05.379Z	
+2026-06-25T01:40:05.535Z	🪵  Logs were written to "/opt/buildhome/.config/.wrangler/logs/wrangler-2026-06-25_01-40-04_467.log"
+2026-06-25T01:40:05.675Z	Failed: error occurred while running deploy command
