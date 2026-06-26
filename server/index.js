@@ -486,19 +486,49 @@ app.get('/api/pluvio-grid', async (req, res) => {
   }
 })
 
-// ── Helper de serialização ────────────────────────────────────
-const toMon = r => ({
-  id: r.id, createdAt: r.created_at, proprietario: r.proprietario,
-  cidade: r.cidade, endereco: r.endereco, celular: r.celular,
-  latitude: r.latitude, longitude: r.longitude, nome: r.nome,
-  fotosAnomalias: r.fotos_anomalias ? (typeof r.fotos_anomalias === 'string' ? JSON.parse(r.fotos_anomalias) : r.fotos_anomalias) : [],
-  relatoriosSalvos: r.relatorios_salvos ? (typeof r.relatorios_salvos === 'string' ? JSON.parse(r.relatorios_salvos) : r.relatorios_salvos) : [],
-  areaTerrenho: r.area_terreno ? (typeof r.area_terreno === 'string' ? JSON.parse(r.area_terreno) : r.area_terreno) : [],
-  verticesCasa:  r.vertices_casa ? (typeof r.vertices_casa === 'string' ? JSON.parse(r.vertices_casa) : r.vertices_casa) : [],
-  alturaCasa:    r.altura_casa || null,
-  trincasCasa:   r.trincas_casa ? (typeof r.trincas_casa === 'string' ? JSON.parse(r.trincas_casa) : r.trincas_casa) : [],
-  edificacaoPlanta: r.edificacao_planta ? (typeof r.edificacao_planta === 'string' ? JSON.parse(r.edificacao_planta) : r.edificacao_planta) : null,
+// ── Helpers ───────────────────────────────────────────────────
+const parseJ = (v, fb) => {
+  if (!v) return fb
+  if (typeof v !== 'string') return v
+  try { return JSON.parse(v) } catch { return fb }
+}
+
+// Move URLs do relatório → fotoStore; retorna relatório sem URLs
+const stripUrls = (report, fotoStore) => {
+  const fotos = (report.fotosAnomalias || []).map(foto => {
+    if (foto.url) fotoStore[foto.id] = foto.url
+    const { url, ...rest } = foto
+    return rest
+  })
+  return { ...report, fotosAnomalias: fotos }
+}
+
+// Enriquece fotos do relatório com URLs do fotoStore (fallback: URL inline legado)
+const addUrls = (report, fotoStore) => ({
+  ...report,
+  fotosAnomalias: (report.fotosAnomalias || []).map(foto => ({
+    ...foto,
+    url: fotoStore[foto.id] || foto.url || ''
+  }))
 })
+
+// ── Helper de serialização ────────────────────────────────────
+const toMon = r => {
+  const fotoStore = parseJ(r.foto_store, {})
+  const relsSalvos = parseJ(r.relatorios_salvos, []).map(rel => addUrls(rel, fotoStore))
+  return {
+    id: r.id, createdAt: r.created_at, proprietario: r.proprietario,
+    cidade: r.cidade, endereco: r.endereco, celular: r.celular,
+    latitude: r.latitude, longitude: r.longitude, nome: r.nome,
+    fotosAnomalias: parseJ(r.fotos_anomalias, []),
+    relatoriosSalvos: relsSalvos,
+    areaTerrenho: parseJ(r.area_terreno, []),
+    verticesCasa:  parseJ(r.vertices_casa, []),
+    alturaCasa:    r.altura_casa || null,
+    trincasCasa:   parseJ(r.trincas_casa, []),
+    edificacaoPlanta: parseJ(r.edificacao_planta, null),
+  }
+}
 
 // ── MONITORAMENTO ─────────────────────────────────────────────
 app.get('/api/monitoramento', async (req, res) => {
@@ -572,12 +602,11 @@ app.patch('/api/monitoramento/:id/relatorio/:relId', async (req, res) => {
   const { createdAt, medicoes } = req.body
   try {
     const { rows } = await pool.query(
-      'SELECT relatorios_salvos FROM vistoria_monitoramento WHERE id=$1', [req.params.id]
+      'SELECT relatorios_salvos, foto_store FROM vistoria_monitoramento WHERE id=$1', [req.params.id]
     )
     if (!rows.length) return res.status(404).json({ error: 'Não encontrado' })
-    let rels = rows[0].relatorios_salvos
-      ? (typeof rows[0].relatorios_salvos === 'string' ? JSON.parse(rows[0].relatorios_salvos) : rows[0].relatorios_salvos)
-      : []
+    let rels = parseJ(rows[0].relatorios_salvos, [])
+    const fotoStore = parseJ(rows[0].foto_store, {})
     const idx = rels.findIndex(r => r.id === req.params.relId)
     if (idx === -1) return res.status(404).json({ error: 'Relatório não encontrado' })
     if (createdAt) rels[idx].createdAt = createdAt
@@ -596,7 +625,7 @@ app.patch('/api/monitoramento/:id/relatorio/:relId', async (req, res) => {
       'UPDATE vistoria_monitoramento SET relatorios_salvos=$1 WHERE id=$2',
       [JSON.stringify(rels), req.params.id]
     )
-    res.json({ ok: true, relatorio: rels[idx] })
+    res.json({ ok: true, relatorio: addUrls(rels[idx], fotoStore) })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
@@ -616,12 +645,16 @@ app.post('/api/monitoramento/:id/fotos', async (req, res) => {
 app.post('/api/monitoramento/:id/relatorios', async (req, res) => {
   try {
     const newReport = req.body
-    const { rows } = await pool.query('SELECT relatorios_salvos FROM vistoria_monitoramento WHERE id = $1', [req.params.id])
+    const { rows } = await pool.query('SELECT relatorios_salvos, foto_store FROM vistoria_monitoramento WHERE id = $1', [req.params.id])
     if (!rows.length) return res.status(404).json({ error: 'Imóvel não encontrado' })
-    const raw = rows[0].relatorios_salvos
-    const current = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : []
-    const updated = [...current, newReport]
-    await pool.query('UPDATE vistoria_monitoramento SET relatorios_salvos = $1 WHERE id = $2', [JSON.stringify(updated), req.params.id])
+    const current = parseJ(rows[0].relatorios_salvos, [])
+    const fotoStore = parseJ(rows[0].foto_store, {})
+    const reportSem = stripUrls(newReport, fotoStore)
+    const updated = [...current, reportSem]
+    await pool.query(
+      'UPDATE vistoria_monitoramento SET relatorios_salvos = $1, foto_store = $2 WHERE id = $3',
+      [JSON.stringify(updated), JSON.stringify(fotoStore), req.params.id]
+    )
     res.status(201).json({ ok: true })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
@@ -629,24 +662,35 @@ app.post('/api/monitoramento/:id/relatorios', async (req, res) => {
 app.put('/api/monitoramento/:id/relatorios/:relId', async (req, res) => {
   try {
     const updatedReport = req.body
-    const { rows } = await pool.query('SELECT relatorios_salvos FROM vistoria_monitoramento WHERE id = $1', [req.params.id])
+    const { rows } = await pool.query('SELECT relatorios_salvos, foto_store FROM vistoria_monitoramento WHERE id = $1', [req.params.id])
     if (!rows.length) return res.status(404).json({ error: 'Imóvel não encontrado' })
-    const raw = rows[0].relatorios_salvos
-    const current = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : []
-    const updated = current.map(r => r.id === req.params.relId ? updatedReport : r)
-    await pool.query('UPDATE vistoria_monitoramento SET relatorios_salvos = $1 WHERE id = $2', [JSON.stringify(updated), req.params.id])
+    const current = parseJ(rows[0].relatorios_salvos, [])
+    const fotoStore = parseJ(rows[0].foto_store, {})
+    const reportSem = stripUrls(updatedReport, fotoStore)
+    const updated = current.map(r => r.id === req.params.relId ? reportSem : r)
+    await pool.query(
+      'UPDATE vistoria_monitoramento SET relatorios_salvos = $1, foto_store = $2 WHERE id = $3',
+      [JSON.stringify(updated), JSON.stringify(fotoStore), req.params.id]
+    )
     res.json({ ok: true })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
 app.delete('/api/monitoramento/:id/relatorios/:relId', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT relatorios_salvos FROM vistoria_monitoramento WHERE id = $1', [req.params.id])
+    const { rows } = await pool.query('SELECT relatorios_salvos, foto_store FROM vistoria_monitoramento WHERE id = $1', [req.params.id])
     if (!rows.length) return res.status(404).json({ error: 'Imóvel não encontrado' })
-    const raw = rows[0].relatorios_salvos
-    const current = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : []
+    const current = parseJ(rows[0].relatorios_salvos, [])
+    const fotoStore = parseJ(rows[0].foto_store, {})
+    const removing = current.find(r => r.id === req.params.relId)
+    if (removing) {
+      (removing.fotosAnomalias || []).forEach(f => { delete fotoStore[f.id] })
+    }
     const updated = current.filter(r => r.id !== req.params.relId)
-    await pool.query('UPDATE vistoria_monitoramento SET relatorios_salvos = $1 WHERE id = $2', [JSON.stringify(updated), req.params.id])
+    await pool.query(
+      'UPDATE vistoria_monitoramento SET relatorios_salvos = $1, foto_store = $2 WHERE id = $3',
+      [JSON.stringify(updated), JSON.stringify(fotoStore), req.params.id]
+    )
     res.json({ ok: true })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
