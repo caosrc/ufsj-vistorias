@@ -97,7 +97,7 @@ export default function MonitoramentoNovoRelatorio() {
   }
 
   const rasterizePhoto = async (foto, fotoMetodo = 1) => {
-    if (!foto.url) return foto.url
+    if (!foto.url) return null
     try {
       const img = await new Promise((resolve, reject) => {
         const i = new Image()
@@ -105,7 +105,7 @@ export default function MonitoramentoNovoRelatorio() {
         if (!url.startsWith('data:') && !url.startsWith('blob:')) i.crossOrigin = 'Anonymous'
         i.onload = () => resolve(i); i.onerror = reject; i.src = url
       })
-      const MAX_DIM = 2000
+      const MAX_DIM = 1200
       const scale = Math.min(1, MAX_DIM / Math.max(img.naturalWidth || 800, img.naturalHeight || 600))
       const canvas = document.createElement('canvas')
       canvas.width  = Math.round((img.naturalWidth  || 800) * scale)
@@ -156,9 +156,8 @@ export default function MonitoramentoNovoRelatorio() {
           ctx.fillText(point.codigo, cx, cy)
         }
       }
-      return canvas.toDataURL('image/jpeg', 0.92)
+      return canvas.toDataURL('image/jpeg', 0.78)
     } catch {
-      // Não retorna blob: inválido — apenas retorna null; foto será ignorada ao salvar
       if (foto.url && foto.url.startsWith('data:')) return foto.url
       return null
     }
@@ -176,8 +175,14 @@ export default function MonitoramentoNovoRelatorio() {
       const metodoAtual = metodo || 1
       for (let i = 0; i < fotosCopy.length; i++) {
         const rasterized = await rasterizePhoto(fotosCopy[i], metodoAtual)
-        if (rasterized !== null) fotosCopy[i].url = rasterized
+        if (rasterized !== null) {
+          fotosCopy[i].url = rasterized
+        }
       }
+      // Filtra fotos sem URL válida (data:) para não salvar URLs de blob expirado
+      const fotosValidas = fotosCopy.filter(f => f.url && f.url.startsWith('data:'))
+      fotosCopy.length = 0
+      fotosValidas.forEach(f => fotosCopy.push(f))
       const fotoCodes = fotosCopy.map(f => f.codigoTrinca).join(', ')
       const anomaliaCodes = anomalias3D.map(a => a.nome).join(', ')
       const allCodes = [fotoCodes, anomaliaCodes].filter(Boolean).join(' + ')

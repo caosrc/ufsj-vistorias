@@ -14,7 +14,7 @@ ChartJS.register(
   LineElement, BarElement, Title, Tooltip, Legend, Filler
 )
 
-/* ── Plugin: diff labels entre pontos de anomalia ─────────── */
+/* ── Plugin: labels de variação acumulada desde a 1ª medição ─ */
 const diffLabelPlugin = {
   id: 'diffLabel',
   afterDatasetsDraw(chart) {
@@ -24,21 +24,19 @@ const diffLabelPlugin = {
       const meta = chart.getDatasetMeta(di)
       const data = dataset.data
       const nonNull = data.map((v, i) => v != null ? i : -1).filter(i => i !== -1)
-      for (let k = 1; k < nonNull.length; k++) {
+      for (let k = 0; k < nonNull.length; k++) {
         const iCurr = nonNull[k]
-        const iPrev = nonNull[k - 1]
-        const curr = data[iCurr], prev = data[iPrev]
-        if (curr == null || prev == null) continue
-        const diff = curr - prev
+        const curr = data[iCurr]
+        if (curr == null) continue
         const point = meta.data[iCurr]
         if (!point) continue
-        const sign = diff > 0 ? '+' : ''
+        const sign = curr > 0 ? '+' : ''
         ctx.save()
         ctx.font = 'bold 11px sans-serif'
-        ctx.fillStyle = diff > 0 ? '#c0392b' : diff < 0 ? '#27ae60' : '#555'
+        ctx.fillStyle = curr > 0 ? '#c0392b' : curr < 0 ? '#27ae60' : '#555'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'bottom'
-        ctx.fillText(`${sign}${diff.toFixed(2).replace('.', ',')} mm`, point.x, point.y - 8)
+        ctx.fillText(`${sign}${curr.toFixed(2).replace('.', ',')} mm`, point.x, point.y - 8)
         ctx.restore()
       }
     })
