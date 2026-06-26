@@ -13,6 +13,8 @@ const naturalSort = (a, b) => {
   return (isNaN(numA) ? 0 : numA) - (isNaN(numB) ? 0 : numB)
 }
 
+const M2_COLORS = { a: '#22c55e', b: '#3b82f6', c: '#f97316' }
+
 export default function MonitoramentoNovoRelatorio() {
   const { id } = useParams()
   const [searchParams] = useSearchParams()
@@ -31,6 +33,9 @@ export default function MonitoramentoNovoRelatorio() {
   const [pendingCrackCode, setPendingCrackCode] = useState('')
   const [trincasPlanta, setTrincasPlanta] = useState([])
 
+  const [metodo, setMetodo] = useState(null)
+  const [showMetodoDialog, setShowMetodoDialog] = useState(false)
+
   const showToast = (msg, type = 'info') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3500) }
 
   useEffect(() => {
@@ -42,8 +47,15 @@ export default function MonitoramentoNovoRelatorio() {
           data.fotosAnomalias = report ? JSON.parse(JSON.stringify(report.fotosAnomalias || [])) : []
           if (report?.anomalias3D) setAnomalias3D(report.anomalias3D)
           if (report?.trincasPlanta) setTrincasPlanta(report.trincasPlanta)
+          setMetodo(report?.metodo || 1)
         } else {
           data.fotosAnomalias = []
+          const existingReports = data.relatoriosSalvos || []
+          if (existingReports.length === 0) {
+            setShowMetodoDialog(true)
+          } else {
+            setMetodo(existingReports[0]?.metodo || 1)
+          }
         }
         setImovel(data); setLoading(false)
       })
@@ -84,9 +96,7 @@ export default function MonitoramentoNovoRelatorio() {
     setShowNextPrompt(true)
   }
 
-  // Sempre redimensiona e comprime a foto (independente de ter anotações ou não).
-  // Isso garante que o payload fique abaixo do limite de ~1MB por linha do D1.
-  const rasterizePhoto = async (foto) => {
+  const rasterizePhoto = async (foto, fotoMetodo = 1) => {
     if (!foto.url) return foto.url
     try {
       const img = await new Promise((resolve, reject) => {
@@ -95,7 +105,6 @@ export default function MonitoramentoNovoRelatorio() {
         if (!url.startsWith('data:') && !url.startsWith('blob:')) i.crossOrigin = 'Anonymous'
         i.onload = () => resolve(i); i.onerror = reject; i.src = url
       })
-      // Máx 800px em qualquer dimensão — aprox. 80–150KB por foto
       const MAX_DIM = 800
       const scale = Math.min(1, MAX_DIM / Math.max(img.naturalWidth || 800, img.naturalHeight || 600))
       const canvas = document.createElement('canvas')
@@ -105,6 +114,7 @@ export default function MonitoramentoNovoRelatorio() {
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
       const lw = Math.max(2, Math.round(Math.min(canvas.width, canvas.height) * 0.006))
       const pr = Math.max(6, Math.round(Math.min(canvas.width, canvas.height) * 0.01))
+      const fontSize = Math.max(12, Math.round(Math.min(canvas.width, canvas.height) * 0.02))
       if (foto.linhas && foto.pontos) {
         for (const line of foto.linhas) {
           const p1 = foto.pontos.find(p => p.id === line.ponto1Id)
@@ -112,19 +122,23 @@ export default function MonitoramentoNovoRelatorio() {
           if (!p1 || !p2) continue
           const x1 = (p1.x / 100) * canvas.width, y1 = (p1.y / 100) * canvas.height
           const x2 = (p2.x / 100) * canvas.width, y2 = (p2.y / 100) * canvas.height
+          const lineColor = (fotoMetodo === 2 && line.nome) ? (M2_COLORS[line.nome] || '#000') : '#000'
           ctx.strokeStyle = 'white'; ctx.lineWidth = lw + 2
+          ctx.setLineDash(fotoMetodo === 2 ? [10, 5] : [])
           ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke()
-          ctx.strokeStyle = 'black'; ctx.lineWidth = lw
+          ctx.strokeStyle = lineColor; ctx.lineWidth = lw
           ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke()
+          ctx.setLineDash([])
           const midX = (x1 + x2) / 2, midY = (y1 + y2) / 2
-          const valid = line.comprimentos.filter(c => typeof c === 'number')
+          const valid = (line.comprimentos || []).filter(c => typeof c === 'number' && c > 0)
           if (valid.length) {
             const avg = valid.reduce((a, b) => a + b, 0) / valid.length
-            const text = `Ø ${avg.toFixed(2).replace('.', ',')} mm`
-            ctx.font = `${Math.max(12, Math.round(Math.min(canvas.width, canvas.height) * 0.02))}px sans-serif`
+            const prefix = (fotoMetodo === 2 && line.nome) ? `${line.nome}: ` : 'Ø '
+            const text = `${prefix}${avg.toFixed(2).replace('.', ',')} mm`
+            ctx.font = `${fontSize}px sans-serif`
             ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
-            ctx.fillStyle = 'white'; ctx.strokeStyle = 'black'; ctx.lineWidth = 3
-            ctx.strokeText(text, midX, midY - 8); ctx.fillText(text, midX, midY - 8)
+            ctx.fillStyle = 'white'; ctx.strokeStyle = lineColor; ctx.lineWidth = 3
+            ctx.strokeText(text, midX, midY - 8); ctx.fillStyle = lineColor; ctx.fillText(text, midX, midY - 8)
           }
         }
       }
@@ -152,7 +166,8 @@ export default function MonitoramentoNovoRelatorio() {
     try {
       const fotosCopy = JSON.parse(JSON.stringify(imovel?.fotosAnomalias || []))
       fotosCopy.sort(naturalSort)
-      for (let i = 0; i < fotosCopy.length; i++) fotosCopy[i].url = await rasterizePhoto(fotosCopy[i])
+      const metodoAtual = metodo || 1
+      for (let i = 0; i < fotosCopy.length; i++) fotosCopy[i].url = await rasterizePhoto(fotosCopy[i], metodoAtual)
       const fotoCodes = fotosCopy.map(f => f.codigoTrinca).join(', ')
       const anomaliaCodes = anomalias3D.map(a => a.nome).join(', ')
       const allCodes = [fotoCodes, anomaliaCodes].filter(Boolean).join(' + ')
@@ -167,6 +182,7 @@ export default function MonitoramentoNovoRelatorio() {
         fotosAnomalias: fotosCopy,
         anomalias3D: anomalias3D,
         trincasPlanta: trincasPlanta,
+        metodo: metodoAtual,
       }
       const url = isEditing
         ? `${API_BASE}/monitoramento/${id}/relatorios/${relatorioId}`
@@ -206,6 +222,35 @@ export default function MonitoramentoNovoRelatorio() {
   return (
     <MonitoramentoLayout>
       {toast && <div className={`${styles.toast} ${styles[toast.type]}`}>{toast.msg}</div>}
+
+      {/* ── Seleção de método (1º relatório) ── */}
+      {showMetodoDialog && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 16, maxWidth: 540, width: '100%', overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.25)' }}>
+            <div style={{ padding: '20px 24px 0' }}>
+              <h2 style={{ margin: '0 0 4px', fontSize: 20, color: '#0f172a' }}>Escolha o Método de Monitoramento</h2>
+              <p style={{ margin: '0 0 16px', fontSize: 13, color: '#64748b' }}>
+                Esta escolha se aplica a <strong>todos os relatórios</strong> deste imóvel.
+              </p>
+            </div>
+            <img src="/metodo-triangulo.png" alt="Método do Triângulo" style={{ width: '100%', display: 'block' }} />
+            <div style={{ padding: '16px 24px 24px', display: 'flex', gap: 12, flexDirection: 'column' }}>
+              <button
+                onClick={() => { setMetodo(1); setShowMetodoDialog(false) }}
+                style={{ background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 10, padding: '14px 20px', fontWeight: 700, fontSize: 15, cursor: 'pointer', textAlign: 'left' }}>
+                <div>📍 Método 1 — Padrão</div>
+                <div style={{ fontWeight: 400, fontSize: 13, marginTop: 3, opacity: 0.85 }}>Pontos e linhas livres sobre a foto. Medidas entre quaisquer pontos.</div>
+              </button>
+              <button
+                onClick={() => { setMetodo(2); setShowMetodoDialog(false) }}
+                style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '14px 20px', fontWeight: 700, fontSize: 15, cursor: 'pointer', textAlign: 'left' }}>
+                <div>📐 Método 2 — Triângulo</div>
+                <div style={{ fontWeight: 400, fontSize: 13, marginTop: 3, opacity: 0.85 }}>3 pontos fixos formando triângulo. Linhas a (1→2), b (1→3) e c (2→3) com 3 medições cada.</div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className={styles.pageHeader}>
         <div>
@@ -287,7 +332,11 @@ export default function MonitoramentoNovoRelatorio() {
 
       {/* ── Fotos de Anomalias ── */}
       <div className={styles.card}>
-        <h2 className={styles.cardTitle}>Análise de Anomalias por Foto</h2>
+        <h2 className={styles.cardTitle}>
+          Análise de Anomalias por Foto
+          {metodo === 2 && <span style={{ marginLeft: 10, fontSize: 12, background: '#16a34a', color: '#fff', borderRadius: 5, padding: '2px 8px', fontWeight: 600, verticalAlign: 'middle' }}>Método 2 — Triângulo</span>}
+          {metodo === 1 && <span style={{ marginLeft: 10, fontSize: 12, background: '#1d4ed8', color: '#fff', borderRadius: 5, padding: '2px 8px', fontWeight: 600, verticalAlign: 'middle' }}>Método 1 — Padrão</span>}
+        </h2>
         <p className={styles.cardDesc}>
           Adicione fotos de anomalias, insira pontos e meça fissuras para documentar a vistoria.
           {sortedPhotos.length > 0 && (
@@ -307,6 +356,7 @@ export default function MonitoramentoNovoRelatorio() {
               onVistoriaChange={handleVistoriaChange}
               onBack={handleBackFromAnnotator}
               defaultCrackCode={pendingCrackCode}
+              metodo={metodo || 1}
             />
           </div>
         ) : (

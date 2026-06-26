@@ -180,8 +180,9 @@ export default function MonitoramentoEvolucao() {
         const code = foto.codigoTrinca.toUpperCase()
         if (!anomaliesMap.has(code)) anomaliesMap.set(code, [])
         const existing = anomaliesMap.get(code)
-        foto.linhas?.forEach((_, li) => {
-          if (!existing.some(l => l.index === li)) existing.push({ label: `Linha ${li + 1}`, index: li })
+        foto.linhas?.forEach((linha, li) => {
+          const lineLabel = linha.nome ? `Medida ${linha.nome.toUpperCase()}` : `Linha ${li + 1}`
+          if (!existing.some(l => l.index === li)) existing.push({ label: lineLabel, index: li })
         })
       })
     })

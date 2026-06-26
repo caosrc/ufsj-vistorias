@@ -30,7 +30,9 @@ function compressImage(dataUrl, maxW = 1200) {
   })
 }
 
-export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVistoriaChange, onBack, defaultCrackCode = '' }) {
+const M2_COLORS = { a: '#22c55e', b: '#3b82f6', c: '#f97316' }
+
+export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVistoriaChange, onBack, defaultCrackCode = '', metodo = 1 }) {
   const [activePhoto, setActivePhoto] = useState(null)
   const [pontos, setPontos] = useState([])
   const [linhas, setLinhas] = useState([])
@@ -49,6 +51,7 @@ export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVi
   const [lineMeasure1, setLineMeasure1] = useState('')
   const [lineMeasure2, setLineMeasure2] = useState('')
   const [lineMeasure3, setLineMeasure3] = useState('')
+  const [editingLineId, setEditingLineId] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
   const [toast, setToast] = useState(null)
 
@@ -78,20 +81,45 @@ export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVi
       setShowSourceDialog(true)
     }
     setSelectedPoints([])
-  }, [vistoria, activePhotoId])
+  }, [activePhotoId])
 
   useEffect(() => {
-    let stream = null
-    if (showCameraDialog) {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-        .then(s => { stream = s; if (videoRef.current) videoRef.current.srcObject = s })
-        .catch(() => { showToast('Câmera não disponível', 'error'); setShowCameraDialog(false) })
-    }
+    if (!showCameraDialog) return
+    let stream
+    navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'environment' } })
+      .then(s => { stream = s; if (videoRef.current) videoRef.current.srcObject = s })
+      .catch(() => showToast('Câmera não disponível', 'error'))
     return () => stream?.getTracks().forEach(t => t.stop())
   }, [showCameraDialog])
 
   const handleImageClick = (e) => {
     if (!imageRef.current || !activePhoto || activeTab !== 'pontos') return
+
+    if (metodo === 2) {
+      if (pontos.length >= 3) { showToast('Máximo 3 pontos no Método 2 (Triângulo)', 'error'); return }
+      const rect = imageRef.current.getBoundingClientRect()
+      const x = ((e.clientX - rect.left) / rect.width) * 100
+      const y = ((e.clientY - rect.top) / rect.height) * 100
+      const codigo = String(pontos.length + 1)
+      const newPoint = { id: `p${Date.now()}`, codigo, x, y }
+      const newPontos = [...pontos, newPoint]
+      setPontos(newPontos)
+      showToast(`Ponto ${codigo} marcado`)
+
+      if (newPontos.length === 3) {
+        const [p1, p2, p3] = newPontos
+        const ts = Date.now()
+        setLinhas([
+          { id: `l${ts}`,   ponto1Id: p1.id, ponto2Id: p2.id, nome: 'a', comprimentos: [null, null, null] },
+          { id: `l${ts+1}`, ponto1Id: p1.id, ponto2Id: p3.id, nome: 'b', comprimentos: [null, null, null] },
+          { id: `l${ts+2}`, ponto1Id: p2.id, ponto2Id: p3.id, nome: 'c', comprimentos: [null, null, null] },
+        ])
+        setActiveTab('linhas')
+        showToast('3 pontos marcados! Preencha as medidas a, b e c.')
+      }
+      return
+    }
+
     const rect = imageRef.current.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
@@ -102,12 +130,21 @@ export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVi
 
   const handlePointClick = (e, pointId) => {
     e.stopPropagation()
+    if (metodo === 2) return
     if (activeTab !== 'linhas') { showToast('Mude para a aba Linhas para conectar pontos'); return }
     const sel = selectedPoints.includes(pointId)
       ? selectedPoints.filter(id => id !== pointId)
       : [...selectedPoints, pointId]
     setSelectedPoints(sel)
-    if (sel.length === 2) { setLineMeasure1(''); setLineMeasure2(''); setLineMeasure3(''); setShowLineDialog(true) }
+    if (sel.length === 2) { setLineMeasure1(''); setLineMeasure2(''); setLineMeasure3(''); setEditingLineId(null); setShowLineDialog(true) }
+  }
+
+  const openEditLine = (linha) => {
+    setEditingLineId(linha.id)
+    setLineMeasure1(typeof linha.comprimentos?.[0] === 'number' ? String(linha.comprimentos[0]) : '')
+    setLineMeasure2(typeof linha.comprimentos?.[1] === 'number' ? String(linha.comprimentos[1]) : '')
+    setLineMeasure3(typeof linha.comprimentos?.[2] === 'number' ? String(linha.comprimentos[2]) : '')
+    setShowLineDialog(true)
   }
 
   const handleAddLine = () => {
@@ -115,14 +152,33 @@ export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVi
     const v1 = parse(lineMeasure1)
     const v2 = parse(lineMeasure2)
     const v3 = parse(lineMeasure3)
-    const newLine = { id: `l${Date.now()}`, ponto1Id: selectedPoints[0], ponto2Id: selectedPoints[1], comprimentos: [v1, v2, v3] }
-    setLinhas(prev => [...prev, newLine])
+
+    if (editingLineId) {
+      setLinhas(prev => prev.map(l => l.id === editingLineId ? { ...l, comprimentos: [v1, v2, v3] } : l))
+      setEditingLineId(null)
+      showToast('Medidas salvas')
+    } else {
+      const newLine = { id: `l${Date.now()}`, ponto1Id: selectedPoints[0], ponto2Id: selectedPoints[1], comprimentos: [v1, v2, v3] }
+      setLinhas(prev => [...prev, newLine])
+      showToast(v1 === null && v2 === null && v3 === null ? 'Linha adicionada (sem medidas — preencha depois ao editar)' : 'Linha adicionada')
+    }
     setLineMeasure1(''); setLineMeasure2(''); setLineMeasure3('')
     setSelectedPoints([]); setShowLineDialog(false)
-    showToast(v1 === null && v2 === null && v3 === null ? 'Linha adicionada (sem medidas — preencha depois ao editar)' : 'Linha adicionada')
   }
 
   const handleUndo = () => {
+    if (metodo === 2) {
+      if (pontos.length === 3) {
+        setPontos(prev => prev.slice(0, 2))
+        setLinhas([])
+        setActiveTab('pontos')
+        showToast('Ponto 3 removido')
+      } else if (pontos.length > 0) {
+        setPontos(prev => prev.slice(0, -1))
+        showToast('Ponto removido')
+      }
+      return
+    }
     const lastLineTime = linhas.length > 0 ? parseInt(linhas[linhas.length - 1].id.replace('l', '')) : 0
     const lastPointTime = pontos.length > 0 ? parseInt(pontos[pontos.length - 1].id.replace('p', '')) : 0
     if (lastLineTime > lastPointTime) { setLinhas(prev => prev.slice(0, -1)); showToast('Linha removida') }
@@ -219,19 +275,32 @@ export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVi
     const midX = (p1.x + p2.x) / 2
     const midY = (p1.y + p2.y) / 2
     const valid = (line.comprimentos || []).filter(c => typeof c === 'number' && c !== null && !isNaN(c) && c > 0)
-    const measuresText = valid.length > 0
-      ? `Ø ${(valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(2).replace('.', ',')} mm`
-      : '— sem medida'
+    const avg = valid.length > 0
+      ? (valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(2).replace('.', ',')
+      : null
+    const lineColor = (metodo === 2 && line.nome) ? (M2_COLORS[line.nome] || 'black') : 'black'
+    const lineLabel = metodo === 2 && line.nome
+      ? (avg ? `${line.nome}: Ø ${avg} mm` : line.nome)
+      : (avg ? `Ø ${avg} mm` : '— sem medida')
     return (
       <g key={line.id}>
-        <line x1={`${p1.x}%`} y1={`${p1.y}%`} x2={`${p2.x}%`} y2={`${p2.y}%`} stroke="black" strokeWidth="2" />
-        <text x={`${midX}%`} y={`${midY}%`} dy="-8" fill="white" fontSize="12" fontWeight="bold"
-          textAnchor="middle" style={{ paintOrder: 'stroke', stroke: 'black', strokeWidth: '3px' }}>
-          {measuresText}
+        <line
+          x1={`${p1.x}%`} y1={`${p1.y}%`}
+          x2={`${p2.x}%`} y2={`${p2.y}%`}
+          stroke={lineColor} strokeWidth="2.5"
+          strokeDasharray={metodo === 2 ? '8,4' : undefined}
+        />
+        <text
+          x={`${midX}%`} y={`${midY}%`} dy="-8"
+          fill="white" fontSize="13" fontWeight="bold"
+          textAnchor="middle"
+          style={{ paintOrder: 'stroke', stroke: lineColor, strokeWidth: '3px' }}
+        >
+          {lineLabel}
         </text>
       </g>
     )
-  }), [linhas, getPointById])
+  }), [linhas, getPointById, metodo])
 
   if (activePhotoId === 'new') {
     return (
@@ -255,6 +324,7 @@ export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVi
               {defaultCrackCode && (
                 <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '8px 14px', fontSize: 13 }}>
                   📷 Adicionar foto da anomalia <strong style={{ color: '#1d4ed8' }}>{defaultCrackCode}</strong>
+                  {metodo === 2 && <span style={{ marginLeft: 8, color: '#16a34a', fontWeight: 600 }}>— Método Triângulo</span>}
                 </div>
               )}
               <h3>Fonte da Imagem</h3>
@@ -299,6 +369,8 @@ export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVi
 
   if (!activePhoto) return <div className={styles.loading}>Carregando anomalia...</div>
 
+  const fmtVal = (c) => (typeof c === 'number' && c > 0) ? `${c.toFixed(2).replace('.', ',')} mm` : '—'
+
   return (
     <div className={styles.annotator}>
       {toast && <div className={`${styles.toast} ${styles[toast.type]}`}>{toast.msg}</div>}
@@ -306,10 +378,17 @@ export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVi
       <canvas ref={canvasRef} className={styles.hidden} />
 
       <div className={styles.toolbar}>
-        <h2 className={styles.title}>Editando: <span className={styles.code}>{activePhoto.codigoTrinca}</span></h2>
+        <h2 className={styles.title}>
+          Editando: <span className={styles.code}>{activePhoto.codigoTrinca}</span>
+          {metodo === 2 && <span style={{ marginLeft: 10, fontSize: 12, background: '#16a34a', color: '#fff', borderRadius: 5, padding: '2px 8px', fontWeight: 600 }}>Triângulo</span>}
+        </h2>
         <div className={styles.tabs}>
-          <button className={`${styles.tab} ${activeTab === 'pontos' ? styles.tabActive : ''}`} onClick={() => { setActiveTab('pontos'); setSelectedPoints([]) }}>📍 Pontos</button>
-          <button className={`${styles.tab} ${activeTab === 'linhas' ? styles.tabActive : ''}`} onClick={() => { setActiveTab('linhas'); setSelectedPoints([]) }}>➖ Linhas</button>
+          <button className={`${styles.tab} ${activeTab === 'pontos' ? styles.tabActive : ''}`} onClick={() => { setActiveTab('pontos'); setSelectedPoints([]) }}>
+            📍 Pontos{metodo === 2 ? ` (${pontos.length}/3)` : ''}
+          </button>
+          <button className={`${styles.tab} ${activeTab === 'linhas' ? styles.tabActive : ''}`} onClick={() => { setActiveTab('linhas'); setSelectedPoints([]) }}>
+            {metodo === 2 ? '📐 Medidas (a, b, c)' : '➖ Linhas'}
+          </button>
         </div>
         <div className={styles.actions}>
           <button className={styles.btnIcon} onClick={handleUndo} title="Desfazer">↩</button>
@@ -317,19 +396,73 @@ export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVi
         </div>
       </div>
 
-      <p className={styles.hint}>{activeTab === 'pontos' ? 'Clique na imagem para adicionar um ponto.' : 'Selecione dois pontos para criar uma linha e medir.'}</p>
+      <p className={styles.hint}>
+        {metodo === 2
+          ? (activeTab === 'pontos'
+              ? (pontos.length < 3
+                  ? `Clique na imagem para marcar o ponto ${pontos.length + 1} de 3.`
+                  : '3 pontos marcados — vá para a aba 📐 Medidas.')
+              : (pontos.length < 3
+                  ? 'Marque os 3 pontos na aba 📍 Pontos primeiro.'
+                  : 'Clique em Editar para inserir as medidas de cada linha.'))
+          : (activeTab === 'pontos'
+              ? 'Clique na imagem para adicionar um ponto.'
+              : 'Selecione dois pontos para criar uma linha e medir.')}
+      </p>
 
-      <div ref={imageRef} onClick={handleImageClick} className={`${styles.imageContainer} ${activeTab === 'pontos' ? styles.crosshair : ''}`}>
+      <div ref={imageRef} onClick={handleImageClick} className={`${styles.imageContainer} ${activeTab === 'pontos' && (metodo !== 2 || pontos.length < 3) ? styles.crosshair : ''}`}>
         <img src={activePhoto.url} alt={activePhoto.codigoTrinca} className={styles.img} />
         {pontos.map(point => (
           <div key={point.id} onClick={e => handlePointClick(e, point.id)}
-            className={`${styles.point} ${activeTab === 'linhas' ? styles.pointClickable : ''} ${selectedPoints.includes(point.id) ? styles.pointSelected : ''}`}
+            className={`${styles.point} ${activeTab === 'linhas' && metodo !== 2 ? styles.pointClickable : ''} ${selectedPoints.includes(point.id) ? styles.pointSelected : ''}`}
             style={{ left: `${point.x}%`, top: `${point.y}%` }}>
             {point.codigo}
           </div>
         ))}
         <svg className={styles.svg}>{memoizedLines}</svg>
       </div>
+
+      {/* ── Método 2: cards de medidas a, b, c ── */}
+      {metodo === 2 && activeTab === 'linhas' && (
+        <div style={{ marginTop: 14 }}>
+          {pontos.length < 3 ? (
+            <div style={{ textAlign: 'center', padding: '20px 16px', color: '#64748b', background: '#f8fafc', border: '1.5px dashed #cbd5e1', borderRadius: 10 }}>
+              <div style={{ fontSize: 28, marginBottom: 6 }}>📍</div>
+              <p style={{ margin: 0, fontWeight: 600 }}>Marque os 3 pontos primeiro</p>
+              <p style={{ margin: '4px 0 0', fontSize: 13 }}>{pontos.length}/3 pontos marcados — volte para a aba 📍 Pontos</p>
+            </div>
+          ) : (
+            linhas.map(linha => {
+              const p1 = getPointById(linha.ponto1Id)
+              const p2 = getPointById(linha.ponto2Id)
+              const valid = (linha.comprimentos || []).filter(c => typeof c === 'number' && c > 0)
+              const avg = valid.length ? (valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(2).replace('.', ',') : '—'
+              const cor = M2_COLORS[linha.nome] || '#64748b'
+              return (
+                <div key={linha.id} style={{ border: `2.5px solid ${cor}`, borderRadius: 12, padding: '12px 16px', marginBottom: 10, background: '#fff' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div>
+                      <span style={{ color: cor, fontWeight: 800, fontSize: 20 }}>Medida {linha.nome?.toUpperCase()}</span>
+                      <span style={{ color: '#64748b', fontSize: 13, marginLeft: 8 }}>({p1?.codigo} → {p2?.codigo})</span>
+                    </div>
+                    <button
+                      onClick={() => openEditLine(linha)}
+                      style={{ background: cor, color: '#fff', border: 'none', borderRadius: 7, padding: '6px 14px', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
+                      ✏️ Editar
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 13, color: '#334155', display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+                    <span>M1: <strong>{fmtVal(linha.comprimentos?.[0])}</strong></span>
+                    <span>M2: <strong>{fmtVal(linha.comprimentos?.[1])}</strong></span>
+                    <span>M3: <strong>{fmtVal(linha.comprimentos?.[2])}</strong></span>
+                    <span style={{ color: cor, fontWeight: 700 }}>Média: {avg} {avg !== '—' ? 'mm' : ''}</span>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
 
       <div className={styles.obsSection}>
         <label className={styles.label}>Observações</label>
@@ -341,27 +474,35 @@ export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVi
       {showLineDialog && (
         <div className={styles.overlay}>
           <div className={styles.dialog}>
-            <h3>Registrar Fissura</h3>
+            {editingLineId ? (
+              <>
+                {(() => {
+                  const linha = linhas.find(l => l.id === editingLineId)
+                  const cor = M2_COLORS[linha?.nome] || '#1d4ed8'
+                  return (
+                    <h3 style={{ color: cor }}>
+                      Medidas — Linha {linha?.nome?.toUpperCase() || ''}
+                    </h3>
+                  )
+                })()}
+              </>
+            ) : (
+              <h3>Registrar Fissura</h3>
+            )}
             <p>Medidas em mm — <strong>opcional</strong>, pode deixar em branco e preencher depois ao editar.</p>
             <div className={styles.measureField}>
               <label className={styles.measureLabel}>Medida 1 (mm)</label>
               <input
-                className={styles.input}
-                type="text"
-                value={lineMeasure1}
+                className={styles.input} type="text" value={lineMeasure1}
                 onChange={e => setLineMeasure1(e.target.value.replace(/[^0-9,.]/g, ''))}
                 onKeyDown={e => { if (e.key === 'Enter') document.getElementById('fissura-m2')?.focus() }}
-                placeholder="Deixe vazio se não souber"
-                autoFocus
+                placeholder="Deixe vazio se não souber" autoFocus
               />
             </div>
             <div className={styles.measureField}>
               <label className={styles.measureLabel}>Medida 2 (mm)</label>
               <input
-                id="fissura-m2"
-                className={styles.input}
-                type="text"
-                value={lineMeasure2}
+                id="fissura-m2" className={styles.input} type="text" value={lineMeasure2}
                 onChange={e => setLineMeasure2(e.target.value.replace(/[^0-9,.]/g, ''))}
                 onKeyDown={e => { if (e.key === 'Enter') document.getElementById('fissura-m3')?.focus() }}
                 placeholder="Deixe vazio se não souber"
@@ -370,10 +511,7 @@ export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVi
             <div className={styles.measureField}>
               <label className={styles.measureLabel}>Medida 3 (mm)</label>
               <input
-                id="fissura-m3"
-                className={styles.input}
-                type="text"
-                value={lineMeasure3}
+                id="fissura-m3" className={styles.input} type="text" value={lineMeasure3}
                 onChange={e => setLineMeasure3(e.target.value.replace(/[^0-9,.]/g, ''))}
                 onKeyDown={e => { if (e.key === 'Enter') handleAddLine() }}
                 placeholder="Deixe vazio se não souber"
@@ -395,8 +533,8 @@ export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVi
               return null
             })()}
             <div className={styles.dialogBtns}>
-              <button className={styles.btnCancel} onClick={() => { setSelectedPoints([]); setShowLineDialog(false) }}>Cancelar</button>
-              <button className={styles.btnPrimary} onClick={handleAddLine}>Salvar Linha</button>
+              <button className={styles.btnCancel} onClick={() => { setSelectedPoints([]); setEditingLineId(null); setShowLineDialog(false) }}>Cancelar</button>
+              <button className={styles.btnPrimary} onClick={handleAddLine}>Salvar</button>
             </div>
           </div>
         </div>

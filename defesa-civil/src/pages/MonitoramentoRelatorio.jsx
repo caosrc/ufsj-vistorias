@@ -150,6 +150,14 @@ export default function MonitoramentoRelatorio() {
     fotoPairs.push(fotos.slice(i, i + 2))
   }
 
+  const metodo = report.metodo || 1
+  const M2_COLORS = { a: '#22c55e', b: '#3b82f6', c: '#f97316' }
+
+  const linhaLabel = (linha, p1, p2) => {
+    if (linha.nome) return `Medida ${linha.nome.toUpperCase()}`
+    return `Fissura ${p1?.codigo || '?'}-${p2?.codigo || '?'}`
+  }
+
   const renderFotoCard = (foto, inPair = false) => {
     const getPonto = pid => getPointById(foto, pid)
     const hasLinhas = foto.linhas && foto.linhas.length > 0
@@ -158,6 +166,7 @@ export default function MonitoramentoRelatorio() {
       <div key={foto.id} className={`${styles.anomalyCard} ${inPair ? styles.pairCard : ''}`}>
         <div className={styles.anomalyCardHeader}>
           <strong>{foto.codigoTrinca}</strong>
+          {metodo === 2 && <span style={{ marginLeft: 8, fontSize: 11, background: '#16a34a', color: '#fff', borderRadius: 4, padding: '1px 6px', fontWeight: 600 }}>Triângulo</span>}
         </div>
 
         {/* Foto limpa — linhas/anotações visíveis só na tela */}
@@ -187,20 +196,25 @@ export default function MonitoramentoRelatorio() {
               const valid = (vals || []).filter(c => typeof c === 'number' && c > 0)
               const avg = valid.length
                 ? (valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(2).replace('.', ',')
-                : '—'
+                : null
+              const lineColor = (metodo === 2 && line.nome) ? (M2_COLORS[line.nome] || '#000') : '#000'
+              const svgLabel = metodo === 2 && line.nome
+                ? (avg ? `${line.nome}: Ø ${avg} mm` : line.nome)
+                : (avg ? `Ø ${avg} mm` : '—')
               return (
                 <g key={line.id}>
                   <line
                     x1={`${p1.x}%`} y1={`${p1.y}%`}
                     x2={`${p2.x}%`} y2={`${p2.y}%`}
-                    stroke="black" strokeWidth="2"
+                    stroke={lineColor} strokeWidth="2.5"
+                    strokeDasharray={metodo === 2 ? '8,4' : undefined}
                   />
                   <text
                     x={`${midX}%`} y={`${midY}%`} dy="-8"
                     fill="white" fontSize="12" fontWeight="bold" textAnchor="middle"
-                    style={{ paintOrder: 'stroke', stroke: 'black', strokeWidth: '3px' }}
+                    style={{ paintOrder: 'stroke', stroke: lineColor, strokeWidth: '3px' }}
                   >
-                    {avg} mm
+                    {svgLabel}
                   </text>
                 </g>
               )
@@ -220,7 +234,7 @@ export default function MonitoramentoRelatorio() {
                 const vals = editMeasures[key] || [0, 0, 0]
                 return (
                   <div key={linha.id} className={styles.editMeasRow}>
-                    <span className={styles.editMeasLabel}>Fissura {p1?.codigo}-{p2?.codigo}</span>
+                    <span className={styles.editMeasLabel} style={{ color: (metodo === 2 && linha.nome) ? M2_COLORS[linha.nome] : undefined, fontWeight: 700 }}>{linhaLabel(linha, p1, p2)}</span>
                     <div className={styles.editMeasInputs}>
                       {[0, 1, 2].map(i => (
                         <label key={i} className={styles.editMeasField}>
@@ -245,7 +259,7 @@ export default function MonitoramentoRelatorio() {
             <table className={styles.measTable}>
               <thead>
                 <tr>
-                  <th>Fissura</th>
+                  <th>{metodo === 2 ? 'Medida' : 'Fissura'}</th>
                   <th>M1 (mm)</th>
                   <th>M2 (mm)</th>
                   <th>M3 (mm)</th>
@@ -265,7 +279,7 @@ export default function MonitoramentoRelatorio() {
                   const fmt = v => (typeof v === 'number' && v > 0) ? v.toFixed(2).replace('.', ',') : '—'
                   return (
                     <tr key={linha.id}>
-                      <td>Fissura {p1?.codigo}-{p2?.codigo}</td>
+                      <td style={{ color: (metodo === 2 && linha.nome) ? M2_COLORS[linha.nome] : undefined, fontWeight: linha.nome ? 700 : undefined }}>{linhaLabel(linha, p1, p2)}</td>
                       <td>{fmt(comprimentos[0])}</td>
                       <td>{fmt(comprimentos[1])}</td>
                       <td>{fmt(comprimentos[2])}</td>
