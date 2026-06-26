@@ -286,7 +286,7 @@ export default function MonitoramentoEvolucao() {
       x: {
         ticks: {
           font: { size: 9 },
-          maxRotation: 45,
+          maxRotation: 0,
           minRotation: 0,
           autoSkip: false,
           color: (ctx) => {

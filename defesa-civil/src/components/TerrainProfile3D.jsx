@@ -1837,9 +1837,11 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
     const { points, minE, maxXPoly } = gd
 
     // Pré-computa posições cena para cada ponto da grade
+    // O terreno é construído com flipZ=true → z_cena = maxZGrid - p.z
+    const maxZGrid = points.length > 0 ? points.reduce((m, p) => Math.max(m, p.z), 0) : 0
     const scenePts = points.map(p => ({
       sx:   p.x,
-      sz:   p.z,
+      sz:   maxZGrid - p.z,  // coordenada z real na cena (invertida igual ao terreno)
       elev: p.y,
     }))
 

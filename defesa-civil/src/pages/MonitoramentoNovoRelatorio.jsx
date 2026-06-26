@@ -105,7 +105,7 @@ export default function MonitoramentoNovoRelatorio() {
         if (!url.startsWith('data:') && !url.startsWith('blob:')) i.crossOrigin = 'Anonymous'
         i.onload = () => resolve(i); i.onerror = reject; i.src = url
       })
-      const MAX_DIM = 800
+      const MAX_DIM = 2000
       const scale = Math.min(1, MAX_DIM / Math.max(img.naturalWidth || 800, img.naturalHeight || 600))
       const canvas = document.createElement('canvas')
       canvas.width  = Math.round((img.naturalWidth  || 800) * scale)
@@ -156,8 +156,12 @@ export default function MonitoramentoNovoRelatorio() {
           ctx.fillText(point.codigo, cx, cy)
         }
       }
-      return canvas.toDataURL('image/jpeg', 0.7)
-    } catch { return foto.url }
+      return canvas.toDataURL('image/jpeg', 0.92)
+    } catch {
+      // Não retorna blob: inválido — apenas retorna null; foto será ignorada ao salvar
+      if (foto.url && foto.url.startsWith('data:')) return foto.url
+      return null
+    }
   }
 
   const handleSave = async () => {
