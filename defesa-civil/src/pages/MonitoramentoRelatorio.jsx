@@ -169,11 +169,12 @@ export default function MonitoramentoRelatorio() {
           {metodo === 2 && <span style={{ marginLeft: 8, fontSize: 11, background: '#16a34a', color: '#fff', borderRadius: 4, padding: '1px 6px', fontWeight: 600 }}>Triângulo</span>}
         </div>
 
-        {/* Foto limpa — linhas/anotações visíveis só na tela */}
+        {/* A imagem já tem as anotações queimadas (rasterizePhoto).
+            O SVG overlay só aparece no modo de edição para refletir
+            os valores novos enquanto o usuário edita. */}
         <div className={styles.anomalyImgWrap}>
           <img src={foto.url} alt={`Anomalia ${foto.codigoTrinca}`} className={styles.anomalyImg} />
-          {/* Pontos de referência (marcadores A, B…) */}
-          {foto.pontos?.map(point => (
+          {editMode && foto.pontos?.map(point => (
             <div
               key={point.id}
               className={styles.pointOverlay}
@@ -182,44 +183,43 @@ export default function MonitoramentoRelatorio() {
               {point.codigo}
             </div>
           ))}
-          {/* Linhas de medição — ocultas na impressão via CSS */}
-          <svg className={styles.svgOverlay}>
-            {foto.linhas?.map(line => {
-              const p1 = getPonto(line.ponto1Id)
-              const p2 = getPonto(line.ponto2Id)
-              if (!p1 || !p2) return null
-              const midX = (p1.x + p2.x) / 2
-              const midY = (p1.y + p2.y) / 2
-              const vals = editMode
-                ? (editMeasures[`${foto.id}_${line.id}`] || line.comprimentos)
-                : line.comprimentos
-              const valid = (vals || []).filter(c => typeof c === 'number' && c > 0)
-              const avg = valid.length
-                ? (valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(2).replace('.', ',')
-                : null
-              const lineColor = (metodo === 2 && line.nome) ? (M2_COLORS[line.nome] || '#000') : '#000'
-              const svgLabel = metodo === 2 && line.nome
-                ? (avg ? `${line.nome}: Ø ${avg} mm` : line.nome)
-                : (avg ? `Ø ${avg} mm` : '—')
-              return (
-                <g key={line.id}>
-                  <line
-                    x1={`${p1.x}%`} y1={`${p1.y}%`}
-                    x2={`${p2.x}%`} y2={`${p2.y}%`}
-                    stroke={lineColor} strokeWidth="2.5"
-                    strokeDasharray={metodo === 2 ? '8,4' : undefined}
-                  />
-                  <text
-                    x={`${midX}%`} y={`${midY}%`} dy="-8"
-                    fill="white" fontSize="12" fontWeight="bold" textAnchor="middle"
-                    style={{ paintOrder: 'stroke', stroke: lineColor, strokeWidth: '3px' }}
-                  >
-                    {svgLabel}
-                  </text>
-                </g>
-              )
-            })}
-          </svg>
+          {editMode && (
+            <svg className={styles.svgOverlay}>
+              {foto.linhas?.map(line => {
+                const p1 = getPonto(line.ponto1Id)
+                const p2 = getPonto(line.ponto2Id)
+                if (!p1 || !p2) return null
+                const midX = (p1.x + p2.x) / 2
+                const midY = (p1.y + p2.y) / 2
+                const vals = editMeasures[`${foto.id}_${line.id}`] || line.comprimentos
+                const valid = (vals || []).filter(c => typeof c === 'number' && c > 0)
+                const avg = valid.length
+                  ? (valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(2).replace('.', ',')
+                  : null
+                const lineColor = (metodo === 2 && line.nome) ? (M2_COLORS[line.nome] || '#000') : '#000'
+                const svgLabel = metodo === 2 && line.nome
+                  ? (avg ? `${line.nome}: Ø ${avg} mm` : line.nome)
+                  : (avg ? `Ø ${avg} mm` : '—')
+                return (
+                  <g key={line.id}>
+                    <line
+                      x1={`${p1.x}%`} y1={`${p1.y}%`}
+                      x2={`${p2.x}%`} y2={`${p2.y}%`}
+                      stroke={lineColor} strokeWidth="2.5"
+                      strokeDasharray={metodo === 2 ? '8,4' : undefined}
+                    />
+                    <text
+                      x={`${midX}%`} y={`${midY}%`} dy="-8"
+                      fill="white" fontSize="12" fontWeight="bold" textAnchor="middle"
+                      style={{ paintOrder: 'stroke', stroke: lineColor, strokeWidth: '3px' }}
+                    >
+                      {svgLabel}
+                    </text>
+                  </g>
+                )
+              })}
+            </svg>
+          )}
         </div>
 
         {/* Tabela de medições — aparece limpa abaixo da foto */}
