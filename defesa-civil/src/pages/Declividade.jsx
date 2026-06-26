@@ -2203,109 +2203,162 @@ ${placemarks}
 
           const polys = []
           const pad = 0.005
-          allVistorias.forEach(v => {
-            if (!v.area_vertices) return
-            try {
-              const verts = typeof v.area_vertices === 'string' ? JSON.parse(v.area_vertices) : v.area_vertices
-              if (!Array.isArray(verts) || verts.length < 3) return
-              const inBbox = verts.some(p =>
-                p.lng >= bbox[0] - pad && p.lng <= bbox[2] + pad &&
-                p.lat >= bbox[1] - pad && p.lat <= bbox[3] + pad
-              )
-              if (!inBbox) return
-              // Verificação precisa: pelo menos um vértice dentro do polígono desenhado
-              const algumDentro = verts.some(p =>
-                turf.booleanPointInPolygon(turf.point([p.lng, p.lat]), turfPoly)
-              )
-              if (!algumDentro) return
 
-              const verts3D = verts.map(p => {
-                const sx = turf.distance(origin, [p.lng, origin[1]], { units: 'kilometers' }) * 1000
-                const sz = turf.distance(origin, [origin[0], p.lat], { units: 'kilometers' }) * 1000
-                const sy = interpolateElevFromGrid(sx, sz, grid3D, GCOLS, GROWS)
-                return { x: sx, y: sy, z: sz }
-              })
+          // Helper: projeta lat/lng → coordenadas 3D do terreno
+          const projectToTerrain = (lat, lng) => {
+            const sx = turf.distance(origin, [lng, origin[1]], { units: 'kilometers' }) * 1000
+            const sz = turf.distance(origin, [origin[0], lat], { units: 'kilometers' }) * 1000
+            const sy = interpolateElevFromGrid(sx, sz, grid3D, GCOLS, GROWS)
+            return { x: sx, y: sy, z: sz }
+          }
+
+          allVistorias.forEach(v => {
+            try {
               const cor = v.risco === 'R4' ? '#ef4444' : v.risco === 'R3' ? '#f97316'
                         : v.risco === 'R2' ? '#eab308' : '#22c55e'
 
-              // ── Converter anomalias do espaço local (Edificio3D) → terreno ──
-              let anomaliasTerreno = []
-              let paredesTerreno   = []
-              try {
-                const construcoes = v.construcoes
-                  ? (typeof v.construcoes === 'string' ? JSON.parse(v.construcoes) : v.construcoes)
-                  : []
-                if (Array.isArray(construcoes) && construcoes.length > 0) {
-                  // Mesma fórmula de buildLocalPts no Edificio3D
-                  const ref = verts[0]
-                  const R_earth = 6371000
-                  const cosLat  = Math.cos(ref.lat * Math.PI / 180)
-                  const rawPts  = verts.map(vv => ({
-                    x: (vv.lng - ref.lng) * cosLat * Math.PI / 180 * R_earth,
-                    z: -(vv.lat - ref.lat) * Math.PI / 180 * R_earth,
-                  }))
-                  const cx_raw  = rawPts.reduce((s, p) => s + p.x, 0) / rawPts.length
-                  const cz_raw  = rawPts.reduce((s, p) => s + p.z, 0) / rawPts.length
-                  const maxR_ed = Math.max(...rawPts.map(p => Math.sqrt((p.x - cx_raw) ** 2 + (p.z - cz_raw) ** 2)), 0.1)
-                  const scale_ed = 12 / maxR_ed
-                  // Centróide do imóvel em coordenadas de terreno (antes do flip X)
-                  const csx = verts3D.reduce((s, vv) => s + vv.x, 0) / verts3D.length
-                  const csz = verts3D.reduce((s, vv) => s + vv.z, 0) / verts3D.length
-                  const altH_ed = Math.max(parseFloat(v.alturaImovel || 3) * 1.1, 2.5)
+              // ── Centróide (lat/lng) do imóvel ──
+              const centLat = parseFloat(v.lat ?? v.coordenada?.lat)
+              const centLng = parseFloat(v.lng ?? v.coordenada?.lng)
+              const hasCentroid = !isNaN(centLat) && !isNaN(centLng)
 
-                  anomaliasTerreno = construcoes
-                    .filter(a => a?.point)
-                    .map(a => ({
-                      nome:  a.nome || 'Anomalia',
-                      sx:    csx + a.point.x / scale_ed,
-                      sz:    csz - a.point.z / scale_ed,
-                      yFrac: Math.max(0, Math.min(1, a.point.y / altH_ed)),
+              // Checa se centróide está dentro (ou perto) do bbox e polígono
+              const centInBbox = hasCentroid &&
+                centLng >= bbox[0] - pad && centLng <= bbox[2] + pad &&
+                centLat >= bbox[1] - pad && centLat <= bbox[3] + pad
+              const centInPoly = centInBbox &&
+                turf.booleanPointInPolygon(turf.point([centLng, centLat]), turfPoly)
+
+              // ── Tenta extrair area_vertices ──
+              let verts = null
+              if (v.area_vertices) {
+                const raw = typeof v.area_vertices === 'string' ? JSON.parse(v.area_vertices) : v.area_vertices
+                if (Array.isArray(raw) && raw.length >= 3) verts = raw
+              }
+
+              // Checa se algum vértice do polígono está no bbox/polígono desenhado
+              const vertsInBbox = verts?.some(p =>
+                p.lng >= bbox[0] - pad && p.lng <= bbox[2] + pad &&
+                p.lat >= bbox[1] - pad && p.lat <= bbox[3] + pad
+              )
+              const vertsInPoly = verts && vertsInBbox && verts.some(p =>
+                turf.booleanPointInPolygon(turf.point([p.lng, p.lat]), turfPoly)
+              )
+
+              // Pula se nem centróide nem vértices estão na área analisada
+              if (!centInPoly && !vertsInPoly) return
+
+              // ── Caso A: tem polígono de área válido ──
+              if (verts && (vertsInPoly || centInPoly)) {
+                const verts3D = verts.map(p => projectToTerrain(p.lat, p.lng))
+
+                // Converter anomalias do espaço local (Edificio3D) → terreno
+                let anomaliasTerreno = []
+                let paredesTerreno   = []
+                try {
+                  const construcoes = v.construcoes
+                    ? (typeof v.construcoes === 'string' ? JSON.parse(v.construcoes) : v.construcoes)
+                    : []
+                  if (Array.isArray(construcoes) && construcoes.length > 0) {
+                    const ref = verts[0]
+                    const R_earth = 6371000
+                    const cosLat  = Math.cos(ref.lat * Math.PI / 180)
+                    const rawPts  = verts.map(vv => ({
+                      x: (vv.lng - ref.lng) * cosLat * Math.PI / 180 * R_earth,
+                      z: -(vv.lat - ref.lat) * Math.PI / 180 * R_earth,
                     }))
+                    const cx_raw  = rawPts.reduce((s, p) => s + p.x, 0) / rawPts.length
+                    const cz_raw  = rawPts.reduce((s, p) => s + p.z, 0) / rawPts.length
+                    const maxR_ed = Math.max(...rawPts.map(p => Math.sqrt((p.x - cx_raw) ** 2 + (p.z - cz_raw) ** 2)), 0.1)
+                    const scale_ed = 12 / maxR_ed
+                    const csx = verts3D.reduce((s, vv) => s + vv.x, 0) / verts3D.length
+                    const csz = verts3D.reduce((s, vv) => s + vv.z, 0) / verts3D.length
+                    const altH_ed = Math.max(parseFloat(v.alturaImovel || 3) * 1.1, 2.5)
 
-                  paredesTerreno = construcoes
-                    .filter(a => a?.type === 'parede-anomalia' && a?.startPoint && a?.endPoint)
-                    .map(a => ({
-                      nome:       a.nome || 'P',
-                      startSx:    csx + a.startPoint.x / scale_ed,
-                      startSz:    csz - a.startPoint.z / scale_ed,
-                      endSx:      csx + a.endPoint.x   / scale_ed,
-                      endSz:      csz - a.endPoint.z   / scale_ed,
-                      yBaseFrac:  Math.max(0, Math.min(1, (a.startPoint.y || 0) / altH_ed)),
-                      wallFrac:   Math.max(0.05, Math.min(1, (a.floorHeight || altH_ed) / altH_ed)),
-                    }))
-                }
-              } catch (_) {}
+                    anomaliasTerreno = construcoes
+                      .filter(a => a?.point)
+                      .map(a => ({
+                        nome:  a.nome || 'Anomalia',
+                        sx:    csx + a.point.x / scale_ed,
+                        sz:    csz - a.point.z / scale_ed,
+                        yFrac: Math.max(0, Math.min(1, a.point.y / altH_ed)),
+                      }))
 
-              // ── Edificação (gpsVerts) → coordenadas de terreno ──
-              let edificacaoVerts = null
-              let edificacaoAltura = null
-              try {
-                const edifRaw = v.edificacao_planta
-                if (edifRaw) {
-                  const edif = typeof edifRaw === 'string' ? JSON.parse(edifRaw) : edifRaw
-                  if (edif?.gpsVerts?.length >= 3) {
-                    edificacaoVerts = edif.gpsVerts.map(p => {
-                      const sx = turf.distance(origin, [p.lng, origin[1]], { units: 'kilometers' }) * 1000
-                      const sz = turf.distance(origin, [origin[0], p.lat], { units: 'kilometers' }) * 1000
-                      const sy = interpolateElevFromGrid(sx, sz, grid3D, GCOLS, GROWS)
-                      return { x: sx, y: sy, z: sz }
-                    })
-                    edificacaoAltura = edif.altura ? parseFloat(edif.altura) : (v.alturaImovel ? parseFloat(v.alturaImovel) : null)
+                    paredesTerreno = construcoes
+                      .filter(a => a?.type === 'parede-anomalia' && a?.startPoint && a?.endPoint)
+                      .map(a => ({
+                        nome:       a.nome || 'P',
+                        startSx:    csx + a.startPoint.x / scale_ed,
+                        startSz:    csz - a.startPoint.z / scale_ed,
+                        endSx:      csx + a.endPoint.x   / scale_ed,
+                        endSz:      csz - a.endPoint.z   / scale_ed,
+                        yBaseFrac:  Math.max(0, Math.min(1, (a.startPoint.y || 0) / altH_ed)),
+                        wallFrac:   Math.max(0.05, Math.min(1, (a.floorHeight || altH_ed) / altH_ed)),
+                      }))
                   }
-                }
-              } catch (_) {}
+                } catch (_) {}
 
-              polys.push({
-                verts: verts3D, cor,
-                nome: v.nome || 'Vistoria',
-                risco: v.risco || '—',
-                areaM2: v.area_m2 || null,
-                alturaImovel: v.alturaImovel ? parseFloat(v.alturaImovel) : null,
-                anomalias: anomaliasTerreno,
-                paredes: paredesTerreno,
-                edificacaoVerts,
-                edificacaoAltura,
-              })
+                // Edificação (gpsVerts) → coordenadas de terreno
+                let edificacaoVerts = null
+                let edificacaoAltura = null
+                try {
+                  const edifRaw = v.edificacao_planta
+                  if (edifRaw) {
+                    const edif = typeof edifRaw === 'string' ? JSON.parse(edifRaw) : edifRaw
+                    if (edif?.gpsVerts?.length >= 3) {
+                      edificacaoVerts = edif.gpsVerts.map(p => projectToTerrain(p.lat, p.lng))
+                      edificacaoAltura = edif.altura
+                        ? parseFloat(edif.altura)
+                        : (v.alturaImovel ? parseFloat(v.alturaImovel) : null)
+                    }
+                  }
+                } catch (_) {}
+
+                polys.push({
+                  verts: verts3D, cor,
+                  nome: v.nome || 'Vistoria',
+                  risco: v.risco || '—',
+                  areaM2: v.area_m2 || null,
+                  alturaImovel: v.alturaImovel ? parseFloat(v.alturaImovel) : null,
+                  anomalias: anomaliasTerreno,
+                  paredes: paredesTerreno,
+                  edificacaoVerts,
+                  edificacaoAltura,
+                })
+
+              // ── Caso B: só tem centróide (lat/lng), sem polígono desenhado ──
+              } else if (centInPoly && hasCentroid) {
+                const cent3D = projectToTerrain(centLat, centLng)
+
+                // Tenta montar edificação a partir de gpsVerts mesmo sem area_vertices
+                let edificacaoVerts = null
+                let edificacaoAltura = null
+                try {
+                  const edifRaw = v.edificacao_planta
+                  if (edifRaw) {
+                    const edif = typeof edifRaw === 'string' ? JSON.parse(edifRaw) : edifRaw
+                    if (edif?.gpsVerts?.length >= 3) {
+                      edificacaoVerts = edif.gpsVerts.map(p => projectToTerrain(p.lat, p.lng))
+                      edificacaoAltura = edif.altura
+                        ? parseFloat(edif.altura)
+                        : (v.alturaImovel ? parseFloat(v.alturaImovel) : null)
+                    }
+                  }
+                } catch (_) {}
+
+                polys.push({
+                  verts: null,
+                  centroid: cent3D,
+                  cor,
+                  nome: v.nome || 'Vistoria',
+                  risco: v.risco || '—',
+                  alturaImovel: v.alturaImovel ? parseFloat(v.alturaImovel) : null,
+                  anomalias: [],
+                  paredes: [],
+                  edificacaoVerts,
+                  edificacaoAltura,
+                })
+              }
             } catch (_) {}
           })
           setVistoriaPolygons3D(polys)

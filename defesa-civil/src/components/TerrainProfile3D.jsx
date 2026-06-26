@@ -729,8 +729,71 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
         const vsh = Math.max(realRange * 0.15, 6)
 
         vistoriaPolygons.forEach(vp => {
-          if (!vp.verts || vp.verts.length < 3) return
           const col = new THREE.Color(vp.cor)
+
+          // ── Caso B: só centróide (sem polígono desenhado) ──────
+          if (!vp.verts || vp.verts.length < 3) {
+            if (!vp.centroid) return
+            const cx = vp.centroid.x
+            const cz = maxZFlip - vp.centroid.z
+            const baseY = (vp.centroid.y - realMinE) * vExag
+            const poleH = Math.max(realRange * 0.22, 4) * Math.max(vExag, 1)
+            const sR    = Math.max(realRange * 0.022, 1.0)
+
+            // Haste vertical
+            const pole = new THREE.Line(
+              new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(cx, baseY, cz),
+                new THREE.Vector3(cx, baseY + poleH, cz),
+              ]),
+              new THREE.LineDashedMaterial({ color: col, dashSize: poleH * 0.14, gapSize: poleH * 0.07, transparent: true, opacity: 0.75 })
+            )
+            pole.computeLineDistances(); scene.add(pole)
+
+            // Esfera no topo
+            const sph = new THREE.Mesh(
+              new THREE.SphereGeometry(sR * 1.4, 14, 12),
+              new THREE.MeshLambertMaterial({ color: col, transparent: true, opacity: 0.88 })
+            )
+            sph.position.set(cx, baseY + poleH, cz); scene.add(sph)
+
+            // Halo
+            const halo = new THREE.Mesh(
+              new THREE.TorusGeometry(sR * 2.4, sR * 0.22, 8, 28),
+              new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.45 })
+            )
+            halo.rotation.x = Math.PI / 2
+            halo.position.set(cx, baseY + poleH, cz); scene.add(halo)
+
+            // Label
+            makeTextSprite(scene,
+              `${vp.risco} · ${vp.nome}`,
+              vp.cor, cx, baseY + poleH + vsh * 1.1, cz, vsw * 1.4, vsh * 1.2
+            )
+
+            // Edificação se disponível
+            if (vp.edificacaoVerts?.length >= 3) {
+              try {
+                const efv = vp.edificacaoVerts.map(v => ({ x: v.x, z: maxZFlip - v.z, y: v.y }))
+                const edifBaseY = (efv.reduce((s, v) => s + v.y, 0) / efv.length - realMinE) * vExag
+                const edifH = (vp.edificacaoAltura || vp.alturaImovel || 3) * Math.max(vExag, 1)
+                const edifPts = efv.map(v => new THREE.Vector3(v.x, (v.y - realMinE) * vExag + 0.6, v.z))
+                edifPts.push(edifPts[0].clone())
+                scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(edifPts),
+                  new THREE.LineBasicMaterial({ color: 0xf97316, linewidth: 2, transparent: true, opacity: 0.95 })))
+                const edifShape = new THREE.Shape()
+                edifShape.moveTo(efv[0].x, -efv[0].z)
+                efv.slice(1).forEach(v => edifShape.lineTo(v.x, -v.z))
+                edifShape.closePath()
+                const edifGeo = new THREE.ExtrudeGeometry(edifShape, { depth: edifH, bevelEnabled: false })
+                edifGeo.rotateX(-Math.PI / 2); edifGeo.translate(0, edifBaseY + 0.6, 0)
+                scene.add(new THREE.Mesh(edifGeo, new THREE.MeshLambertMaterial({
+                  color: 0xf97316, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false,
+                })))
+              } catch (_) {}
+            }
+            return
+          }
 
           // Vértices com Z invertido para coincidir com o flipZ do terreno
           const fv = vp.verts.map(v => ({
