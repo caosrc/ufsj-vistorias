@@ -732,10 +732,10 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
           if (!vp.verts || vp.verts.length < 3) return
           const col = new THREE.Color(vp.cor)
 
-          // Vértices com X invertido para orientação correta
+          // Vértices com Z invertido para coincidir com o flipZ do terreno
           const fv = vp.verts.map(v => ({
             x: v.x,
-            z: v.z,
+            z: maxZFlip - v.z,
             y: v.y,
           }))
 
@@ -791,7 +791,7 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
             try {
               const efv = vp.edificacaoVerts.map(v => ({
                 x: v.x,
-                z: v.z,
+                z: maxZFlip - v.z,
                 y: v.y,
               }))
               const edifBaseY = (efv.reduce((s, v) => s + v.y, 0) / efv.length - realMinE) * vExag
@@ -832,7 +832,7 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
             const sR = Math.max(realRange * 0.016, 0.7)
             vp.anomalias.forEach(a => {
               const ax = a.sx
-              const az = a.sz
+              const az = maxZFlip - a.sz
               const aY = baseY + 0.5 + a.yFrac * wallH
 
               // Esfera vermelha
@@ -875,9 +875,9 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
           if (vp.paredes?.length > 0) {
             vp.paredes.forEach(p => {
               const pSX = p.startSx
-              const pSZ = p.startSz
+              const pSZ = maxZFlip - p.startSz
               const pEX = p.endSx
-              const pEZ = p.endSz
+              const pEZ = maxZFlip - p.endSz
               const yBot = baseY + 0.5 + p.yBaseFrac * wallH
               const yTop = baseY + 0.5 + (p.yBaseFrac + p.wallFrac) * wallH
 
@@ -932,7 +932,7 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
 
         monitoramentoMarkers.forEach(marker => {
           const mx    = marker.x
-          const mz    = marker.z
+          const mz    = maxZFlip - marker.z
           const baseY = (marker.y - realMinE) * vExag
 
           const corImovel = marker.numAnomalias === 0 ? '#22c55e'
@@ -941,7 +941,7 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
 
           // ── Se tem vértices da casa → renderiza edifício 3D ────
           const fvCasa = (marker.verticesCasa || []).map(v => ({
-            x: v.x, z: v.z, y: v.y,
+            x: v.x, z: maxZFlip - v.z, y: v.y,
           }))
           const temEdificio = fvCasa.length >= 3
 
@@ -1066,7 +1066,7 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
             marker.trincasGeometry.forEach(t => {
               if (t.point) {
                 const ptX = t.point.sx
-                const ptZ = t.point.sz
+                const ptZ = maxZFlip - t.point.sz
                 const ptY = bBaseY + 0.4 + t.point.yFrac * wallH
                 const sph = new THREE.Mesh(
                   new THREE.SphereGeometry(trR, 10, 10),
@@ -1080,7 +1080,7 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
               }
               if (t.linhasTrinca?.length >= 2) {
                 const linePts = t.linhasTrinca.map(p => new THREE.Vector3(
-                  p.sx, bBaseY + 0.4 + p.yFrac * wallH, p.sz
+                  p.sx, bBaseY + 0.4 + p.yFrac * wallH, maxZFlip - p.sz
                 ))
                 try {
                   const curve = new THREE.CatmullRomCurve3(linePts)
@@ -1100,7 +1100,7 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
                     new THREE.SphereGeometry(trR * 0.55, 8, 8),
                     new THREE.MeshLambertMaterial({ color: 0x2563eb })
                   )
-                  dot.position.set(p.sx, bBaseY + 0.4 + p.yFrac * wallH, p.sz)
+                  dot.position.set(p.sx, bBaseY + 0.4 + p.yFrac * wallH, maxZFlip - p.sz)
                   scene.add(dot)
                 })
               }
@@ -1111,9 +1111,9 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
           if (marker.paredesAnomalia?.length > 0) {
             marker.paredesAnomalia.forEach(p => {
               const pSX = p.startSx
-              const pSZ = p.startSz
+              const pSZ = maxZFlip - p.startSz
               const pEX = p.endSx
-              const pEZ = p.endSz
+              const pEZ = maxZFlip - p.endSz
               const yBot = bBaseY + 0.4 + p.yBaseFrac * wallH
               const yTop = bBaseY + 0.4 + (p.yBaseFrac + p.wallFrac) * wallH
 
