@@ -555,6 +555,8 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
 
   const contourGroupRef  = useRef(null)
   const [showContours, setShowContours] = useState(true)
+  const buildingCenterRef = useRef(null)
+  const [hasBuildingInScene, setHasBuildingInScene] = useState(false)
 
   useEffect(() => {
     // Limpa texturas ao trocar de polígono/modo
@@ -594,9 +596,10 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
     controls.enableDamping = true
     controls.dampingFactor = 0.07
     controls.rotateSpeed   = 0.8
-    controls.zoomSpeed     = 1.2
-    controls.minDistance   = 0.5
+    controls.zoomSpeed     = 2.5
+    controls.minDistance   = 0.1
     controls.maxDistance   = 500000
+    controls.zoomToCursor  = true
     cameraRef.current   = camera
     controlsRef.current = controls
 
@@ -1013,6 +1016,18 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
             const bx = fvCasa.reduce((s, v) => s + v.x, 0) / fvCasa.length
             const bz = fvCasa.reduce((s, v) => s + v.z, 0) / fvCasa.length
             const bBaseY = (fvCasa.reduce((s, v) => s + v.y, 0) / fvCasa.length - realMinE) * vExag
+
+            // Armazena centro do imóvel para o botão "Focar"
+            const bSize = Math.max(
+              Math.max(...fvCasa.map(v => v.x)) - Math.min(...fvCasa.map(v => v.x)),
+              Math.max(...fvCasa.map(v => v.z)) - Math.min(...fvCasa.map(v => v.z)),
+              4,
+            )
+            const wallHEst = marker.alturaCasa
+              ? marker.alturaCasa * Math.max(vExag, 1)
+              : Math.max(realRange * 0.18, 3) * Math.max(vExag, 1)
+            buildingCenterRef.current = { x: bx, y: bBaseY + wallHEst * 0.5, z: bz, size: bSize, wallH: wallHEst }
+            setHasBuildingInScene(true)
 
             const wallH = marker.alturaCasa
               ? marker.alturaCasa * Math.max(vExag, 1)
@@ -1559,10 +1574,51 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
     const cam  = cameraRef.current
     const ctrl = controlsRef.current
     if (!cam || !ctrl) return
-    const dir = cam.position.clone().sub(ctrl.target)
-    dir.multiplyScalar(factor)
-    cam.position.copy(ctrl.target).add(dir)
-    ctrl.update()
+    const startDir = cam.position.clone().sub(ctrl.target)
+    const endDir   = startDir.clone().multiplyScalar(factor)
+    const minD = ctrl.minDistance || 0.1
+    const maxD = ctrl.maxDistance || 500000
+    const endLen = endDir.length()
+    if (endLen < minD) endDir.setLength(minD)
+    if (endLen > maxD) endDir.setLength(maxD)
+    const startPos = cam.position.clone()
+    const endPos   = ctrl.target.clone().add(endDir)
+    let t = 0
+    function step() {
+      t = Math.min(t + 0.14, 1)
+      const e = 1 - Math.pow(1 - t, 3)
+      cam.position.lerpVectors(startPos, endPos, e)
+      if (t < 1) requestAnimationFrame(step)
+    }
+    requestAnimationFrame(step)
+  }
+
+  function handleFocusBuilding() {
+    const bc   = buildingCenterRef.current
+    const cam  = cameraRef.current
+    const ctrl = controlsRef.current
+    if (!bc || !cam || !ctrl) return
+    const target = new THREE.Vector3(bc.x, bc.y, bc.z)
+    const dist   = Math.max(bc.size * 2.8, bc.wallH * 2.5, 12)
+    const endCam = new THREE.Vector3(
+      bc.x - dist * 0.55,
+      bc.y + dist * 0.85,
+      bc.z + dist * 0.75,
+    )
+    const startCam    = cam.position.clone()
+    const startTarget = ctrl.target.clone()
+    ctrl.enabled = false
+    let t = 0
+    function step() {
+      t = Math.min(t + 0.05, 1)
+      const e = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+      cam.position.lerpVectors(startCam, endCam, e)
+      ctrl.target.lerpVectors(startTarget, target, e)
+      ctrl.update()
+      if (t < 1) { requestAnimationFrame(step) }
+      else { ctrl.enabled = true; ctrl.update() }
+    }
+    requestAnimationFrame(step)
   }
 
   // ── Toggle textura de satélite ─────────────────────────────────────
@@ -1941,7 +1997,7 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 11, color: '#475569' }}>
-              Arraste → rotacionar &nbsp;·&nbsp; Scroll → zoom
+              Arraste → rotacionar &nbsp;·&nbsp; Scroll → zoom no cursor &nbsp;·&nbsp; Botão dir. → mover câmera
             </span>
           </div>
         </div>
@@ -2150,23 +2206,40 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
           </div>
         )}
 
-        {/* Botões Zoom ± */}
+        {/* Botões Zoom ± e Focar Imóvel */}
         <div style={{
-          position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)',
-          zIndex: 15, display: 'flex', flexDirection: 'column', gap: 8,
+          position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
+          zIndex: 15, display: 'flex', flexDirection: 'column', gap: 6,
         }}>
-          <button onClick={() => handleZoom(0.7)} style={{
-            background: '#1e293b', border: '1.5px solid #475569', color: '#e2e8f0',
-            borderRadius: 8, width: 38, height: 38, fontSize: 22, fontWeight: 700,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-          }}>+</button>
-          <button onClick={() => handleZoom(1.4)} style={{
-            background: '#1e293b', border: '1.5px solid #475569', color: '#e2e8f0',
-            borderRadius: 8, width: 38, height: 38, fontSize: 26, fontWeight: 700,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-          }}>−</button>
+          <button onClick={() => handleZoom(0.55)} title="Aproximar (zoom +)"
+            style={{
+              background: '#1e3a5f', border: '1.5px solid #3b82f6', color: '#93c5fd',
+              borderRadius: 9, width: 42, height: 42, fontSize: 24, fontWeight: 800,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 3px 10px rgba(0,0,0,0.6)',
+              userSelect: 'none',
+            }}>+</button>
+
+          {hasBuildingInScene && (
+            <button onClick={handleFocusBuilding} title="Focar no imóvel"
+              style={{
+                background: '#1a3a1a', border: '1.5px solid #22c55e', color: '#4ade80',
+                borderRadius: 9, width: 42, height: 42, fontSize: 18,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 3px 10px rgba(0,0,0,0.6)',
+                userSelect: 'none',
+              }}>🏠</button>
+          )}
+
+          <button onClick={() => handleZoom(1.6)} title="Afastar (zoom −)"
+            style={{
+              background: '#1e293b', border: '1.5px solid #475569', color: '#94a3b8',
+              borderRadius: 9, width: 42, height: 42, fontSize: 28, fontWeight: 800,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 3px 10px rgba(0,0,0,0.6)',
+              userSelect: 'none',
+              lineHeight: 1,
+            }}>−</button>
         </div>
 
         {webglErr ? (
