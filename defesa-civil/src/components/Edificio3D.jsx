@@ -182,13 +182,20 @@ export default function Edificio3D({
       edgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(edgePts, 3))
       scene.add(new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: 0x2a4060 })))
 
-      // Esferas nos vértices do polígono externo — marcadores de snap
-      pts.forEach(v => {
+      // Esferas nos vértices do polígono externo — marcadores de snap com numeração
+      pts.forEach((v, i) => {
         const dot = new THREE.Mesh(
           new THREE.SphereGeometry(0.26, 10, 10),
           new THREE.MeshLambertMaterial({ color: 0xfbbf24, emissive: new THREE.Color(0x221100) })
         )
         dot.position.set(v.x, 0.1, v.z); dot.userData.isSnapDot = true; scene.add(dot)
+
+        // Rótulo V1, V2, V3… acima da esfera
+        const lbl = makeLabel(`V${i + 1}`, 'rgba(30,58,138,0.88)')
+        lbl.position.set(v.x, 1.1, v.z)
+        lbl.scale.set(1.6, 1.6, 1)
+        lbl.userData.isSnapDot = true
+        scene.add(lbl)
       })
     }
 
