@@ -49,13 +49,25 @@ const diffLabelPlugin = {
 const vistoriaLinePlugin = {
   id: 'vistoriaLines',
   afterDraw(chart) {
-    const dates = chart.options.plugins?.vistoriaLines?.dates
+    const opts  = chart.options.plugins?.vistoriaLines
+    const dates = opts?.dates
     if (!dates?.length) return
     const { ctx, chartArea, scales, data } = chart
-    dates.forEach(d => {
-      const idx = data.labels.indexOf(d)
-      if (idx === -1) return
-      const x = scales.x.getPixelForValue(idx)
+    const N = dates.length
+
+    dates.forEach((d, i) => {
+      let x
+      if (opts?.evenlySpaced) {
+        // Distribui uniformemente: 1ª = borda esq, última = borda dir, meio = proporcionais
+        x = N === 1
+          ? chartArea.left
+          : chartArea.left + (i / (N - 1)) * (chartArea.right - chartArea.left)
+      } else {
+        const idx = data.labels.indexOf(d)
+        if (idx === -1) return
+        x = scales.x.getPixelForValue(idx)
+      }
+
       ctx.save()
       ctx.strokeStyle = 'rgba(37,99,235,0.55)'
       ctx.lineWidth = 1.5
@@ -69,6 +81,14 @@ const vistoriaLinePlugin = {
       ctx.font = 'bold 8px sans-serif'
       ctx.textAlign = 'center'
       ctx.fillText('▼', x, chartArea.top + 9)
+
+      // Quando espaçamento uniforme, desenha o label de data abaixo da área
+      if (opts?.evenlySpaced) {
+        ctx.font = 'bold 9px sans-serif'
+        ctx.fillStyle = '#1d4ed8'
+        ctx.textBaseline = 'top'
+        ctx.fillText(d, x, chartArea.bottom + 4)
+      }
       ctx.restore()
     })
   }
@@ -273,7 +293,7 @@ export default function MonitoramentoEvolucao() {
           label: ctx => `${ctx.parsed.y.toFixed(1)} mm`,
         }
       },
-      vistoriaLines: { dates: vistoriaDMM },
+      vistoriaLines: { dates: vistoriaDMM, evenlySpaced: true },
     },
     scales: {
       y: {
@@ -290,14 +310,8 @@ export default function MonitoramentoEvolucao() {
           maxRotation: 0,
           minRotation: 0,
           autoSkip: false,
-          color: (ctx) => {
-            const label = precipChartData?.labels?.[ctx.index] ?? ''
-            return vistoriaDMM.includes(label) ? '#1d4ed8' : '#d1d5db'
-          },
-          callback: function (val) {
-            const label = this.getLabelForValue(val)
-            return vistoriaDMM.includes(label) ? label : ''
-          },
+          color: '#d1d5db',
+          callback: function () { return '' },
         },
         grid: { display: false },
       }
