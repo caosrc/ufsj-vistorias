@@ -1911,8 +1911,8 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
         const grad = gradAt(psx, psz)
         if (!grad || grad.mag < 0.0002) continue
 
-        const flowX = grad.gx / grad.mag
-        const flowZ = grad.gz / grad.mag
+        const flowX = -grad.gx / grad.mag
+        const flowZ = -grad.gz / grad.mag
         const psy   = elevAt(psx, psz)
         const arrowLen = Math.min(step * 0.75, radius * 0.28) * Math.min(1 + grad.mag * 3, 2)
         if (arrowLen < 0.2) continue
@@ -1943,8 +1943,8 @@ export default function TerrainProfile3D({ mode, perfil, gridData, lateralDists,
     // 4. Seta principal no centro (mais grossa, com label)
     const mainGrad = gradAt(sx, sz)
     if (mainGrad && mainGrad.mag > 0.0001) {
-      const fx = mainGrad.gx / mainGrad.mag
-      const fz = mainGrad.gz / mainGrad.mag
+      const fx = -mainGrad.gx / mainGrad.mag
+      const fz = -mainGrad.gz / mainGrad.mag
       const mainLen = radius * 0.5
 
       const mLine = new THREE.Line(
