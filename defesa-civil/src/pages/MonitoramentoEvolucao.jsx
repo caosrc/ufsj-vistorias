@@ -139,7 +139,7 @@ export default function MonitoramentoEvolucao() {
     const reportDates = [...imovel.relatoriosSalvos]
       .map(r => new Date(r.createdAt))
       .sort((a, b) => a - b)
-    const minDate = addDays(reportDates[0], -3)
+    const minDate = reportDates[0]
     const maxDate = reportDates[reportDates.length - 1]
     const days = []
     const cur = new Date(minDate); cur.setUTCHours(0, 0, 0, 0)
@@ -284,6 +284,7 @@ export default function MonitoramentoEvolucao() {
         grid: { color: 'rgba(0,0,0,0.04)' },
       },
       x: {
+        offset: false,
         ticks: {
           font: { size: 9 },
           maxRotation: 0,
