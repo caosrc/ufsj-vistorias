@@ -82,19 +82,19 @@ const sortAnomalyKeys = (a, b) =>
 const PRECIP_KEY = 'precipitacoes_csv'
 
 function addDays(date, n) {
-  const d = new Date(date); d.setDate(d.getDate() + n); return d
+  const d = new Date(date); d.setUTCDate(d.getUTCDate() + n); return d
 }
 function toYMD(date) {
   const d = new Date(date)
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`
 }
 function toDMM(date) {
   const d = new Date(date)
-  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`
+  return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}`
 }
 function toDMY(date) {
   const d = new Date(date)
-  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+  return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${d.getUTCFullYear()}`
 }
 
 function barColor(v, max) {
@@ -142,11 +142,11 @@ export default function MonitoramentoEvolucao() {
     const minDate = addDays(reportDates[0], -3)
     const maxDate = reportDates[reportDates.length - 1]
     const days = []
-    const cur = new Date(minDate); cur.setHours(0, 0, 0, 0)
-    const end = new Date(maxDate); end.setHours(23, 59, 59, 999)
+    const cur = new Date(minDate); cur.setUTCHours(0, 0, 0, 0)
+    const end = new Date(maxDate); end.setUTCHours(23, 59, 59, 999)
     while (cur <= end) {
       days.push({ label: toDMM(cur), ymd: toYMD(cur) })
-      cur.setDate(cur.getDate() + 1)
+      cur.setUTCDate(cur.getUTCDate() + 1)
     }
     return days
   }, [imovel])

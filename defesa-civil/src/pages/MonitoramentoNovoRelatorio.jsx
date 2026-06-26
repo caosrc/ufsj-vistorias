@@ -174,7 +174,10 @@ export default function MonitoramentoNovoRelatorio() {
       const fotosCopy = JSON.parse(JSON.stringify(imovel?.fotosAnomalias || []))
       fotosCopy.sort(naturalSort)
       const metodoAtual = metodo || 1
-      for (let i = 0; i < fotosCopy.length; i++) fotosCopy[i].url = await rasterizePhoto(fotosCopy[i], metodoAtual)
+      for (let i = 0; i < fotosCopy.length; i++) {
+        const rasterized = await rasterizePhoto(fotosCopy[i], metodoAtual)
+        if (rasterized !== null) fotosCopy[i].url = rasterized
+      }
       const fotoCodes = fotosCopy.map(f => f.codigoTrinca).join(', ')
       const anomaliaCodes = anomalias3D.map(a => a.nome).join(', ')
       const allCodes = [fotoCodes, anomaliaCodes].filter(Boolean).join(' + ')
