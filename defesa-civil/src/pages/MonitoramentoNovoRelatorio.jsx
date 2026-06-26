@@ -135,10 +135,13 @@ export default function MonitoramentoNovoRelatorio() {
             const avg = valid.reduce((a, b) => a + b, 0) / valid.length
             const prefix = (fotoMetodo === 2 && line.nome) ? `${line.nome}: ` : 'Ø '
             const text = `${prefix}${avg.toFixed(2).replace('.', ',')} mm`
-            ctx.font = `${fontSize}px sans-serif`
+            ctx.font = `bold ${fontSize}px sans-serif`
             ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
-            ctx.fillStyle = 'white'; ctx.strokeStyle = lineColor; ctx.lineWidth = 3
-            ctx.strokeText(text, midX, midY - 8); ctx.fillStyle = lineColor; ctx.fillText(text, midX, midY - 8)
+            ctx.lineWidth = 4
+            ctx.strokeStyle = 'rgba(255,255,255,0.95)'
+            ctx.strokeText(text, midX, midY - 8)
+            ctx.fillStyle = fotoMetodo === 2 ? lineColor : '#000'
+            ctx.fillText(text, midX, midY - 8)
           }
         }
       }
