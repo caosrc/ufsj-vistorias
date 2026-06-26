@@ -78,8 +78,21 @@ export default function MonitoramentoRelatorio() {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error || `Erro ${res.status}`)
       }
-      const data = await res.json()
-      setReport(data.relatorio)
+      // Aplica as mudanças localmente, preservando todas as fotos do estado atual
+      // (evita depender do response do servidor que pode ter fotos grandes em base64)
+      setReport(prev => ({
+        ...prev,
+        createdAt: newDate,
+        fotosAnomalias: (prev.fotosAnomalias || []).map(foto => ({
+          ...foto,
+          linhas: (foto.linhas || []).map(line => {
+            const key = `${foto.id}_${line.id}`
+            return editMeasures[key] !== undefined
+              ? { ...line, comprimentos: editMeasures[key] }
+              : line
+          })
+        }))
+      }))
       setEditMode(false)
     } catch (err) {
       alert('Erro ao salvar: ' + (err.message || 'Tente novamente.'))
