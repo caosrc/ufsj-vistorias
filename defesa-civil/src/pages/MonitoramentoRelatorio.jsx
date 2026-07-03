@@ -186,7 +186,21 @@ export default function MonitoramentoRelatorio() {
             O SVG overlay só aparece no modo de edição para refletir
             os valores novos enquanto o usuário edita. */}
         <div className={styles.anomalyImgWrap}>
-          <img src={foto.url} alt={`Anomalia ${foto.codigoTrinca}`} className={styles.anomalyImg} />
+          {foto.url ? (
+            <img src={foto.url} alt={`Anomalia ${foto.codigoTrinca}`} className={styles.anomalyImg} />
+          ) : (
+            <div className={styles.anomalyImg} style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              background: '#f1f5f9', color: '#64748b', fontSize: 13, gap: 6, minHeight: 140,
+            }}>
+              <span style={{ fontSize: 32 }}>📷</span>
+              <span style={{ fontWeight: 600 }}>Imagem não disponível</span>
+              <span style={{ fontSize: 11, textAlign: 'center', padding: '0 8px' }}>
+                Foto removida automaticamente por limite de armazenamento.<br />
+                As medições abaixo foram preservadas.
+              </span>
+            </div>
+          )}
           {editMode && foto.pontos?.map(point => (
             <div
               key={point.id}

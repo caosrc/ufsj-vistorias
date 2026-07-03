@@ -105,7 +105,8 @@ export default function MonitoramentoNovoRelatorio() {
         if (!url.startsWith('data:') && !url.startsWith('blob:')) i.crossOrigin = 'Anonymous'
         i.onload = () => resolve(i); i.onerror = reject; i.src = url
       })
-      const MAX_DIM = 1200
+      // Dimensão máxima reduzida para 700px e qualidade 0.50 para manter fotos compactas no banco
+      const MAX_DIM = 700
       const scale = Math.min(1, MAX_DIM / Math.max(img.naturalWidth || 800, img.naturalHeight || 600))
       const canvas = document.createElement('canvas')
       canvas.width  = Math.round((img.naturalWidth  || 800) * scale)
@@ -156,7 +157,7 @@ export default function MonitoramentoNovoRelatorio() {
           ctx.fillText(point.codigo, cx, cy)
         }
       }
-      return canvas.toDataURL('image/jpeg', 0.78)
+      return canvas.toDataURL('image/jpeg', 0.50)
     } catch {
       if (foto.url && foto.url.startsWith('data:')) return foto.url
       return null
@@ -177,10 +178,21 @@ export default function MonitoramentoNovoRelatorio() {
         const rasterized = await rasterizePhoto(fotosCopy[i], metodoAtual)
         if (rasterized !== null) {
           fotosCopy[i].url = rasterized
+        } else {
+          // Rasterização falhou (url era null, blob: expirado, ou CORS)
+          // Normaliza a URL para null para que a lógica abaixo preserve a foto se tiver medições
+          if (!fotosCopy[i].url || !fotosCopy[i].url.startsWith('data:')) {
+            fotosCopy[i].url = null
+          }
         }
       }
-      // Filtra fotos sem URL válida (data:) para não salvar URLs de blob expirado
-      const fotosValidas = fotosCopy.filter(f => f.url && f.url.startsWith('data:'))
+      // Mantém fotos com data: URL válida OU fotos sem URL mas com dados de medição (stripped pelo banco)
+      // Nunca remove fotos só porque perderam a imagem — os dados de medição devem ser preservados
+      const fotosValidas = fotosCopy.filter(f =>
+        (f.url && f.url.startsWith('data:')) ||
+        (!f.url && (f.linhas?.length > 0 || f.pontos?.length > 0))
+      )
+      // Fotos sem URL válida e sem dados de medição podem ser descartadas (nunca foram preenchidas)
       fotosCopy.length = 0
       fotosValidas.forEach(f => fotosCopy.push(f))
       const fotoCodes = fotosCopy.map(f => f.codigoTrinca).join(', ')
@@ -422,9 +434,20 @@ export default function MonitoramentoNovoRelatorio() {
               <div className={styles.photoGrid}>
                 {sortedPhotos.map(foto => (
                   <div key={foto.id} className={styles.photoCard} onClick={() => { setActivePhotoId(foto.id); setShowNextPrompt(false) }}>
-                    <img src={foto.url} alt={foto.codigoTrinca} className={styles.photoImg} />
+                    {foto.url ? (
+                      <img src={foto.url} alt={foto.codigoTrinca} className={styles.photoImg} />
+                    ) : (
+                      <div className={styles.photoImg} style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        background: '#f1f5f9', color: '#94a3b8', fontSize: 11, gap: 4,
+                      }}>
+                        <span style={{ fontSize: 24 }}>📷</span>
+                        <span style={{ fontWeight: 600, color: '#64748b' }}>{foto.codigoTrinca}</span>
+                        <span style={{ textAlign: 'center' }}>Imagem removida<br/>Medições preservadas</span>
+                      </div>
+                    )}
                     <div className={styles.photoOverlay}>{foto.codigoTrinca}</div>
-                    <div className={styles.photoHover}>Ver / Editar</div>
+                    <div className={styles.photoHover}>{foto.url ? 'Ver / Editar' : 'Ver medições'}</div>
                   </div>
                 ))}
               </div>

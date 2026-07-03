@@ -88,18 +88,56 @@ function mapImovel(r) {
   }
 }
 
-const D1_LIMIT = 800_000
+// Limite conservador — D1 permite ~1MB por linha, mas guardamos margem para outros campos
+const D1_LIMIT = 700_000
 
 function stripOldImages(reports) {
-  const j = JSON.stringify(reports)
-  if (j.length <= D1_LIMIT) return reports
-  const copy = reports.map(r => ({ ...r, fotosAnomalias: (r.fotosAnomalias || []).map(f => ({ ...f })) }))
-  for (let i = 0; i < copy.length - 1 && JSON.stringify(copy).length > D1_LIMIT; i++) {
-    copy[i].fotosAnomalias = (copy[i].fotosAnomalias || []).map(f => ({
-      ...f,
-      url: f.url?.startsWith('data:') ? null : f.url,
-    }))
+  if (JSON.stringify(reports).length <= D1_LIMIT) return reports
+
+  // Cópia profunda das fotosAnomalias para não mutar o original
+  const copy = reports.map(r => ({
+    ...r,
+    fotosAnomalias: (r.fotosAnomalias || []).map(f => ({ ...f })),
+  }))
+
+  // Encontra o índice do relatório mais recente por data (não por posição no array)
+  let newestIdx = 0
+  let newestDate = 0
+  copy.forEach((r, i) => {
+    const d = new Date(r.createdAt || 0).getTime()
+    if (d > newestDate) { newestDate = d; newestIdx = i }
+  })
+
+  // Ordena cópias por data mais antiga primeiro para strips
+  const byAge = copy
+    .map((r, idx) => ({ idx, date: new Date(r.createdAt || 0).getTime() }))
+    .sort((a, b) => a.date - b.date)
+
+  // 1ª passagem: remove fotos foto-a-foto dos mais antigos, pulando o mais recente
+  outer1:
+  for (const { idx } of byAge) {
+    if (idx === newestIdx) continue
+    const fotos = copy[idx].fotosAnomalias || []
+    for (let fi = 0; fi < fotos.length; fi++) {
+      if (fotos[fi].url?.startsWith('data:')) {
+        fotos[fi].url = null
+        if (JSON.stringify(copy).length <= D1_LIMIT) break outer1
+      }
+    }
   }
+
+  // 2ª passagem (fallback): se ainda acima do limite, remove do mais recente também
+  if (JSON.stringify(copy).length > D1_LIMIT) {
+    const fotos = copy[newestIdx]?.fotosAnomalias || []
+    outer2:
+    for (let fi = 0; fi < fotos.length; fi++) {
+      if (fotos[fi].url?.startsWith('data:')) {
+        fotos[fi].url = null
+        if (JSON.stringify(copy).length <= D1_LIMIT) break outer2
+      }
+    }
+  }
+
   return copy
 }
 
@@ -496,10 +534,11 @@ export default {
             })
           }))
         }
+        const relsToSave = stripOldImages(rels)
         await env.DB.prepare(
           `UPDATE vistoria_monitoramento SET relatorios_salvos=?, updated_at=datetime('now') WHERE id=?`
-        ).bind(JSON.stringify(rels), id).run()
-        return json({ ok: true, relatorio: rels[idx] })
+        ).bind(JSON.stringify(relsToSave), id).run()
+        return json({ ok: true, relatorio: relsToSave[idx] })
       } catch (e) { return json({ error: e.message }, 500) }
     }
 

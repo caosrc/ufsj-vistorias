@@ -12,19 +12,19 @@ function dataURLtoBlob(dataurl) {
   return new Blob([u8arr], { type: mime })
 }
 
-function compressImage(dataUrl, maxW = 1200) {
+function compressImage(dataUrl, maxW = 700) {
   return new Promise((resolve) => {
     const img = new Image()
     img.onload = () => {
-      const scale = Math.min(1, maxW / img.width)
-      const w = img.width * scale
-      const h = img.height * scale
+      const scale = Math.min(1, maxW / Math.max(img.width, img.height))
+      const w = Math.round(img.width * scale)
+      const h = Math.round(img.height * scale)
       const canvas = document.createElement('canvas')
       canvas.width = w
       canvas.height = h
       const ctx = canvas.getContext('2d')
       ctx.drawImage(img, 0, 0, w, h)
-      resolve(canvas.toDataURL('image/jpeg', 0.75))
+      resolve(canvas.toDataURL('image/jpeg', 0.50))
     }
     img.src = dataUrl
   })
@@ -54,6 +54,8 @@ export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVi
   const [editingLineId, setEditingLineId] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
   const [toast, setToast] = useState(null)
+  // Controla se o input de arquivo está em modo "substituir imagem existente" (vs. adicionar nova)
+  const replacingImageRef = useRef(false)
 
   const imageRef = useRef(null)
   const videoRef = useRef(null)
@@ -239,6 +241,17 @@ export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVi
     const reader = new FileReader()
     reader.onload = async (ev) => {
       const compressed = await compressImage(ev.target.result)
+      // Modo substituição: atualiza a URL da foto atual sem criar nova entrada
+      if (replacingImageRef.current) {
+        replacingImageRef.current = false
+        if (!activePhoto) return
+        const updatedPhoto = { ...activePhoto, url: compressed }
+        setActivePhoto(updatedPhoto)
+        const updatedFotos = (vistoria.fotosAnomalias || []).map(p => p.id === activePhoto.id ? updatedPhoto : p)
+        onVistoriaChange({ ...vistoria, fotosAnomalias: updatedFotos })
+        showToast(`Imagem de ${activePhoto.codigoTrinca} substituída — salve para confirmar`)
+        return
+      }
       if (defaultCrackCode) {
         setNewlyCapturedImage(compressed)
         savePhotoWithCode(compressed, defaultCrackCode)
@@ -410,8 +423,28 @@ export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVi
               : 'Selecione dois pontos para criar uma linha e medir.')}
       </p>
 
-      <div ref={imageRef} onClick={handleImageClick} className={`${styles.imageContainer} ${activeTab === 'pontos' && (metodo !== 2 || pontos.length < 3) ? styles.crosshair : ''}`}>
-        <img src={activePhoto.url} alt={activePhoto.codigoTrinca} className={styles.img} />
+      <div ref={imageRef} onClick={activePhoto.url ? handleImageClick : undefined} className={`${styles.imageContainer} ${activePhoto.url && activeTab === 'pontos' && (metodo !== 2 || pontos.length < 3) ? styles.crosshair : ''}`}>
+        {activePhoto.url ? (
+          <img src={activePhoto.url} alt={activePhoto.codigoTrinca} className={styles.img} />
+        ) : (
+          <div className={styles.img} style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            background: '#f1f5f9', color: '#64748b', gap: 10, minHeight: 200,
+          }}>
+            <span style={{ fontSize: 40 }}>📷</span>
+            <span style={{ fontWeight: 700, fontSize: 15 }}>Imagem não disponível</span>
+            <span style={{ fontSize: 13, textAlign: 'center', padding: '0 16px' }}>
+              Esta foto foi removida automaticamente por limite de armazenamento.<br />
+              As medições estão preservadas abaixo.
+            </span>
+            <button
+              onClick={() => { replacingImageRef.current = true; fileInputRef.current?.click() }}
+              style={{ marginTop: 8, background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}
+            >
+              📁 Reenviar foto desta anomalia
+            </button>
+          </div>
+        )}
         {pontos.map(point => (
           <div key={point.id} onClick={e => handlePointClick(e, point.id)}
             className={`${styles.point} ${activeTab === 'linhas' && metodo !== 2 ? styles.pointClickable : ''} ${selectedPoints.includes(point.id) ? styles.pointSelected : ''}`}
