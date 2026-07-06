@@ -39,13 +39,13 @@ waitForPort = 5000
 name = "Vite Frontend"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd defesa-civil && npx vite --port 5173 --host 0.0.0.0"
+args = "cd defesa-civil && npm run dev -- --port 5173 --host 0.0.0.0"
 waitForPort = 5173
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [[ports]]
 localPort = 5000

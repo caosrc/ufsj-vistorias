@@ -5,7 +5,7 @@ import Vistoria from './pages/Vistoria'
 import Imoveis from './pages/Imoveis'
 import Dashboard from './pages/Dashboard'
 import Declividade from './pages/Declividade'
-import SimulacaoChuva from './pages/SimulacaoChuva'
+
 import MonitoramentoHome from './pages/MonitoramentoHome'
 import Monitoramento from './pages/Monitoramento'
 import MonitoramentoNovo from './pages/MonitoramentoNovo'
@@ -30,7 +30,7 @@ export default function App() {
           <Route path='/imoveis' element={<Imoveis />} />
           <Route path='/dashboard' element={<Dashboard />} />
           <Route path='/declividade' element={<Declividade />} />
-          <Route path='/simulacao-chuva' element={<SimulacaoChuva />} />
+
           <Route path='/monitoramento' element={<MonitoramentoHome />} />
           <Route path='/monitoramento/imoveis' element={<Monitoramento />} />
           <Route path='/monitoramento/novo-imovel' element={<MonitoramentoNovo />} />
