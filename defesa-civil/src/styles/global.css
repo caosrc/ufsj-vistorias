@@ -97,3 +97,13 @@ input, textarea, select {
 .imovel-nome-tooltip::before {
   display: none !important;
 }
+
+/* ── Impressão / PDF via browser: ocultar navegação do app ──── */
+@media print {
+  #bottom-nav-app,
+  [class*="Sidebar_sidebar"],
+  [class*="BottomNav_nav"] {
+    display: none !important;
+  }
+  body { background: #fff !important; }
+}

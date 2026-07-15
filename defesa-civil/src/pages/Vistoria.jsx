@@ -877,133 +877,381 @@ function Dashboard({ vistorias }) {
   )
 }
 
-// ── PDF export — Relatório individual de vistoria ────────────────
-function exportarPDFVistoria(v) {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-  const W = 210; const PL = 16; const PR = 16; const TW = W - PL - PR
-  let y = 0
+// ── Gera planta 2D (vista superior) do imóvel com trincas ────────
+function gerarPlanta2D(v) {
+  return new Promise(resolve => {
+    let areaVerts = []
+    try { areaVerts = v.area_vertices ? (typeof v.area_vertices === 'string' ? JSON.parse(v.area_vertices) : v.area_vertices) : [] } catch (_) {}
 
-  // ── Cabeçalho colorido ──
-  const riscoObj  = NIVEIS_RISCO.find(r => r.value === v.risco) || {}
-  const riscoCor  = riscoObj.color || '#374151'
-  const hexToRgb  = hex => {
-    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16)
-    return [r,g,b]
-  }
+    let construcoes = []
+    try { construcoes = v.construcoes ? (typeof v.construcoes === 'string' ? JSON.parse(v.construcoes) : v.construcoes) : [] } catch (_) {}
+
+    if (!Array.isArray(areaVerts) || areaVerts.length < 3) { resolve(null); return }
+
+    const SIZE = 500, MARGIN = 60
+    const canvas = document.createElement('canvas')
+    canvas.width = SIZE; canvas.height = SIZE
+    const ctx = canvas.getContext('2d')
+
+    // Fundo branco + grade sutil
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, SIZE, SIZE)
+    ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 0.8
+    for (let i = 0; i <= SIZE; i += 50) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, SIZE); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(SIZE, i); ctx.stroke()
+    }
+
+    // Construir sistema de coordenadas locais (igual ao Edificio3D)
+    const ref = areaVerts[0]
+    const R = 6371000, cosLat = Math.cos(ref.lat * Math.PI / 180)
+    const raw = areaVerts.map(pt => ({
+      x: (pt.lng - ref.lng) * cosLat * Math.PI / 180 * R,
+      z: -(pt.lat - ref.lat) * Math.PI / 180 * R,
+    }))
+    const cx0 = raw.reduce((s, p) => s + p.x, 0) / raw.length
+    const cz0 = raw.reduce((s, p) => s + p.z, 0) / raw.length
+    const centered = raw.map(p => ({ x: p.x - cx0, z: p.z - cz0 }))
+    const maxR = Math.max(...centered.map(p => Math.sqrt(p.x * p.x + p.z * p.z)), 0.1)
+    const localScale = 12 / maxR
+    const bPts = centered.map(p => ({ x: p.x * localScale, z: p.z * localScale }))
+
+    // Bounding box (building + anomalias)
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity
+    bPts.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z) })
+    if (Array.isArray(construcoes)) {
+      construcoes.forEach(a => {
+        ['startPoint','endPoint'].forEach(k => {
+          if (a[k]) { minX = Math.min(minX, a[k].x); maxX = Math.max(maxX, a[k].x); minZ = Math.min(minZ, a[k].z); maxZ = Math.max(maxZ, a[k].z) }
+        })
+      })
+    }
+    const rangeX = (maxX - minX) || 1, rangeZ = (maxZ - minZ) || 1
+    const drawSize = SIZE - 2 * MARGIN
+    const pxScale = drawSize / Math.max(rangeX, rangeZ)
+    const offX = MARGIN + (drawSize - rangeX * pxScale) / 2
+    const offZ = MARGIN + (drawSize - rangeZ * pxScale) / 2
+    const tc = (x, z) => ({ cx: offX + (x - minX) * pxScale, cy: offZ + (z - minZ) * pxScale })
+
+    // Sombra do imóvel
+    ctx.shadowColor = 'rgba(30,58,138,0.15)'; ctx.shadowBlur = 14; ctx.shadowOffsetX = 4; ctx.shadowOffsetY = 4
+    ctx.beginPath()
+    bPts.forEach((p, i) => { const { cx, cy } = tc(p.x, p.z); i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy) })
+    ctx.closePath()
+    ctx.fillStyle = 'rgba(219,234,254,0.7)'; ctx.fill()
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0
+
+    // Perímetro do imóvel
+    ctx.beginPath()
+    bPts.forEach((p, i) => { const { cx, cy } = tc(p.x, p.z); i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy) })
+    ctx.closePath()
+    ctx.strokeStyle = '#1e3a8a'; ctx.lineWidth = 2.5; ctx.setLineDash([]); ctx.stroke()
+
+    // Vértices e cotas de distância
+    for (let i = 0; i < bPts.length; i++) {
+      const p = bPts[i], nxt = bPts[(i + 1) % bPts.length]
+      const pC = tc(p.x, p.z), nC = tc(nxt.x, nxt.z)
+      // Ponto de vértice
+      ctx.beginPath(); ctx.arc(pC.cx, pC.cy, 4, 0, Math.PI * 2)
+      ctx.fillStyle = '#1e3a8a'; ctx.fill()
+      // Distância da aresta (metros reais dos GPS)
+      const lat1 = areaVerts[i].lat, lng1 = areaVerts[i].lng
+      const lat2 = areaVerts[(i+1) % areaVerts.length].lat, lng2 = areaVerts[(i+1) % areaVerts.length].lng
+      const dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180
+      const a2 = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2
+      const distM = R * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1-a2))
+      const mx = (pC.cx + nC.cx) / 2, my = (pC.cy + nC.cy) / 2
+      ctx.font = 'bold 11px Arial'; ctx.textAlign = 'center'
+      ctx.fillStyle = 'rgba(255,255,255,0.85)'
+      const lbl = `${distM.toFixed(1)}m`
+      const tw = ctx.measureText(lbl).width
+      ctx.fillRect(mx - tw/2 - 3, my - 14, tw + 6, 13)
+      ctx.fillStyle = '#1e40af'; ctx.fillText(lbl, mx, my - 4)
+    }
+
+    // Anomalias/trincas
+    if (Array.isArray(construcoes)) {
+      construcoes.forEach((a, idx) => {
+        if (!a.startPoint || !a.endPoint) return
+        const s = tc(a.startPoint.x, a.startPoint.z), e = tc(a.endPoint.x, a.endPoint.z)
+        ctx.beginPath(); ctx.moveTo(s.cx, s.cy); ctx.lineTo(e.cx, e.cy)
+        ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 3; ctx.setLineDash([7, 4]); ctx.stroke()
+        ctx.setLineDash([])
+        ;[s, e].forEach(pt => { ctx.beginPath(); ctx.arc(pt.cx, pt.cy, 5, 0, Math.PI*2); ctx.fillStyle = '#ef4444'; ctx.fill() })
+        const mx = (s.cx + e.cx) / 2, my = (s.cy + e.cy) / 2
+        const lbl = a.nome || `T${idx+1}`
+        ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center'
+        const tw2 = ctx.measureText(lbl).width
+        ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(mx - tw2/2 - 3, my - 16, tw2 + 6, 13)
+        ctx.fillStyle = '#b91c1c'; ctx.fillText(lbl, mx, my - 6)
+      })
+    }
+
+    // Rosa dos ventos (Norte)
+    ctx.save(); ctx.translate(SIZE - 38, 38)
+    ctx.strokeStyle = '#1e3a8a'; ctx.lineWidth = 1.5; ctx.setLineDash([])
+    ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(0, 20); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(12, 0); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(-5, -8); ctx.lineTo(0, -13); ctx.lineTo(5, -8); ctx.closePath()
+    ctx.fillStyle = '#1e3a8a'; ctx.fill()
+    ctx.font = 'bold 13px Arial'; ctx.textAlign = 'center'; ctx.fillStyle = '#1e3a8a'
+    ctx.fillText('N', 0, -26); ctx.restore()
+
+    // Borda e título
+    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.5; ctx.setLineDash([]); ctx.strokeRect(2, 2, SIZE - 4, SIZE - 4)
+    ctx.fillStyle = '#1e3a8a'; ctx.font = 'bold 13px Arial'; ctx.textAlign = 'center'
+    ctx.fillText('PLANTA DO IMÓVEL — VISTA SUPERIOR', SIZE / 2, 22)
+
+    resolve(canvas.toDataURL('image/png'))
+  })
+}
+
+// ── PDF export — Relatório individual de vistoria ────────────────
+async function exportarPDFVistoria(v) {
+  // Gerar planta 2D antes de criar o PDF
+  const plantaDataURL = await gerarPlanta2D(v)
+
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const W = 210, PL = 14, PR = 14, TW = W - PL - PR
+  let y = 0, pg = 1
+
+  const riscoObj = NIVEIS_RISCO.find(r => r.value === v.risco) || {}
+  const riscoCor = riscoObj.color || '#374151'
+  const hexToRgb = hex => [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)]
   const [rR,rG,rB] = hexToRgb(riscoCor)
 
-  doc.setFillColor(30,41,59)
-  doc.rect(0, 0, W, 28, 'F')
-  doc.setFillColor(rR,rG,rB)
-  doc.rect(0, 28, W, 3, 'F')
-
-  doc.setFontSize(13)
-  doc.setTextColor(255,255,255)
-  doc.setFont('helvetica','bold')
-  doc.text('GEOVISTORIAS — Defesa Civil', PL, 11)
-  doc.setFontSize(9)
-  doc.setFont('helvetica','normal')
-  doc.text('Relatório de Vistoria Residencial — NBR 11682 / IPT-Defesa Civil', PL, 18)
-  doc.text(`Emitido em: ${new Date().toLocaleString('pt-BR')}`, PL, 24)
-  y = 38
-
-  // ── Badge de risco ──
-  doc.setFillColor(rR,rG,rB)
-  doc.roundedRect(PL, y-5, 44, 11, 3, 3, 'F')
-  doc.setFontSize(11)
-  doc.setTextColor(255,255,255)
-  doc.setFont('helvetica','bold')
-  doc.text(`${v.risco || '—'}  ${riscoObj.label || ''}`, PL+3, y+2)
-  y += 12
-
-  // ── Linha separadora ──
-  const sep = () => {
-    doc.setDrawColor(226,232,240)
-    doc.line(PL, y, W-PR, y)
-    y += 4
+  const cabecalho = () => {
+    doc.setFillColor(15,23,42); doc.rect(0, 0, W, 22, 'F')
+    doc.setFillColor(rR,rG,rB); doc.rect(0, 22, W, 2, 'F'); doc.rect(0, 0, 3, 22, 'F')
+    doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255)
+    doc.text('DEFESA CIVIL — GEOVISTORIAS', 6, 9)
+    doc.setFontSize(7); doc.setFont('helvetica','normal')
+    doc.text('Ouro Branco & Congonhas — MG  ·  Relatório de Vistoria Residencial  ·  NBR 11682 / IPT-Defesa Civil', 6, 15)
+    doc.setFontSize(6.5); doc.setTextColor(148,163,184)
+    doc.text(`Emitido: ${new Date().toLocaleString('pt-BR')}`, 6, 20)
+    doc.text(`ID ${v.id || 'S/N'}  ·  Pág. ${pg}`, W - PR, 9, { align: 'right' })
   }
 
-  // ── Seção helper ──
+  const rodape = () => {
+    doc.setFillColor(248,250,252); doc.rect(0, 283, W, 14, 'F')
+    doc.setFillColor(rR,rG,rB); doc.rect(0, 283, W, 0.7, 'F')
+    doc.setFontSize(6.5); doc.setFont('helvetica','italic'); doc.setTextColor(148,163,184)
+    doc.text('Geovistorias — Sistema WebGIS Defesa Civil · Ouro Branco & Congonhas MG', PL, 290)
+    doc.text(`Documento técnico oficial · ${new Date().toLocaleDateString('pt-BR')}`, W - PR, 290, { align: 'right' })
+  }
+
+  const novaPag = () => { rodape(); doc.addPage(); pg++; cabecalho(); y = 28 }
+  const chkPag = (needed = 15) => { if (y + needed > 278) novaPag() }
+
+  cabecalho(); y = 27
+
+  // Badge de risco + nome
+  doc.setFillColor(rR,rG,rB); doc.roundedRect(PL, y, 48, 11, 2.5, 2.5, 'F')
+  doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255)
+  doc.text(`${v.risco || '—'}  ${riscoObj.label || ''}`, PL + 3.5, y + 7.5)
+  doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(15,23,42)
+  doc.text(v.nome || 'Sem nome', PL + 53, y + 7.5)
+  y += 15
+
+  // Linha divisória
+  doc.setFillColor(rR,rG,rB); doc.rect(PL, y, TW, 0.5, 'F'); y += 6
+
+  // ── Helpers ──
   const secao = (titulo) => {
-    doc.setFillColor(241,245,249)
-    doc.rect(PL, y, TW, 7, 'F')
-    doc.setFontSize(9); doc.setFont('helvetica','bold')
-    doc.setTextColor(30,58,138)
-    doc.text(titulo.toUpperCase(), PL+2, y+5)
+    chkPag(14)
+    doc.setFillColor(15,23,42); doc.rect(PL, y, TW, 7, 'F')
+    doc.setFillColor(rR,rG,rB); doc.rect(PL, y, 2.5, 7, 'F')
+    doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255)
+    doc.text(titulo.toUpperCase(), PL + 5, y + 5)
     y += 9
   }
 
-  // ── Campo helper ──
-  const campo = (label, valor, col = false, xOff = 0, wOff = TW) => {
+  const campo = (label, valor, maxW = TW, xBase = PL) => {
     if (!valor) return
-    doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.setTextColor(71,85,105)
-    doc.text(label+':', PL+xOff, y)
+    chkPag(7)
+    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(100,116,139)
+    doc.text(label + ':', xBase, y)
     doc.setFont('helvetica','normal'); doc.setTextColor(15,23,42)
-    const lines = doc.splitTextToSize(String(valor), wOff - 28)
-    doc.text(lines, PL+xOff+28, y)
-    y += lines.length * 5
+    const lines = doc.splitTextToSize(String(valor), maxW - 32)
+    doc.text(lines, xBase + 32, y)
+    y += lines.length * 4.8 + 1
   }
 
-  // ── 1. Dados do Imóvel ──
-  secao('1. Identificação')
-  campo('Nome', v.nome)
-  campo('CPF', v.cpf)
-  campo('Telefone', v.telefone)
+  const campo2col = (pares) => {
+    const half = Math.ceil(pares.length / 2)
+    const colW = TW / 2 - 4
+    let yL = y, yR = y
+    pares.slice(0, half).forEach(([lbl, val]) => {
+      if (!val) return
+      doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(100,116,139)
+      doc.text(lbl + ':', PL, yL)
+      doc.setFont('helvetica','normal'); doc.setTextColor(15,23,42)
+      const ls = doc.splitTextToSize(String(val), colW - 26)
+      doc.text(ls, PL + 26, yL); yL += ls.length * 4.8 + 1
+    })
+    pares.slice(half).forEach(([lbl, val]) => {
+      if (!val) return
+      const xR = PL + TW / 2 + 4
+      doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(100,116,139)
+      doc.text(lbl + ':', xR, yR)
+      doc.setFont('helvetica','normal'); doc.setTextColor(15,23,42)
+      const ls = doc.splitTextToSize(String(val), colW - 26)
+      doc.text(ls, xR + 26, yR); yR += ls.length * 4.8 + 1
+    })
+    y = Math.max(yL, yR) + 3
+  }
+
+  // ── 1. Identificação ──
+  secao('1. Identificação do Imóvel e Morador')
+  campo2col([
+    ['Responsável', v.nome],
+    ['CPF / RG', v.cpf],
+    ['Telefone', v.telefone],
+    ['Nº de Moradores', v.moradores ? `${v.moradores} pessoa(s)` : null],
+    ['Cidade', v.cidade === 'congonhas' ? 'Congonhas - MG' : 'Ouro Branco - MG'],
+    ['Data da Vistoria', v.data ? new Date(v.data).toLocaleString('pt-BR') : null],
+  ])
   campo('Endereço', v.endereco)
-  campo('Cidade', v.cidade === 'congonhas' ? 'Congonhas - MG' : 'Ouro Branco - MG')
-  campo('Moradores', v.moradores ? `${v.moradores} pessoa(s)` : null)
-  campo('Data', v.data ? new Date(v.data).toLocaleString('pt-BR') : null)
   if (v.lat || v.coordenada?.lat) {
-    const lat = v.lat || v.coordenada?.lat
-    const lng = v.lng || v.coordenada?.lng
-    campo('Coordenadas', `${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}`)
+    const lat = v.lat || v.coordenada?.lat, lng = v.lng || v.coordenada?.lng
+    campo('Coordenadas GPS', `${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}`)
   }
-  y += 2; sep()
+  if (v.area_m2) campo('Área do Terreno', `${Number(v.area_m2).toFixed(1)} m²`)
+  if (v.alturaImovel || v.altura_imovel) campo('Altura do Imóvel', `${v.alturaImovel || v.altura_imovel} m`)
+  y += 2
 
-  // ── 2. Encosta / Talude ──
+  // ── 2. Encosta e Talude ──
   secao('2. Condição da Encosta e Talude')
-  campo('Condição da Encosta', COND_ENCOSTA.find(c=>c.id===v.condEncosta)?.label || v.condEncosta)
-  campo('Tipo de Talude', TIPOS_TALUDE.find(t=>t.id===v.tipoTalude)?.label || v.tipoTalude)
-  campo('Ângulo', v.anguloEncosta ? `${v.anguloEncosta}°` : null)
-  if (v.distanciaBase) campo('Dist. à base', `${v.distanciaBase} m`)
-  if (v.distanciaTopo) campo('Dist. ao topo', `${v.distanciaTopo} m`)
-  y += 2; sep()
+  campo2col([
+    ['Condição da Encosta', COND_ENCOSTA.find(c=>c.id===v.condEncosta)?.label || v.condEncosta],
+    ['Tipo de Talude', TIPOS_TALUDE.find(t=>t.id===v.tipoTalude)?.label || v.tipoTalude],
+    ['Ângulo da Encosta', v.anguloEncosta ? `${v.anguloEncosta}°` : null],
+    ['Dist. à Base', v.distanciaBase ? `${v.distanciaBase} m` : null],
+    ['Dist. ao Topo', v.distanciaTopo ? `${v.distanciaTopo} m` : null],
+    ['Parede Rochosa', v.paredeRochosaAng ? `${v.paredeRochosaAng}°` : null],
+  ])
+  const caractsEnc = (() => { try { const a = typeof v.caractsEncosta === 'string' ? JSON.parse(v.caractsEncosta) : v.caractsEncosta; return Array.isArray(a) ? a.join(', ') : null } catch { return null } })()
+  if (caractsEnc) campo('Características da Encosta', caractsEnc)
+  y += 2
 
-  // ── 3. Solo e Uso ──
-  secao('3. Solo, Uso e Processos')
-  campo('Tipo de Solo', TIPOS_SOLO.find(s=>s.id===v.solo)?.label || v.solo)
-  campo('Uso do Imóvel', v.tipoUso || v.tipo_uso)
-  if (Array.isArray(v.processos) && v.processos.length > 0) {
-    const lista = v.processos.map(p => PROCESSOS.find(x=>x.id===p)?.label || p).join(', ')
-    campo('Processos', lista)
+  // ── 3. Solo e Cobertura ──
+  secao('3. Solo, Uso e Cobertura Vegetal')
+  campo2col([
+    ['Tipo de Solo', TIPOS_SOLO.find(s=>s.id===v.solo)?.label || v.solo],
+    ['Uso do Imóvel', v.tipoUso || v.tipo_uso],
+  ])
+  const veg = (() => { try { const a = typeof v.vegetacao === 'string' ? JSON.parse(v.vegetacao) : v.vegetacao; return Array.isArray(a) && a.length ? a.join(', ') : null } catch { return null } })()
+  if (veg) campo('Cobertura Vegetal', veg)
+  y += 2
+
+  // ── 4. Água e Drenagem ──
+  if (v.aguaDrenagem || v.aguaOndeVai || v.aguaOrigemAbast || v.aguaVazamento) {
+    secao('4. Condições Hídricas e Drenagem')
+    campo2col([
+      ['Drenagem', v.aguaDrenagem],
+      ['Destino das Águas', v.aguaOndeVai],
+      ['Abastecimento', v.aguaOrigemAbast],
+      ['Vazamentos', v.aguaVazamento],
+    ])
+    y += 2
   }
-  y += 2; sep()
 
-  // ── 4. Patologias ──
-  if (Array.isArray(v.patologias) && v.patologias.length > 0) {
-    secao('4. Patologias Identificadas')
-    const lista = v.patologias.map(p => PATOLOGIAS.find(x=>x.id===p)?.label || p).join(', ')
-    campo('Patologias', lista)
-    y += 2; sep()
+  // ── 5. Processos e Feições ──
+  const procsArr = (() => { try { const a = Array.isArray(v.processos) ? v.processos : JSON.parse(v.processos||'[]'); return a } catch { return [] } })()
+  if (procsArr.length > 0) {
+    secao('5. Processos e Feições Geológico-Geotécnicas')
+    const lista = procsArr.map(p => PROCESSOS.find(x=>x.id===p)?.label || p).join(' • ')
+    campo('Processos Identificados', lista)
+    const sinais = (() => { try { const a = typeof v.sinaisMovimentacao === 'string' ? JSON.parse(v.sinaisMovimentacao) : v.sinaisMovimentacao; return Array.isArray(a) && a.length ? a.join(', ') : null } catch { return null } })()
+    if (sinais) campo('Sinais de Movimentação', sinais)
+    y += 2
   }
 
-  // ── 5. Observações ──
+  // ── 6. Patologias ──
+  const patArr = (() => { try { const a = Array.isArray(v.patologias) ? v.patologias : JSON.parse(v.patologias||'[]'); return a } catch { return [] } })()
+  if (patArr.length > 0) {
+    chkPag(20)
+    secao('6. Patologias Identificadas')
+    const COLS = 2, colW2 = TW / COLS
+    for (let i = 0; i < patArr.length; i += COLS) {
+      chkPag(7)
+      const row = patArr.slice(i, i + COLS)
+      row.forEach((p, ci) => {
+        const xOff = PL + ci * colW2, lbl = PATOLOGIAS.find(x=>x.id===p)?.label || p
+        doc.setFillColor(241,245,249); doc.roundedRect(xOff, y - 1, colW2 - 3, 6, 1, 1, 'F')
+        doc.setFillColor(rR,rG,rB); doc.rect(xOff, y - 1, 2, 6, 'F')
+        doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(15,23,42)
+        doc.text(`  ${lbl}`, xOff + 4, y + 3.5)
+      })
+      y += 7
+    }
+    y += 2
+  }
+
+  // ── 7. Observações Técnicas ──
   if (v.observacao) {
-    secao('5. Observações e Recomendações')
-    doc.setFontSize(8.5); doc.setFont('helvetica','normal'); doc.setTextColor(15,23,42)
+    chkPag(22)
+    secao('7. Observações e Recomendações Técnicas')
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(15,23,42)
     const lines = doc.splitTextToSize(v.observacao, TW)
-    doc.text(lines, PL, y)
-    y += lines.length * 5 + 4
-    sep()
+    if (y + lines.length * 5 > 278) novaPag()
+    doc.text(lines, PL, y); y += lines.length * 5 + 3
+    y += 2
   }
 
-  // ── Rodapé ──
-  doc.setFillColor(248,250,252)
-  doc.rect(0, 285, W, 12, 'F')
-  doc.setFontSize(7.5); doc.setTextColor(148,163,184)
-  doc.setFont('helvetica','italic')
-  doc.text('Geovistorias — Sistema WebGIS Defesa Civil · Ouro Branco & Congonhas MG', PL, 292)
-  doc.text(`ID: ${v.id || 'N/A'}`, W - PR, 292, { align: 'right' })
+  // ── 8. Anomalias e Trincas (Construções 3D) ──
+  let construcoes = []
+  try { construcoes = v.construcoes ? (typeof v.construcoes === 'string' ? JSON.parse(v.construcoes) : v.construcoes) : [] } catch (_) {}
+  if (Array.isArray(construcoes) && construcoes.length > 0) {
+    chkPag(24)
+    secao('8. Anomalias e Trincas Registradas no Modelo 3D')
+    // Cabeçalho da tabela
+    const colWs = [22, 72, 34, TW - 128]
+    const headers = ['Código', 'Tipo / Localização', 'Pavimento', 'Observação']
+    doc.setFillColor(30,58,138); doc.rect(PL, y, TW, 6.5, 'F')
+    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255)
+    let xc = PL
+    headers.forEach((h, i) => { doc.text(h, xc + 2, y + 4.5); xc += colWs[i] })
+    y += 7
+    construcoes.forEach((a, idx) => {
+      chkPag(7)
+      const bg = idx % 2 === 0 ? [248,250,252] : [255,255,255]
+      doc.setFillColor(...bg); doc.rect(PL, y, TW, 6.5, 'F')
+      doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(15,23,42)
+      xc = PL
+      const cells = [
+        a.nome || `T${idx+1}`,
+        a.localNome || (a.type === 'parede-anomalia' ? 'Parede com anomalia' : a.type || '—'),
+        a.floor ? `Pav. ${a.floor}` : '—',
+        a.linhasTrinca?.length ? `${a.linhasTrinca.length} trinca(s)` : '—',
+      ]
+      cells.forEach((c, i) => { doc.text(String(c).substring(0, 35), xc + 2, y + 4.5); xc += colWs[i] })
+      y += 6.5
+    })
+    y += 4
+  }
+
+  rodape()
+
+  // ── Página final: Planta 2D do imóvel ──
+  if (plantaDataURL) {
+    doc.addPage(); pg++; cabecalho(); y = 28
+    secao('Planta do Imóvel — Vista Superior com Anomalias')
+    y += 3
+    doc.setFontSize(7.5); doc.setFont('helvetica','italic'); doc.setTextColor(100,116,139)
+    doc.text('Vista superior (planta baixa) gerada a partir das coordenadas GPS e modelo 3D.', PL, y)
+    doc.text('Trincas e anomalias marcadas em vermelho. Cotas em metros.', PL, y + 5); y += 12
+    const imgW = 145, imgH = 145, imgX = (W - imgW) / 2
+    doc.addImage(plantaDataURL, 'PNG', imgX, y, imgW, imgH); y += imgH + 8
+    // Legenda
+    doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(15,23,42); doc.text('LEGENDA:', PL, y); y += 5
+    doc.setFillColor(30,58,138); doc.rect(PL, y, 14, 3.5, 'F')
+    doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(15,23,42); doc.text('Perímetro do imóvel', PL + 17, y + 3); y += 6
+    doc.setFillColor(239,68,68); doc.rect(PL, y, 14, 3.5, 'F')
+    doc.text('Anomalias / trincas identificadas', PL + 17, y + 3); y += 6
+    doc.setFillColor(30,58,138); doc.circle(PL + 7, y + 2, 2, 'F')
+    doc.text('Vértice do imóvel com cota de distância (m)', PL + 17, y + 3)
+    rodape()
+  }
 
   const nomeArq = `vistoria_${(v.nome||'sem_nome').replace(/\s+/g,'_')}_${(v.risco||'')}_${new Date().toISOString().slice(0,10)}.pdf`
   doc.save(nomeArq)

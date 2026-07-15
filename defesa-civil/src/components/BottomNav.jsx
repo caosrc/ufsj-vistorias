@@ -14,7 +14,7 @@ const NAV_ITEMS = [
 export default function BottomNav() {
   const location = useLocation()
   return (
-    <nav className={styles.nav}>
+    <nav className={styles.nav} id="bottom-nav-app">
       {NAV_ITEMS.map(({ to, icon: Icon, label }) => {
         const active = location.pathname === to
         return (

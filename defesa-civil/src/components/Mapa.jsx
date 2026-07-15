@@ -58,7 +58,7 @@ function buildStyle() {
     glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
     sources: {
       'src-ruas':     rasterSource(['/api/map-tile/osm/{z}/{x}/{y}'], 19, '© OpenStreetMap'),
-      'src-satelite': rasterSource(['/api/sat-tile/{z}/{y}/{x}'], 19, '© Esri'),
+      'src-satelite': rasterSource(['/api/sat-tile/{z}/{y}/{x}'], 20, '© Esri'),
       'src-topo':     rasterSource(['/api/map-tile/topo/{z}/{x}/{y}'], 17, '© OpenTopoMap'),
       'src-esri':     rasterSource(['/api/map-tile/esri/{z}/{x}/{y}'], 19, '© Esri'),
       'src-positron': rasterSource(['/api/map-tile/carto_l/{z}/{x}/{y}'], 19, '© CartoDB'),
@@ -130,6 +130,7 @@ export default function Mapa() {
         style: buildStyle(),
         center: [lng0, lat0],
         zoom: cidadeObj.zoom,
+        maxZoom: 22,
         pitch: 0, bearing: 0,
         antialias: true,
         attributionControl: { compact: true },
