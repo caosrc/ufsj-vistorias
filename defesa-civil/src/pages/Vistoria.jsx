@@ -878,7 +878,7 @@ function Dashboard({ vistorias }) {
 }
 
 // ── Gera planta 2D (vista superior) do imóvel com trincas ────────
-function gerarPlanta2D(v) {
+function gerarVista3D(v) {
   return new Promise(resolve => {
     let areaVerts = []
     try { areaVerts = v.area_vertices ? (typeof v.area_vertices === 'string' ? JSON.parse(v.area_vertices) : v.area_vertices) : [] } catch (_) {}
@@ -888,20 +888,24 @@ function gerarPlanta2D(v) {
 
     if (!Array.isArray(areaVerts) || areaVerts.length < 3) { resolve(null); return }
 
-    const SIZE = 500, MARGIN = 60
+    const altH = Math.max(parseFloat(v.alturaImovel || v.altura_imovel || 3) * 1.1, 2.5)
+
+    const W = 700, H = 480
     const canvas = document.createElement('canvas')
-    canvas.width = SIZE; canvas.height = SIZE
+    canvas.width = W; canvas.height = H
     const ctx = canvas.getContext('2d')
 
-    // Fundo branco + grade sutil
-    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, SIZE, SIZE)
-    ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 0.8
-    for (let i = 0; i <= SIZE; i += 50) {
-      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, SIZE); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(SIZE, i); ctx.stroke()
-    }
+    // Fundo gradiente azulado (céu)
+    const grad = ctx.createLinearGradient(0, 0, 0, H)
+    grad.addColorStop(0, '#dbeafe'); grad.addColorStop(1, '#e8f0f8')
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H)
 
-    // Construir sistema de coordenadas locais (igual ao Edificio3D)
+    // Grade sutil
+    ctx.strokeStyle = 'rgba(148,180,220,0.25)'; ctx.lineWidth = 0.7
+    for (let i = 0; i <= W; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke() }
+    for (let i = 0; i <= H; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke() }
+
+    // ── Sistema de coordenadas locais (idêntico ao Edificio3D) ──
     const ref = areaVerts[0]
     const R = 6371000, cosLat = Math.cos(ref.lat * Math.PI / 180)
     const raw = areaVerts.map(pt => ({
@@ -915,100 +919,236 @@ function gerarPlanta2D(v) {
     const localScale = 12 / maxR
     const bPts = centered.map(p => ({ x: p.x * localScale, z: p.z * localScale }))
 
-    // Bounding box (building + anomalias)
-    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity
-    bPts.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z) })
+    // ── Projeção isométrica top-down ──
+    // az = ângulo de azimute (45° → vista diagonal); el = elevação (0.38*π ≈ 68° → quase de cima)
+    const az = Math.PI / 4
+    const el = Math.PI * 0.38
+    const cosAz = Math.cos(az), sinAz = Math.sin(az)
+    const cosEl = Math.cos(el), sinEl = Math.sin(el)
+
+    const project = (x, y, z) => {
+      const rx = x * cosAz - z * sinAz   // rotação Y pelo azimute
+      const rz = x * sinAz + z * cosAz
+      return { sx: rx, sy: rz * cosEl - y * sinEl }  // projeção pela elevação
+    }
+
+    // Calcular bounding box na tela (piso + topo + anomalias)
+    const allPts = []
+    bPts.forEach(p => { allPts.push(project(p.x, 0, p.z)); allPts.push(project(p.x, altH, p.z)) })
     if (Array.isArray(construcoes)) {
       construcoes.forEach(a => {
-        ['startPoint','endPoint'].forEach(k => {
-          if (a[k]) { minX = Math.min(minX, a[k].x); maxX = Math.max(maxX, a[k].x); minZ = Math.min(minZ, a[k].z); maxZ = Math.max(maxZ, a[k].z) }
-        })
+        if (a.startPoint) allPts.push(project(a.startPoint.x, a.startPoint.y || 0, a.startPoint.z))
+        if (a.endPoint)   allPts.push(project(a.endPoint.x,   a.endPoint.y   || 0, a.endPoint.z))
       })
     }
-    const rangeX = (maxX - minX) || 1, rangeZ = (maxZ - minZ) || 1
-    const drawSize = SIZE - 2 * MARGIN
-    const pxScale = drawSize / Math.max(rangeX, rangeZ)
-    const offX = MARGIN + (drawSize - rangeX * pxScale) / 2
-    const offZ = MARGIN + (drawSize - rangeZ * pxScale) / 2
-    const tc = (x, z) => ({ cx: offX + (x - minX) * pxScale, cy: offZ + (z - minZ) * pxScale })
+    const HEADER = 32, MARGIN = 52
+    const minSX = Math.min(...allPts.map(p => p.sx))
+    const maxSX = Math.max(...allPts.map(p => p.sx))
+    const minSY = Math.min(...allPts.map(p => p.sy))
+    const maxSY = Math.max(...allPts.map(p => p.sy))
+    const rangeX = (maxSX - minSX) || 1, rangeY = (maxSY - minSY) || 1
+    const drawW = W - 2 * MARGIN, drawH = H - HEADER - MARGIN - 20
+    const scale = Math.min(drawW / rangeX, drawH / rangeY) * 0.88
+    const originX = MARGIN + (drawW - rangeX * scale) / 2
+    const originY = HEADER + MARGIN / 2 + (drawH - rangeY * scale) / 2
 
-    // Sombra do imóvel
-    ctx.shadowColor = 'rgba(30,58,138,0.15)'; ctx.shadowBlur = 14; ctx.shadowOffsetX = 4; ctx.shadowOffsetY = 4
-    ctx.beginPath()
-    bPts.forEach((p, i) => { const { cx, cy } = tc(p.x, p.z); i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy) })
-    ctx.closePath()
-    ctx.fillStyle = 'rgba(219,234,254,0.7)'; ctx.fill()
-    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0
-
-    // Perímetro do imóvel
-    ctx.beginPath()
-    bPts.forEach((p, i) => { const { cx, cy } = tc(p.x, p.z); i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy) })
-    ctx.closePath()
-    ctx.strokeStyle = '#1e3a8a'; ctx.lineWidth = 2.5; ctx.setLineDash([]); ctx.stroke()
-
-    // Vértices e cotas de distância
-    for (let i = 0; i < bPts.length; i++) {
-      const p = bPts[i], nxt = bPts[(i + 1) % bPts.length]
-      const pC = tc(p.x, p.z), nC = tc(nxt.x, nxt.z)
-      // Ponto de vértice
-      ctx.beginPath(); ctx.arc(pC.cx, pC.cy, 4, 0, Math.PI * 2)
-      ctx.fillStyle = '#1e3a8a'; ctx.fill()
-      // Distância da aresta (metros reais dos GPS)
-      const lat1 = areaVerts[i].lat, lng1 = areaVerts[i].lng
-      const lat2 = areaVerts[(i+1) % areaVerts.length].lat, lng2 = areaVerts[(i+1) % areaVerts.length].lng
-      const dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180
-      const a2 = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2
-      const distM = R * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1-a2))
-      const mx = (pC.cx + nC.cx) / 2, my = (pC.cy + nC.cy) / 2
-      ctx.font = 'bold 11px Arial'; ctx.textAlign = 'center'
-      ctx.fillStyle = 'rgba(255,255,255,0.85)'
-      const lbl = `${distM.toFixed(1)}m`
-      const tw = ctx.measureText(lbl).width
-      ctx.fillRect(mx - tw/2 - 3, my - 14, tw + 6, 13)
-      ctx.fillStyle = '#1e40af'; ctx.fillText(lbl, mx, my - 4)
+    const toScreen = (x, y, z) => {
+      const { sx, sy } = project(x, y, z)
+      return { cx: originX + (sx - minSX) * scale, cy: originY + (sy - minSY) * scale }
     }
 
-    // Anomalias/trincas
+    // ── Sombra no chão (elipse) ──
+    ctx.save()
+    ctx.globalAlpha = 0.12
+    const floorCenter = toScreen(0, 0, 0)
+    const ellW = (maxSX - minSX) * scale * 0.6, ellH = ellW * 0.22
+    ctx.fillStyle = '#1e3a8a'
+    ctx.beginPath(); ctx.ellipse(floorCenter.cx, floorCenter.cy + altH * scale * sinEl * 0.4, ellW, ellH, 0, 0, Math.PI * 2); ctx.fill()
+    ctx.restore()
+
+    // ── Piso (polígono) ──
+    ctx.beginPath()
+    bPts.forEach((p, i) => { const sc = toScreen(p.x, 0, p.z); i === 0 ? ctx.moveTo(sc.cx, sc.cy) : ctx.lineTo(sc.cx, sc.cy) })
+    ctx.closePath()
+    const floorGrad = ctx.createLinearGradient(0, H * 0.6, 0, H)
+    floorGrad.addColorStop(0, '#d4a76a'); floorGrad.addColorStop(1, '#b8864e')
+    ctx.fillStyle = floorGrad; ctx.fill()
+    ctx.strokeStyle = '#2a4060'; ctx.lineWidth = 2; ctx.setLineDash([]); ctx.stroke()
+
+    // ── Paredes visíveis (voltadas para o observador) ──
+    // Direção de visão projetada no plano XZ
+    const viewDX = sinAz, viewDZ = cosAz
+    const wallColors = [
+      { fill: '#dceaf8', stroke: '#2a4060' },
+      { fill: '#cce0f5', stroke: '#2a4060' },
+      { fill: '#d5e8f8', stroke: '#2a4060' },
+      { fill: '#c8dcf0', stroke: '#2a4060' },
+    ]
+
+    // Coletar e ordenar paredes por profundidade (painter's algorithm)
+    const walls = []
+    for (let i = 0; i < bPts.length; i++) {
+      const a = bPts[i], b = bPts[(i + 1) % bPts.length]
+      const dx = b.x - a.x, dz = b.z - a.z
+      // Normal outward (perpendicular à aresta, girando 90° no sentido horário)
+      const nx = dz, nz = -dx
+      const dot = nx * viewDX + nz * viewDZ
+      if (dot <= 0) continue   // parede traseira — ignorar
+      const midZ = (project(a.x, altH / 2, a.z).sy + project(b.x, altH / 2, b.z).sy) / 2
+      walls.push({ i, a, b, midZ, color: wallColors[i % wallColors.length] })
+    }
+    // Ordenar do mais longe ao mais perto (painter's algorithm)
+    walls.sort((wa, wb) => wb.midZ - wa.midZ)
+
+    walls.forEach(({ a, b, color }) => {
+      const bl = toScreen(a.x, 0, a.z), br = toScreen(b.x, 0, b.z)
+      const tr = toScreen(b.x, altH, b.z), tl = toScreen(a.x, altH, a.z)
+      // Gradiente da parede (claro em cima, um pouco mais escuro embaixo)
+      const wg = ctx.createLinearGradient(tl.cx, tl.cy, bl.cx, bl.cy)
+      wg.addColorStop(0, color.fill); wg.addColorStop(1, adjustColor(color.fill, -18))
+      ctx.beginPath()
+      ctx.moveTo(bl.cx, bl.cy); ctx.lineTo(br.cx, br.cy); ctx.lineTo(tr.cx, tr.cy); ctx.lineTo(tl.cx, tl.cy)
+      ctx.closePath()
+      ctx.fillStyle = wg; ctx.fill()
+      ctx.strokeStyle = color.stroke; ctx.lineWidth = 1.5; ctx.stroke()
+    })
+
+    // ── Telhado (contorno superior) ──
+    ctx.beginPath()
+    bPts.forEach((p, i) => { const sc = toScreen(p.x, altH, p.z); i === 0 ? ctx.moveTo(sc.cx, sc.cy) : ctx.lineTo(sc.cx, sc.cy) })
+    ctx.closePath()
+    ctx.fillStyle = 'rgba(200,220,245,0.55)'; ctx.fill()
+    ctx.strokeStyle = '#1e3a8a'; ctx.lineWidth = 2; ctx.setLineDash([]); ctx.stroke()
+
+    // ── Arestas verticais ──
+    ctx.strokeStyle = '#1e3a8a'; ctx.lineWidth = 1.5
+    bPts.forEach(p => {
+      const bot = toScreen(p.x, 0, p.z), top = toScreen(p.x, altH, p.z)
+      ctx.beginPath(); ctx.moveTo(bot.cx, bot.cy); ctx.lineTo(top.cx, top.cy); ctx.stroke()
+    })
+
+    // ── Vértices no topo com numeração ──
+    bPts.forEach((p, i) => {
+      const sc = toScreen(p.x, altH, p.z)
+      ctx.beginPath(); ctx.arc(sc.cx, sc.cy, 5, 0, Math.PI * 2)
+      ctx.fillStyle = '#fbbf24'; ctx.fill()
+      ctx.strokeStyle = '#92400e'; ctx.lineWidth = 1.2; ctx.stroke()
+      ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center'; ctx.fillStyle = '#1e3a8a'
+      ctx.fillText(`V${i + 1}`, sc.cx, sc.cy - 9)
+    })
+
+    // ── Cotas de distância nos lados do piso ──
+    for (let i = 0; i < bPts.length; i++) {
+      const a = bPts[i], b = bPts[(i + 1) % bPts.length]
+      const scA = toScreen(a.x, 0, a.z), scB = toScreen(b.x, 0, b.z)
+      const lat1 = areaVerts[i].lat, lng1 = areaVerts[i].lng
+      const lat2 = areaVerts[(i + 1) % areaVerts.length].lat, lng2 = areaVerts[(i + 1) % areaVerts.length].lng
+      const dLat = (lat2 - lat1) * Math.PI / 180, dLng = (lng2 - lng1) * Math.PI / 180
+      const a2 = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+      const distM = R * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1 - a2))
+      const mx = (scA.cx + scB.cx) / 2, my = (scA.cy + scB.cy) / 2 + 3
+      const lbl = `${distM.toFixed(1)}m`
+      ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center'
+      const tw = ctx.measureText(lbl).width
+      ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.fillRect(mx - tw / 2 - 3, my - 12, tw + 6, 13)
+      ctx.fillStyle = '#1e40af'; ctx.fillText(lbl, mx, my - 2)
+    }
+
+    // ── Anomalias / Trincas em 3D ──
     if (Array.isArray(construcoes)) {
       construcoes.forEach((a, idx) => {
         if (!a.startPoint || !a.endPoint) return
-        const s = tc(a.startPoint.x, a.startPoint.z), e = tc(a.endPoint.x, a.endPoint.z)
-        ctx.beginPath(); ctx.moveTo(s.cx, s.cy); ctx.lineTo(e.cx, e.cy)
-        ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 3; ctx.setLineDash([7, 4]); ctx.stroke()
+        const sp = toScreen(a.startPoint.x, a.startPoint.y || 0, a.startPoint.z)
+        const ep = toScreen(a.endPoint.x,   a.endPoint.y   || 0, a.endPoint.z)
+
+        // Linha da trinca
+        ctx.save()
+        ctx.shadowColor = 'rgba(220,38,38,0.4)'; ctx.shadowBlur = 6
+        ctx.beginPath(); ctx.moveTo(sp.cx, sp.cy); ctx.lineTo(ep.cx, ep.cy)
+        ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 3.5; ctx.setLineDash([9, 5]); ctx.stroke()
+        ctx.restore()
         ctx.setLineDash([])
-        ;[s, e].forEach(pt => { ctx.beginPath(); ctx.arc(pt.cx, pt.cy, 5, 0, Math.PI*2); ctx.fillStyle = '#ef4444'; ctx.fill() })
-        const mx = (s.cx + e.cx) / 2, my = (s.cy + e.cy) / 2
-        const lbl = a.nome || `T${idx+1}`
+
+        // Pontas da trinca
+        ;[sp, ep].forEach(pt => {
+          ctx.beginPath(); ctx.arc(pt.cx, pt.cy, 6, 0, Math.PI * 2)
+          ctx.fillStyle = '#ef4444'; ctx.fill()
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke()
+        })
+
+        // Etiqueta
+        const mx = (sp.cx + ep.cx) / 2, my = Math.min(sp.cy, ep.cy) - 14
+        const lbl = a.nome || `T${idx + 1}`
         ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center'
-        const tw2 = ctx.measureText(lbl).width
-        ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(mx - tw2/2 - 3, my - 16, tw2 + 6, 13)
-        ctx.fillStyle = '#b91c1c'; ctx.fillText(lbl, mx, my - 6)
+        const tw = ctx.measureText(lbl).width
+        ctx.fillStyle = '#ef4444'; ctx.fillRect(mx - tw / 2 - 5, my - 13, tw + 10, 16)
+        ctx.fillStyle = '#ffffff'; ctx.fillText(lbl, mx, my)
       })
     }
 
-    // Rosa dos ventos (Norte)
-    ctx.save(); ctx.translate(SIZE - 38, 38)
-    ctx.strokeStyle = '#1e3a8a'; ctx.lineWidth = 1.5; ctx.setLineDash([])
-    ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(0, 20); ctx.stroke()
-    ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(12, 0); ctx.stroke()
-    ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(-5, -8); ctx.lineTo(0, -13); ctx.lineTo(5, -8); ctx.closePath()
-    ctx.fillStyle = '#1e3a8a'; ctx.fill()
-    ctx.font = 'bold 13px Arial'; ctx.textAlign = 'center'; ctx.fillStyle = '#1e3a8a'
-    ctx.fillText('N', 0, -26); ctx.restore()
+    // ── Cota de altura ──
+    const vtxFirst = toScreen(bPts[0].x, 0, bPts[0].z)
+    const vtxTop   = toScreen(bPts[0].x, altH, bPts[0].z)
+    ctx.save()
+    ctx.strokeStyle = '#475569'; ctx.lineWidth = 1.2; ctx.setLineDash([4, 3])
+    ctx.beginPath(); ctx.moveTo(vtxFirst.cx + 18, vtxFirst.cy); ctx.lineTo(vtxTop.cx + 18, vtxTop.cy); ctx.stroke()
+    ctx.setLineDash([])
+    ;[vtxFirst.cy, vtxTop.cy].forEach(cy => {
+      ctx.beginPath(); ctx.moveTo(vtxFirst.cx + 12, cy); ctx.lineTo(vtxFirst.cx + 24, cy); ctx.stroke()
+    })
+    ctx.fillStyle = '#374151'; ctx.font = '10px Arial'; ctx.textAlign = 'left'
+    ctx.fillText(`h=${altH.toFixed(1)}m`, vtxFirst.cx + 27, (vtxFirst.cy + vtxTop.cy) / 2 + 4)
+    ctx.restore()
 
-    // Borda e título
-    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.5; ctx.setLineDash([]); ctx.strokeRect(2, 2, SIZE - 4, SIZE - 4)
-    ctx.fillStyle = '#1e3a8a'; ctx.font = 'bold 13px Arial'; ctx.textAlign = 'center'
-    ctx.fillText('PLANTA DO IMÓVEL — VISTA SUPERIOR', SIZE / 2, 22)
+    // ── Barra de título ──
+    ctx.fillStyle = 'rgba(15,23,42,0.88)'; ctx.fillRect(0, 0, W, HEADER)
+    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 13px Arial'; ctx.textAlign = 'center'
+    ctx.fillText('MODELO 3D DO IMÓVEL — VISTA SUPERIOR COM TRINCAS', W / 2, 20)
+
+    // ── Borda ──
+    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.5; ctx.setLineDash([]); ctx.strokeRect(2, 2, W - 4, H - 4)
+
+    // ── Legenda compacta (canto inferior direito) ──
+    const lgX = W - 170, lgY = H - 85
+    ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.fillRect(lgX - 8, lgY - 14, 168, 82)
+    ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1; ctx.strokeRect(lgX - 8, lgY - 14, 168, 82)
+    ctx.font = 'bold 10px Arial'; ctx.textAlign = 'left'; ctx.fillStyle = '#0f172a'
+    ctx.fillText('LEGENDA', lgX, lgY)
+    // Piso
+    ctx.fillStyle = '#d4a76a'; ctx.fillRect(lgX, lgY + 8, 22, 10)
+    ctx.strokeStyle = '#2a4060'; ctx.lineWidth = 1; ctx.strokeRect(lgX, lgY + 8, 22, 10)
+    ctx.fillStyle = '#0f172a'; ctx.font = '9px Arial'; ctx.fillText('Piso do imóvel', lgX + 27, lgY + 17)
+    // Parede
+    ctx.fillStyle = '#dceaf8'; ctx.fillRect(lgX, lgY + 24, 22, 10)
+    ctx.strokeStyle = '#2a4060'; ctx.strokeRect(lgX, lgY + 24, 22, 10)
+    ctx.fillStyle = '#0f172a'; ctx.fillText('Paredes', lgX + 27, lgY + 33)
+    // Trinca
+    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2.5; ctx.setLineDash([7, 4])
+    ctx.beginPath(); ctx.moveTo(lgX, lgY + 46); ctx.lineTo(lgX + 22, lgY + 46); ctx.stroke()
+    ctx.setLineDash([])
+    ctx.fillStyle = '#0f172a'; ctx.fillText('Trinca / anomalia', lgX + 27, lgY + 50)
+    // Vértice
+    ctx.beginPath(); ctx.arc(lgX + 11, lgY + 62, 5, 0, Math.PI * 2)
+    ctx.fillStyle = '#fbbf24'; ctx.fill(); ctx.strokeStyle = '#92400e'; ctx.lineWidth = 1.2; ctx.stroke()
+    ctx.fillStyle = '#0f172a'; ctx.fillText(`Vértice (V1…V${bPts.length})`, lgX + 27, lgY + 66)
 
     resolve(canvas.toDataURL('image/png'))
   })
 }
 
+// Escurece uma cor hex por 'amount' (0–255)
+function adjustColor(hex, amount) {
+  const n = parseInt(hex.slice(1), 16)
+  const r = Math.max(0, Math.min(255, ((n >> 16) & 0xff) + amount))
+  const g = Math.max(0, Math.min(255, ((n >> 8)  & 0xff) + amount))
+  const b = Math.max(0, Math.min(255, ( n        & 0xff) + amount))
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
+}
+
 // ── PDF export — Relatório individual de vistoria ────────────────
 async function exportarPDFVistoria(v) {
-  // Gerar planta 2D antes de criar o PDF
-  const plantaDataURL = await gerarPlanta2D(v)
+  // Gerar vista 3D isométrica antes de criar o PDF
+  const plantaDataURL = await gerarVista3D(v)
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const W = 210, PL = 14, PR = 14, TW = W - PL - PR
@@ -1232,24 +1372,20 @@ async function exportarPDFVistoria(v) {
 
   rodape()
 
-  // ── Página final: Planta 2D do imóvel ──
+  // ── Página final: Modelo 3D do imóvel (isométrico top-down) ──
   if (plantaDataURL) {
     doc.addPage(); pg++; cabecalho(); y = 28
-    secao('Planta do Imóvel — Vista Superior com Anomalias')
+    secao('Modelo 3D do Imóvel — Vista Superior com Trincas')
     y += 3
     doc.setFontSize(7.5); doc.setFont('helvetica','italic'); doc.setTextColor(100,116,139)
-    doc.text('Vista superior (planta baixa) gerada a partir das coordenadas GPS e modelo 3D.', PL, y)
-    doc.text('Trincas e anomalias marcadas em vermelho. Cotas em metros.', PL, y + 5); y += 12
-    const imgW = 145, imgH = 145, imgX = (W - imgW) / 2
-    doc.addImage(plantaDataURL, 'PNG', imgX, y, imgW, imgH); y += imgH + 8
-    // Legenda
-    doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(15,23,42); doc.text('LEGENDA:', PL, y); y += 5
-    doc.setFillColor(30,58,138); doc.rect(PL, y, 14, 3.5, 'F')
-    doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(15,23,42); doc.text('Perímetro do imóvel', PL + 17, y + 3); y += 6
-    doc.setFillColor(239,68,68); doc.rect(PL, y, 14, 3.5, 'F')
-    doc.text('Anomalias / trincas identificadas', PL + 17, y + 3); y += 6
-    doc.setFillColor(30,58,138); doc.circle(PL + 7, y + 2, 2, 'F')
-    doc.text('Vértice do imóvel com cota de distância (m)', PL + 17, y + 3)
+    doc.text('Vista isométrica gerada a partir das coordenadas GPS dos vértices e do modelo 3D cadastrado.', PL, y)
+    doc.text('Trincas e anomalias marcadas em vermelho com identificação. Cotas de paredes em metros.', PL, y + 5); y += 12
+    // Imagem panorâmica (700×480 → proporção ~1.46:1 → 182×125 mm em A4)
+    const imgW = TW, imgH = Math.round(TW * 480 / 700)
+    doc.addImage(plantaDataURL, 'PNG', PL, y, imgW, imgH); y += imgH + 6
+    // Nota de rodapé técnica
+    doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(100,116,139)
+    doc.text('* A vista 3D é gerada automaticamente a partir dos dados do modelo digital — não substitui levantamento estrutural.', PL, y)
     rodape()
   }
 
