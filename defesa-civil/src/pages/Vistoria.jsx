@@ -749,29 +749,99 @@ const DESLIZAMENTOS_TIPOS = [
   { id:'desliz_rolamento', label:'Rolamento de blocos' },
 ]
 
+// ── UTM conversion (WGS84 → UTM) ────────────────────────────────
+function latLngToUTM(lat, lng) {
+  const a = 6378137.0
+  const f = 1 / 298.257223563
+  const e2 = 2 * f - f * f
+  const ePrime2 = e2 / (1 - e2)
+  const k0 = 0.9996
+  const zone = Math.floor((lng + 180) / 6) + 1
+  const lon0 = ((zone - 1) * 6 - 180 + 3) * Math.PI / 180
+  const latR = lat * Math.PI / 180
+  const lngR = lng * Math.PI / 180
+  const N = a / Math.sqrt(1 - e2 * Math.sin(latR) ** 2)
+  const T = Math.tan(latR) ** 2
+  const C = ePrime2 * Math.cos(latR) ** 2
+  const A = Math.cos(latR) * (lngR - lon0)
+  const M = a * (
+    (1 - e2/4 - 3*e2**2/64 - 5*e2**3/256) * latR
+    - (3*e2/8 + 3*e2**2/32 + 45*e2**3/1024) * Math.sin(2*latR)
+    + (15*e2**2/256 + 45*e2**3/1024) * Math.sin(4*latR)
+    - (35*e2**3/3072) * Math.sin(6*latR)
+  )
+  const easting = k0 * N * (
+    A + (1-T+C)*A**3/6 + (5-18*T+T**2+72*C-58*ePrime2)*A**5/120
+  ) + 500000
+  let northing = k0 * (M + N * Math.tan(latR) * (
+    A**2/2 + (5-T+9*C+4*C**2)*A**4/24 + (61-58*T+T**2+600*C-330*ePrime2)*A**6/720
+  ))
+  if (lat < 0) northing += 10000000
+  return { E: Math.round(easting * 100) / 100, N: Math.round(northing * 100) / 100, zona: zone }
+}
+
 // ── Export helpers ───────────────────────────────────────────────
 function exportExcel(vistorias) {
-  const rows = vistorias.map(v => ({
-    'ID':                    v.id,
-    'Data':                  v.data ? new Date(v.data).toLocaleString('pt-BR') : '',
-    'Nome':                  v.nome || '',
-    'CPF':                   v.cpf || '',
-    'Telefone':              v.telefone || '',
-    'Endereço':              v.endereco || '',
-    'Latitude':              v.lat || v.coordenada?.lat || '',
-    'Longitude':             v.lng || v.coordenada?.lng || '',
-    'Condição da Encosta':   v.condEncosta || '',
-    'Ângulo da Encosta':     v.anguloEncosta || '',
-    'Características':       Array.isArray(v.caractsEncosta) ? v.caractsEncosta.join('; ') : '',
-    'Tipo de Talude':        v.tipoTalude || '',
-    'Processos':             Array.isArray(v.processos) ? v.processos.join('; ') : '',
-    'Tipo de Solo':          v.solo || '',
-    'Uso do Imóvel':         v.tipoUso || v.tipo_uso || '',
-    'Moradores':             v.moradores || '',
-    'Patologias':            Array.isArray(v.patologias) ? v.patologias.join('; ') : '',
-    'Grau de Risco':         v.risco || '',
-    'Observações':           v.observacao || '',
-  }))
+  // Descobre o número máximo de vértices entre todas as vistorias
+  let maxVerts = 0
+  vistorias.forEach(v => {
+    try {
+      const verts = v.area_vertices
+        ? (typeof v.area_vertices === 'string' ? JSON.parse(v.area_vertices) : v.area_vertices)
+        : []
+      if (Array.isArray(verts) && verts.length > maxVerts) maxVerts = verts.length
+    } catch (_) {}
+  })
+
+  const rows = vistorias.map(v => {
+    const base = {
+      'ID':                    v.id,
+      'Data':                  v.data ? new Date(v.data).toLocaleString('pt-BR') : '',
+      'Nome':                  v.nome || '',
+      'CPF':                   v.cpf || '',
+      'Telefone':              v.telefone || '',
+      'Endereço':              v.endereco || '',
+      'Latitude':              v.lat || v.coordenada?.lat || '',
+      'Longitude':             v.lng || v.coordenada?.lng || '',
+      'Condição da Encosta':   v.condEncosta || '',
+      'Ângulo da Encosta':     v.anguloEncosta || '',
+      'Características':       Array.isArray(v.caractsEncosta) ? v.caractsEncosta.join('; ') : '',
+      'Tipo de Talude':        v.tipoTalude || '',
+      'Processos':             Array.isArray(v.processos) ? v.processos.join('; ') : '',
+      'Tipo de Solo':          v.solo || '',
+      'Uso do Imóvel':         v.tipoUso || v.tipo_uso || '',
+      'Moradores':             v.moradores || '',
+      'Patologias':            Array.isArray(v.patologias) ? v.patologias.join('; ') : '',
+      'Grau de Risco':         v.risco || '',
+      'Observações':           v.observacao || '',
+    }
+
+    // Colunas UTM dos vértices do polígono da área
+    let verts = []
+    try {
+      verts = v.area_vertices
+        ? (typeof v.area_vertices === 'string' ? JSON.parse(v.area_vertices) : v.area_vertices)
+        : []
+      if (!Array.isArray(verts)) verts = []
+    } catch (_) { verts = [] }
+
+    for (let i = 0; i < maxVerts; i++) {
+      const pt = verts[i]
+      if (pt && pt.lat != null && pt.lng != null) {
+        const utm = latLngToUTM(Number(pt.lat), Number(pt.lng))
+        base[`Vértice ${i+1} - Zona UTM`] = `${utm.zona}S`
+        base[`Vértice ${i+1} - E (m)`]    = utm.E
+        base[`Vértice ${i+1} - N (m)`]    = utm.N
+      } else {
+        base[`Vértice ${i+1} - Zona UTM`] = ''
+        base[`Vértice ${i+1} - E (m)`]    = ''
+        base[`Vértice ${i+1} - N (m)`]    = ''
+      }
+    }
+
+    return base
+  })
+
   const ws = XLSX.utils.json_to_sheet(rows)
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Vistorias')
@@ -818,8 +888,73 @@ async function exportKMZ(vistorias) {
 }
 
 // ── Dashboard ───────────────────────────────────────────────────
-function Dashboard({ vistorias }) {
-  if (vistorias.length === 0) return <div className={styles.vazio}>Nenhuma vistoria registrada.</div>
+function Dashboard({ vistorias, onImport }) {
+  const importInputRef = useRef(null)
+  const [importStatus, setImportStatus] = useState(null) // null | 'ok' | 'erro'
+  const [importMsg,    setImportMsg]    = useState('')
+
+  function handleImportClick() {
+    setImportStatus(null)
+    setImportMsg('')
+    importInputRef.current?.click()
+  }
+
+  async function handleImportFile(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const buffer = await file.arrayBuffer()
+      const wb = XLSX.read(buffer, { type: 'array' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' })
+      if (!rows.length) { setImportStatus('erro'); setImportMsg('Planilha vazia ou sem dados reconhecíveis.'); return }
+      const registros = rows.map((r, idx) => ({
+        id:            r['ID']        || `imp_${Date.now()}_${idx}`,
+        data:          r['Data']      ? (() => { try { return new Date(r['Data']).toISOString() } catch { return new Date().toISOString() } })() : new Date().toISOString(),
+        nome:          String(r['Nome']          || r['Responsável'] || ''),
+        cpf:           String(r['CPF']           || ''),
+        telefone:      String(r['Telefone']      || ''),
+        endereco:      String(r['Endereço']      || r['Endereco'] || ''),
+        moradores:     String(r['Moradores']     || ''),
+        lat:           r['Latitude']  ? Number(r['Latitude'])  : null,
+        lng:           r['Longitude'] ? Number(r['Longitude']) : null,
+        condEncosta:   String(r['Condição da Encosta']  || r['Condicao da Encosta']  || ''),
+        anguloEncosta: String(r['Ângulo da Encosta']    || r['Angulo da Encosta']    || ''),
+        caractsEncosta: r['Características'] ? String(r['Características']).split(';').map(s=>s.trim()).filter(Boolean) : [],
+        tipoTalude:    String(r['Tipo de Talude']  || ''),
+        processos:     r['Processos']  ? String(r['Processos']).split(';').map(s=>s.trim()).filter(Boolean) : [],
+        solo:          String(r['Tipo de Solo']   || ''),
+        tipo_uso:      String(r['Uso do Imóvel']  || r['Uso do Imovel'] || ''),
+        patologias:    r['Patologias'] ? String(r['Patologias']).split(';').map(s=>s.trim()).filter(Boolean) : [],
+        risco:         String(r['Grau de Risco']  || ''),
+        observacao:    String(r['Observações']    || r['Observacoes'] || ''),
+      }))
+      if (onImport) {
+        const resultado = await onImport(registros)
+        setImportStatus('ok')
+        setImportMsg(`${resultado?.importados ?? registros.length} registro(s) importado(s) com sucesso.`)
+      }
+    } catch (err) {
+      setImportStatus('erro')
+      setImportMsg(`Erro ao ler planilha: ${err.message}`)
+    }
+  }
+
+  if (vistorias.length === 0) return (
+    <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      <div className={styles.vazio}>Nenhuma vistoria registrada.</div>
+      <div style={{display:'flex', gap:12, flexWrap:'wrap', alignItems:'center'}}>
+        <input ref={importInputRef} type='file' accept='.xlsx,.xls,.csv' style={{display:'none'}} onChange={handleImportFile}/>
+        <button className={styles.exportBtn} style={{background:'#1d4ed8', borderColor:'#1d4ed8'}} onClick={handleImportClick}>
+          📥 Importar Planilha de Registros
+        </button>
+        {importStatus === 'ok'   && <span style={{color:'#22c55e', fontSize:13}}>{importMsg}</span>}
+        {importStatus === 'erro' && <span style={{color:'#ef4444', fontSize:13}}>{importMsg}</span>}
+      </div>
+    </div>
+  )
+
   const byRisco = NIVEIS_RISCO.map(r => ({ ...r, count: vistorias.filter(v => v.risco === r.value).length }))
   const total = vistorias.length
   const comCoord = vistorias.filter(v => v.lat || v.coordenada?.lat).length
@@ -869,10 +1004,28 @@ function Dashboard({ vistorias }) {
           ))}
         </div>
       )}
-      <div style={{display:'flex', gap:12, flexWrap:'wrap'}}>
+
+      {/* ── Ações: Exportar + Importar ── */}
+      <div style={{display:'flex', gap:12, flexWrap:'wrap', alignItems:'center'}}>
         <button className={styles.exportBtn} onClick={() => exportExcel(vistorias)}><FiDownload size={14}/> Exportar Excel</button>
         <button className={styles.exportBtn} style={{background:'#065f46', borderColor:'#065f46'}} onClick={() => exportKMZ(vistorias)}><FiDownload size={14}/> Exportar KMZ</button>
+
+        {/* Importar planilha de registros */}
+        <input ref={importInputRef} type='file' accept='.xlsx,.xls,.csv' style={{display:'none'}} onChange={handleImportFile}/>
+        <button
+          className={styles.exportBtn}
+          style={{background:'#1d4ed8', borderColor:'#1d4ed8'}}
+          onClick={handleImportClick}
+          title='Carregar planilha Excel com registros de vistorias existentes'
+        >
+          📥 Importar Planilha de Registros
+        </button>
+        {importStatus === 'ok'   && <span style={{color:'#22c55e', fontSize:13}}>{importMsg}</span>}
+        {importStatus === 'erro' && <span style={{color:'#ef4444', fontSize:13}}>{importMsg}</span>}
       </div>
+      <p style={{color:'#94a3b8', fontSize:11, margin:0}}>
+        A planilha deve seguir o mesmo formato do arquivo exportado (colunas: Nome, Grau de Risco, Endereço, etc.).
+      </p>
     </div>
   )
 }
@@ -1907,6 +2060,30 @@ export default function Vistoria() {
     carregar()
   }
 
+  // ── Importar planilha de registros ───────────────────────────────
+  async function importarPlanilha(registros) {
+    let importados = 0
+    const erros = []
+    for (const reg of registros) {
+      try {
+        await api.createVistoria(reg)
+        importados++
+      } catch {
+        // fallback: salva no localStorage
+        try {
+          const lista = JSON.parse(localStorage.getItem('vistorias') || '[]')
+          lista.push(reg)
+          localStorage.setItem('vistorias', JSON.stringify(lista))
+          importados++
+        } catch (e2) {
+          erros.push(reg.nome || reg.id)
+        }
+      }
+    }
+    await carregar()
+    return { importados, erros }
+  }
+
   const getRiscoColor = r => NIVEIS_RISCO.find(x => x.value === r)?.color || '#64748b'
 
   return (
@@ -2864,7 +3041,7 @@ export default function Vistoria() {
             <FiBarChart2 size={18} color='#38bdf8'/>
             <span style={{fontWeight:700, fontSize:16, color:'#f0f9ff'}}>Dashboard de Vistorias</span>
           </div>
-          <Dashboard vistorias={vistorias}/>
+          <Dashboard vistorias={vistorias} onImport={importarPlanilha}/>
         </div>
       )}
 
