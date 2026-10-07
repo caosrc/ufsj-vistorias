@@ -4,12 +4,12 @@
 Sistema WebGIS operacional para monitoramento geotécnico das cidades de **Ouro Branco - MG** e **Congonhas - MG**.
 
 ## Stack Técnica
-- React 19 + Vite (porta 5000)
+- React 19 + Vite (porta interna 5173)
 - Leaflet (mapa interativo)
 - Three.js (visualização 3D de terreno)
 - Chart.js (gráficos)
 - @turf/turf (análise geoespacial)
-- Express + PostgreSQL/PostGIS (backend porta 3001)
+- Express + PostgreSQL/PostGIS (API e preview na porta 5000)
 - xlsx (exportação Excel)
 - jszip (exportação KMZ)
 - CSS Modules (dark mode)
@@ -30,11 +30,15 @@ Sistema WebGIS operacional para monitoramento geotécnico das cidades de **Ouro 
 - Painel Operacional (clima via Open-Meteo)
 - API de elevação: Terrarium/AWS tiles z16 bicúbico (primário) → OpenTopoData **Copernicus GLO-30** 30m (fallback) → Open-Meteo 90m
 
-## Executar
+## Executar no Replit
+O workflow `Project` inicia o Express na porta 5000 e o Vite na porta interna 5173. O Express encaminha as páginas para o Vite e atende `/api/*` diretamente.
+
+Para iniciar manualmente em dois terminais:
 ```bash
-cd defesa-civil && npm run dev   # frontend — porta 5000
-cd server && node index.js       # backend  — porta 3001
+cd server && node index.js
+cd defesa-civil && npm run dev -- --port 5173 --host 0.0.0.0
 ```
+O backend usa `DATABASE_URL` para conectar ao PostgreSQL.
 
 ## Estrutura Principal
 ```
