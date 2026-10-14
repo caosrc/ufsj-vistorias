@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as maplibregl from 'maplibre-gl'
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { api } from '../services/api'
 import { CIDADES, CIDADE_PADRAO } from '../data/cidades'
@@ -11,6 +12,8 @@ import {
   FiLayers, FiBookOpen, FiAlertTriangle, FiChevronDown,
   FiChevronRight, FiNavigation, FiClipboard, FiZoomIn,
 } from 'react-icons/fi'
+
+maplibregl.setWorkerUrl(maplibreWorkerUrl)
 
 // ── Constantes ────────────────────────────────────────────────
 const RISCO_CORES = { R1: '#22c55e', R2: '#eab308', R3: '#f97316', R4: '#ef4444' }
@@ -147,19 +150,6 @@ export default function Mapa() {
 
     map.on('load', () => {
       loadedRef.current = true
-
-      // Sky layer — efeito Google Earth
-      try {
-        map.addLayer({
-          id: 'sky',
-          type: 'sky',
-          paint: {
-            'sky-type': 'atmosphere',
-            'sky-atmosphere-sun': [0.0, 90.0],
-            'sky-atmosphere-sun-intensity': 15,
-          },
-        })
-      } catch (_) {}
 
       // ── Fontes de dados GeoJSON ───────────────────────────
       const emptyGeo = { type: 'FeatureCollection', features: [] }

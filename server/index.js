@@ -741,7 +741,15 @@ const viteProxy = createProxyMiddleware({
   ws: true,
   on: {
     error: (_err, _req, res) => {
-      res.status(502).send('Vite dev server indisponível. Aguarde...')
+      const message = 'Vite dev server indisponível. Aguarde...'
+      if (typeof res?.status === 'function') {
+        res.status(502).send(message)
+      } else if (typeof res?.writeHead === 'function' && typeof res?.end === 'function') {
+        res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' })
+        res.end(message)
+      } else {
+        res?.destroy?.()
+      }
     }
   }
 })
