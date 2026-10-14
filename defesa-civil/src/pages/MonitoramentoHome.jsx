@@ -85,7 +85,7 @@ export default function MonitoramentoHome() {
       const data = parsePrecipCSV(text)
 
       // 1. Salva no banco de dados
-      await api.savePrecipitacoes(file.name, data)
+      const resultado = await api.savePrecipitacoes(file.name, data)
 
       // 2. Atualiza localStorage como cache local
       localStorage.setItem(PRECIP_KEY, JSON.stringify(data))
@@ -94,7 +94,12 @@ export default function MonitoramentoHome() {
       setPrecipData(data)
       setFileName(file.name)
       const s = getPrecipSummary(data)
-      setImportMsg({ type: 'ok', text: `✅ ${s.days} dias salvos no banco (${s.from} a ${s.to}) — ${s.total} mm acumulado.` })
+      setImportMsg({
+        type: 'ok',
+        text: resultado?.offline
+          ? `✅ Dados salvos neste dispositivo e aguardando sincronização (${s.days} dias, ${s.from} a ${s.to}) — ${s.total} mm acumulado.`
+          : `✅ ${s.days} dias salvos no banco (${s.from} a ${s.to}) — ${s.total} mm acumulado.`,
+      })
     } catch (err) {
       setImportMsg({ type: 'erro', text: `❌ ${err.message}` })
     } finally {
@@ -103,14 +108,23 @@ export default function MonitoramentoHome() {
   }
 
   const handleClear = async () => {
+    let resultado
     try {
-      await api.deletePrecipitacoes()
-    } catch (_) {}
+      resultado = await api.deletePrecipitacoes()
+    } catch (error) {
+      setImportMsg({ type: 'erro', text: `❌ Não foi possível remover os dados: ${error.message}` })
+      return
+    }
     localStorage.removeItem(PRECIP_KEY)
     localStorage.removeItem(PRECIP_FILE_KEY)
     setPrecipData(null)
     setFileName(null)
-    setImportMsg({ type: 'ok', text: '🗑️ Dados de precipitação removidos.' })
+    setImportMsg({
+      type: 'ok',
+      text: resultado?.offline
+        ? '🗑️ Remoção salva neste dispositivo e aguardando sincronização.'
+        : '🗑️ Dados de precipitação removidos.',
+    })
   }
 
   const summary = precipData ? getPrecipSummary(precipData) : null

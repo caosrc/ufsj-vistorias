@@ -1677,6 +1677,8 @@ export default function Vistoria() {
     carregar()
     const coord = localStorage.getItem('ultimaCoordenada')
     if (coord) setCoordAtual(JSON.parse(coord))
+    const onSynced = () => carregar()
+    window.addEventListener('geovistorias:offline-data-synced', onSynced)
 
     // Modo edição: carregado do painel do mapa
     const editRaw = sessionStorage.getItem('editar_vistoria')
@@ -1687,6 +1689,7 @@ export default function Vistoria() {
         carregarParaEdicao(ev)
       } catch (_) {}
     }
+    return () => window.removeEventListener('geovistorias:offline-data-synced', onSynced)
   }, [])
 
   const carregarParaEdicao = (ev) => {
@@ -2025,11 +2028,12 @@ export default function Vistoria() {
       })(),
       data: new Date().toISOString(),
     }
+    let resultado
     try {
       if (editandoId) {
-        await api.updateVistoria(editandoId, payload)
+        resultado = await api.updateVistoria(editandoId, payload)
       } else {
-        await api.createVistoria(payload)
+        resultado = await api.createVistoria(payload)
       }
     } catch (err) {
       alert(`Erro ao salvar vistoria: ${err.message}`)
@@ -2047,7 +2051,10 @@ export default function Vistoria() {
     setAreaVertices([]); setShowAreaLoc(false)
     setEdificacaoPlanta({ vertices: [], anomalias: [] }); setShowEdifLoc(false)
     setEdificacaoSalva3D(null)
-    setSucesso(true); setTimeout(() => setSucesso(false), 3500)
+    setSucesso(resultado?.offline
+      ? 'Vistoria salva neste dispositivo; será enviada quando a conexão voltar.'
+      : 'Vistoria salva com sucesso!')
+    setTimeout(() => setSucesso(false), 3500)
     carregar(); setAbaAtiva('lista')
   }
 
@@ -2916,7 +2923,7 @@ export default function Vistoria() {
             </button>
             {sucesso && (
               <div className={styles.sucesso}>
-                <FiCheckCircle size={16}/> Vistoria salva com sucesso!
+                <FiCheckCircle size={16}/> {sucesso}
               </div>
             )}
           </form>

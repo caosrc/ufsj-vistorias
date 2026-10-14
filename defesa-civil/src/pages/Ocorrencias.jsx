@@ -33,6 +33,9 @@ export default function Ocorrencias() {
     carregar()
     const coord = localStorage.getItem('ultimaCoordenada')
     if (coord) setCoordAtual(JSON.parse(coord))
+    const onSynced = () => carregar()
+    window.addEventListener('geovistorias:offline-data-synced', onSynced)
+    return () => window.removeEventListener('geovistorias:offline-data-synced', onSynced)
   }, [])
 
   async function carregar() {
@@ -58,14 +61,17 @@ export default function Ocorrencias() {
       data: new Date().toISOString()
     }
     try {
-      await api.createOcorrencia(payload)
+      const resultado = await api.createOcorrencia(payload)
+      setSucesso(resultado?.offline
+        ? 'Ocorrência salva neste dispositivo; será enviada quando a conexão voltar.'
+        : 'Ocorrência registrada com sucesso!')
     } catch {
       const lista = JSON.parse(localStorage.getItem('ocorrencias') || '[]')
       lista.push({ id: Date.now(), ...payload, coordenada: coordAtual })
       localStorage.setItem('ocorrencias', JSON.stringify(lista))
+      setSucesso('Ocorrência salva localmente; será enviada quando a conexão voltar.')
     }
     setTipo(''); setDescricao(''); setNivel('medio'); setEndereco('')
-    setSucesso(true)
     setTimeout(() => setSucesso(false), 3000)
     carregar()
   }
@@ -130,7 +136,7 @@ export default function Ocorrencias() {
             <label>Descrição</label>
             <textarea placeholder='Descreva a ocorrência...' value={descricao} onChange={e => setDescricao(e.target.value)} rows={4} />
             <button type='submit' className={styles.saveBtn}><FiSave /> Registrar Ocorrência</button>
-            {sucesso && <div className={styles.sucesso}>Ocorrência registrada com sucesso!</div>}
+            {sucesso && <div className={styles.sucesso}>{sucesso}</div>}
           </form>
         </div>
 

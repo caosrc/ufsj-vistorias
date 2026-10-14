@@ -15,6 +15,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadTudo()
+    const onSynced = () => loadStats()
+    window.addEventListener('geovistorias:offline-data-synced', onSynced)
+    return () => window.removeEventListener('geovistorias:offline-data-synced', onSynced)
   }, [cidadeSelecionada])
 
   async function loadTudo() {

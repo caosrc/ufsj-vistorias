@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { FiWifi, FiWifiOff, FiDownloadCloud, FiCheckCircle,
          FiAlertCircle, FiTrash2, FiX, FiSmartphone, FiRefreshCw } from 'react-icons/fi'
+import { getPendingSyncCount, syncPendingOperations } from '../services/api'
 
 // ── Cálculo de tiles para bbox ──────────────────────────────────
 function lng2tile(lng, z) {
@@ -38,9 +39,9 @@ function generateTileUrls(bbox, minZ, maxZ) {
 const CITIES_BBOX = [-20.78, -20.32, -44.10, -43.48]
 
 const ZOOM_PRESETS = [
-  { label: 'Rápido (zoom 8–11)', minZ: 8, maxZ: 11, desc: '~120 tiles, ~3 MB' },
-  { label: 'Completo (zoom 8–13)', minZ: 8, maxZ: 13, desc: '~550 tiles, ~12 MB' },
-  { label: 'Detalhado (zoom 8–14)', minZ: 8, maxZ: 14, desc: '~1800 tiles, ~40 MB' },
+  { label: 'Rápido (zoom 8–11)', minZ: 8, maxZ: 11, desc: '78 tiles nas 3 camadas' },
+  { label: 'Completo (zoom 8–13)', minZ: 8, maxZ: 13, desc: '762 tiles nas 3 camadas' },
+  { label: 'Detalhado (zoom 8–14)', minZ: 8, maxZ: 14, desc: '2.922 tiles nas 3 camadas' },
 ]
 
 // ── Componente principal ─────────────────────────────────────────
@@ -50,14 +51,15 @@ export default function OfflineManager() {
   const [open,         setOpen]         = useState(false)
   const [isMobile,     setIsMobile]     = useState(window.innerWidth <= 768)
   const [phase,        setPhase]        = useState('idle') // idle | caching | done | error
-  const [progress,     setProgress]     = useState({ done: 0, total: 0 })
+  const [progress,     setProgress]     = useState({ done: 0, total: 0, saved: 0, failed: 0 })
   const [cacheStats,   setCacheStats]   = useState(null)
   const [selectedZoom, setSelectedZoom] = useState(0)
   const [installPrompt,setInstallPrompt]= useState(null)
   const [installed,    setInstalled]    = useState(false)
   const [swUpdate,     setSwUpdate]     = useState(false)
-  const channelRef = useRef(null)
-
+  const [pendingSync,  setPendingSync]  = useState(0)
+  const [syncing,      setSyncing]      = useState(false)
+  const [syncError,    setSyncError]    = useState('')
   // Detectar online/offline e tamanho da tela
   useEffect(() => {
     const goOn  = () => setIsOnline(true)
@@ -76,18 +78,42 @@ export default function OfflineManager() {
   // Detectar SW registrado
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then(() => setSwReady(true))
+      navigator.serviceWorker.ready.then(() => setSwReady(true)).catch(() => {})
     }
-    window.addEventListener('sw-update-available', () => setSwUpdate(true))
-    return () => window.removeEventListener('sw-update-available', () => {})
+    const onUpdate = () => setSwUpdate(true)
+    window.addEventListener('sw-update-available', onUpdate)
+    return () => window.removeEventListener('sw-update-available', onUpdate)
   }, [])
 
   // Detectar prompt de instalação PWA
   useEffect(() => {
     const handler = e => { e.preventDefault(); setInstallPrompt(e) }
+    const onInstalled = () => { setInstalled(true); setInstallPrompt(null) }
     window.addEventListener('beforeinstallprompt', handler)
-    window.addEventListener('appinstalled', () => { setInstalled(true); setInstallPrompt(null) })
-    return () => window.removeEventListener('beforeinstallprompt', handler)
+    window.addEventListener('appinstalled', onInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    const refreshPending = () => getPendingSyncCount().then(count => {
+      if (active) setPendingSync(count)
+    })
+    const onSynced = event => {
+      setPendingSync(event.detail?.pending ?? 0)
+      if (!event.detail?.pending) setSyncError('')
+    }
+    refreshPending()
+    window.addEventListener('geovistorias:offline-queue-change', refreshPending)
+    window.addEventListener('geovistorias:offline-data-synced', onSynced)
+    return () => {
+      active = false
+      window.removeEventListener('geovistorias:offline-queue-change', refreshPending)
+      window.removeEventListener('geovistorias:offline-data-synced', onSynced)
+    }
   }, [])
 
   // Buscar stats do cache ao abrir
@@ -133,11 +159,21 @@ export default function OfflineManager() {
     const mc = new MessageChannel()
     mc.port1.onmessage = e => {
       if (e.data?.type === 'TILE_PROGRESS') {
-        setProgress({ done: e.data.done, total: e.data.total })
+        setProgress({
+          done: e.data.done,
+          total: e.data.total,
+          saved: e.data.saved ?? 0,
+          failed: e.data.failed ?? 0,
+        })
       }
       if (e.data?.type === 'TILE_DONE') {
-        setProgress({ done: e.data.done, total: e.data.total })
-        setPhase('done')
+        setProgress({
+          done: e.data.done,
+          total: e.data.total,
+          saved: e.data.saved ?? 0,
+          failed: e.data.failed ?? 0,
+        })
+        setPhase(e.data.saved > 0 ? 'done' : 'error')
         getCacheStats().then(setCacheStats)
       }
     }
@@ -155,6 +191,21 @@ export default function OfflineManager() {
       setCacheStats(s => s ? { ...s, tiles: 0 } : null)
     }
     sw.active.postMessage({ type: 'CLEAR_TILES' }, [mc.port2])
+  }
+
+  async function sincronizarAgora() {
+    if (!isOnline || syncing) return
+    setSyncing(true)
+    setSyncError('')
+    try {
+      const result = await syncPendingOperations()
+      setPendingSync(result.pending)
+      if (result.pending > 0) setSyncError('Não foi possível enviar todos os registros. Eles continuam guardados neste dispositivo.')
+    } catch {
+      setSyncError('Falha ao sincronizar. Os registros continuam guardados neste dispositivo.')
+    } finally {
+      setSyncing(false)
+    }
   }
 
   // Recarregar para aplicar atualização
@@ -417,10 +468,12 @@ export default function OfflineManager() {
                   <FiCheckCircle size={16} color='#22c55e'/>
                   <div>
                     <div style={{ color: '#6ee7b7', fontWeight: 700, fontSize: 12 }}>
-                      {progress.done} tiles baixados!
+                       {progress.saved} tiles disponíveis no cache
                     </div>
-                    <div style={{ color: '#065f46', fontSize: 10 }}>
-                      Mapas disponíveis offline
+                      <div style={{ color: '#6ee7b7', fontSize: 10 }}>
+                       {progress.failed > 0
+                         ? `${progress.failed} não foram baixados; o restante funciona offline.`
+                         : 'Mapas disponíveis offline.'}
                     </div>
                   </div>
                   <button onClick={() => setPhase('idle')} style={{
@@ -429,35 +482,50 @@ export default function OfflineManager() {
                   }}><FiX size={12}/></button>
                 </div>
               )}
+
+                  {phase === 'error' && (
+                    <div role='status' style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      background: '#450a0a', border: '1px solid #7f1d1d',
+                      borderRadius: 8, padding: '10px 12px', color: '#fca5a5', fontSize: 11,
+                    }}>
+                      <FiAlertCircle size={15}/>
+                      Não foi possível baixar os mapas. Verifique a conexão e tente novamente.
+                    </div>
+                  )}
             </div>
 
-            {/* Dados locais */}
+            {/* Fila de sincronização offline */}
             <div style={{
               background: '#1e293b', border: '1px solid #1e3a5f',
               borderRadius: 10, padding: '12px 14px',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <FiCheckCircle size={13} color='#22c55e'/>
-                <span style={{ color: '#86efac', fontWeight: 700, fontSize: 13 }}>Dados sempre disponíveis</span>
+                {pendingSync > 0
+                  ? <FiRefreshCw size={13} color='#fbbf24'/>
+                  : <FiCheckCircle size={13} color='#22c55e'/>}
+                <span style={{ color: pendingSync > 0 ? '#fcd34d' : '#86efac', fontWeight: 700, fontSize: 13 }}>
+                  {pendingSync > 0 ? `${pendingSync} alteração(ões) aguardando envio` : 'Dados e sincronização'}
+                </span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                {[
-                  'Vistorias residenciais',
-                  'Cadastro de imóveis',
-                  'Ocorrências registradas',
-                  'Desenho de áreas de risco',
-                  'Análise de declividade',
-                  'Perfis 3D gerados',
-                ].map((item, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: '#94a3b8' }}>
-                    <span style={{ color: '#22c55e', fontSize: 9 }}>●</span>
-                    {item}
-                  </div>
-                ))}
+              <div style={{ color: '#94a3b8', fontSize: 11, lineHeight: 1.55 }}>
+                Vistorias, imóveis, ocorrências, áreas de risco e precipitações ficam na fila local e são enviados quando a conexão voltar.
+                Mapas precisam ser baixados antes; clima, elevação online, fotos e recursos de monitoramento podem exigir internet.
               </div>
-              <div style={{ marginTop: 8, fontSize: 10, color: '#475569', lineHeight: 1.5 }}>
-                Registros criados offline são sincronizados automaticamente ao reconectar.
-              </div>
+              {pendingSync > 0 && (
+                <button
+                  onClick={sincronizarAgora}
+                  disabled={!isOnline || syncing}
+                  style={{
+                    width: '100%', marginTop: 10, background: isOnline ? '#1d4ed8' : '#374151',
+                    border: 'none', color: isOnline ? '#fff' : '#9ca3af', borderRadius: 8,
+                    padding: '8px', fontSize: 12, fontWeight: 700, cursor: isOnline ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  {syncing ? 'Sincronizando…' : isOnline ? 'Sincronizar agora' : 'Aguardando conexão'}
+                </button>
+              )}
+              {syncError && <div role='status' style={{ color: '#fca5a5', fontSize: 10, marginTop: 8 }}>{syncError}</div>}
             </div>
 
           </div>

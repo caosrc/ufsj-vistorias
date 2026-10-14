@@ -1,16 +1,30 @@
-// ── Geovistorias Service Worker v5 ─────────────────────────────
-const CACHE_APP   = 'geovistorias-app-v5'
+// ── Geovistorias Service Worker v6 ─────────────────────────────
+const CACHE_APP   = 'geovistorias-app-v6'
 const CACHE_TILES = 'geovistorias-tiles-v2'
-const CACHE_API   = 'geovistorias-api-v3'
+const CACHE_API   = 'geovistorias-api-v4'
 
-const APP_SHELL = ['/', '/index.html']
+const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icone.png']
 
 // ── Install ────────────────────────────────────────────────────
 self.addEventListener('install', event => {
   self.skipWaiting()
   event.waitUntil(
-    caches.open(CACHE_APP)
-      .then(cache => cache.addAll(APP_SHELL).catch(() => {}))
+    (async () => {
+      const cache = await caches.open(CACHE_APP)
+      await Promise.all(APP_SHELL.map(url => cache.add(url).catch(() => null)))
+
+      // Inclui os bundles do build no cache de instalação quando disponíveis.
+      try {
+        const response = await fetch('/index.html')
+        if (!response.ok) return
+        await cache.put('/index.html', response.clone())
+        const html = await response.text()
+        const assets = [...html.matchAll(/(?:src|href)=["']([^"']+\.(?:js|css)(?:\?[^"']*)?)["']/g)]
+          .map(match => new URL(match[1], self.location.origin).href)
+          .filter(url => new URL(url).origin === self.location.origin)
+        await Promise.all(assets.map(url => cache.add(url).catch(() => null)))
+      } catch { /* assets serão armazenados conforme o app for usado online */ }
+    })()
   )
 })
 
@@ -109,9 +123,9 @@ async function networkFirstApi(request) {
   } catch {
     const cached = await cache.match(request)
     if (cached) return cached
-    return new Response(JSON.stringify([]), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', 'X-Offline': 'true' }
+    return new Response(JSON.stringify({ error: 'API indisponível offline' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json', 'X-Offline': 'true' },
     })
   }
 }
@@ -154,23 +168,34 @@ self.addEventListener('message', async event => {
     const { urls } = event.data
     const cache = await caches.open(CACHE_TILES)
     let done = 0
+    let saved = 0
+    let failed = 0
 
     for (const url of urls) {
       try {
         const already = await cache.match(url)
-        if (!already) {
+        if (already) {
+          saved++
+        } else {
           const resp = await fetch(url, { mode: 'no-cors' })
-          if (resp) await cache.put(url, resp)
+          if (resp) {
+            await cache.put(url, resp)
+            saved++
+          } else {
+            failed++
+          }
         }
-      } catch { /* tile unavailable */ }
+      } catch {
+        failed++
+      }
 
       done++
-      port?.postMessage({ type: 'TILE_PROGRESS', done, total: urls.length })
+      port?.postMessage({ type: 'TILE_PROGRESS', done, total: urls.length, saved, failed })
 
       // 40ms entre requisições para não sobrecarregar
       await new Promise(r => setTimeout(r, 40))
     }
-    port?.postMessage({ type: 'TILE_DONE', done, total: urls.length })
+    port?.postMessage({ type: 'TILE_DONE', done, total: urls.length, saved, failed })
   }
 
   // Status dos caches

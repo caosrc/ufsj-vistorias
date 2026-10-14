@@ -55,6 +55,10 @@ externalPort = 80
 localPort = 5173
 externalPort = 5173
 
+[[ports]]
+localPort = 24678
+externalPort = 3001
+
 [deployment]
 deploymentTarget = "static"
 build = ["bash", "-c", "cd defesa-civil && npm run build"]

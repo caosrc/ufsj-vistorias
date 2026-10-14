@@ -504,6 +504,12 @@ export default function Mapa() {
     }
   }, [overlays.pluviometrico, cidade])
 
+  useEffect(() => {
+    const onSynced = () => carregarDados(mapGl.current)
+    window.addEventListener('geovistorias:offline-data-synced', onSynced)
+    return () => window.removeEventListener('geovistorias:offline-data-synced', onSynced)
+  }, [])
+
   // ── Clima ───────────────────────────────────────────────────
   async function carregarClima(cidadeKey) {
     try {

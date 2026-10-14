@@ -1,15 +1,493 @@
+import {
+  enqueueOfflineOperation,
+  getOfflineQueue,
+  readOfflineIdMapping,
+  readOfflineCache,
+  removeOfflineOperation,
+  updateOfflineOperation,
+  writeOfflineIdMapping,
+  writeOfflineCache,
+} from './offlineStorage'
+
 const API_URL = import.meta.env.VITE_API_URL ?? ''
 export const API_BASE = `${API_URL}/api`
 const BASE = API_BASE
 
-async function req(method, path, body) {
-  const res = await fetch(`${BASE}${path}`, {
+const RESOURCE_PATHS = {
+  ocorrencias: '/ocorrencias',
+  vistorias: '/vistorias',
+  imoveis: '/imoveis',
+  'areas-risco': '/areas-risco',
+  precipitacoes: '/precipitacoes',
+}
+
+const LEGACY_STORAGE_KEYS = {
+  ocorrencias: 'ocorrencias',
+  vistorias: 'vistorias',
+  imoveis: 'imoveis',
+  'areas-risco': 'areasRisco',
+  precipitacoes: 'precipitacoes',
+}
+
+let isSyncing = false
+let syncingOperationId = null
+
+function safeParse(value, fallback) {
+  try {
+    return value == null ? fallback : JSON.parse(value)
+  } catch {
+    return fallback
+  }
+}
+
+function pathWithoutQuery(path) {
+  return path.split('?')[0]
+}
+
+function resourceForPath(path) {
+  const pathname = pathWithoutQuery(path)
+  if (pathname.startsWith('/geojson/ocorrencias')) return 'ocorrencias'
+  if (pathname.startsWith('/geojson/areas-risco')) return 'areas-risco'
+  return Object.keys(RESOURCE_PATHS).find(name => {
+    const root = RESOURCE_PATHS[name]
+    return pathname === root || pathname.startsWith(`${root}/`)
+  }) || null
+}
+
+function isCollectionPath(path, resource) {
+  return pathWithoutQuery(path) === RESOURCE_PATHS[resource]
+}
+
+function operationId(operation) {
+  return decodeURIComponent(pathWithoutQuery(operation.path).split('/').filter(Boolean).at(-1) || '')
+}
+
+async function resolveMappedPath(path) {
+  const parts = path.split('/')
+  const idIndex = parts.findIndex(part => part.startsWith('offline-'))
+  if (idIndex < 0) return path
+  const mappedId = await readOfflineIdMapping(decodeURIComponent(parts[idIndex]))
+  if (mappedId == null) return path
+  parts[idIndex] = encodeURIComponent(String(mappedId))
+  return parts.join('/')
+}
+
+function sameId(a, b) {
+  return String(a) === String(b)
+}
+
+function legacyCollection(resource) {
+  try {
+    const value = safeParse(localStorage.getItem(LEGACY_STORAGE_KEYS[resource]), null)
+    return Array.isArray(value) ? value : null
+  } catch {
+    return null
+  }
+}
+
+function offlineGeoJson() {
+  return { type: 'FeatureCollection', features: [] }
+}
+
+function createGeoFeature(resource, record) {
+  if (resource === 'ocorrencias' && record.lat != null && record.lng != null) {
+    return {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [Number(record.lng), Number(record.lat)] },
+      properties: {
+        id: record.id,
+        tipo: record.tipo,
+        nivel: record.nivel,
+        descricao: record.descricao,
+        data: record.data,
+      },
+    }
+  }
+  if (resource === 'areas-risco' && record.geojson) {
+    let geometry = record.geojson
+    if (typeof geometry === 'string') {
+      try { geometry = JSON.parse(geometry) } catch { return null }
+    }
+    return {
+      type: 'Feature',
+      geometry,
+      properties: { id: record.id, nivel: record.nivel, descricao: record.descricao },
+    }
+  }
+  return null
+}
+
+function applyMutationToCollection(records, operation, resource) {
+  const list = Array.isArray(records) ? [...records] : []
+  if (resourceForPath(operation.path) !== resource) return list
+
+  const method = operation.method.toUpperCase()
+  if (method === 'POST' && isCollectionPath(operation.path, resource)) {
+    const record = { ...operation.body, id: operation.optimisticId }
+    const existingIndex = list.findIndex(item => sameId(item.id, record.id))
+    if (existingIndex >= 0) list[existingIndex] = { ...list[existingIndex], ...record }
+    else list.unshift(record)
+    return list
+  }
+
+  const id = operationId(operation)
+  if (method === 'DELETE') return list.filter(item => !sameId(item.id, id))
+
+  if (method === 'PUT' || method === 'PATCH') {
+    return list.map(item => {
+      if (!sameId(item.id, id)) return item
+      const changes = method === 'PATCH' && operation.body?.edificacao_planta !== undefined
+        ? { edificacao_planta: operation.body.edificacao_planta }
+        : operation.body
+      return { ...item, ...changes, id: item.id }
+    })
+  }
+  return list
+}
+
+function applyMutationsToGeoJson(data, operations, resource) {
+  const result = data?.type === 'FeatureCollection'
+    ? { ...data, features: [...(data.features || [])] }
+    : offlineGeoJson()
+
+  for (const operation of operations) {
+    if (resourceForPath(operation.path) !== resource) continue
+    const method = operation.method.toUpperCase()
+    const id = operationId(operation)
+    if (method === 'DELETE') {
+      result.features = result.features.filter(feature => !sameId(feature.properties?.id, id))
+    } else if (method === 'POST' && isCollectionPath(operation.path, resource)) {
+      const feature = createGeoFeature(resource, { ...operation.body, id: operation.optimisticId })
+      if (feature && !result.features.some(item => sameId(item.properties?.id, feature.properties.id))) {
+        result.features.unshift(feature)
+      }
+    }
+  }
+  return result
+}
+
+async function getCollectionSnapshot(resource, queue) {
+  const cached = await readOfflineCache(RESOURCE_PATHS[resource])
+  const fallback = Array.isArray(cached) ? cached : legacyCollection(resource)
+  return queue.reduce((records, operation) => applyMutationToCollection(records, operation, resource), fallback || [])
+}
+
+async function getOfflineValue(path, queue) {
+  const pendingOperations = await Promise.all(queue.map(async operation => ({
+    ...operation,
+    path: await resolveMappedPath(operation.path),
+  })))
+  const pathname = pathWithoutQuery(path)
+  let cached = await readOfflineCache(path)
+  if (cached === undefined && pathname !== path) cached = await readOfflineCache(pathname)
+
+  const resource = resourceForPath(path)
+  if (pathname.startsWith('/geojson/')) {
+    if (cached === undefined) {
+      const collection = await getCollectionSnapshot(resource, pendingOperations)
+      return applyMutationsToGeoJson(offlineGeoJson(), pendingOperations, resource).features.length
+        ? applyMutationsToGeoJson(offlineGeoJson(), pendingOperations, resource)
+        : {
+            type: 'FeatureCollection',
+            features: collection.map(record => createGeoFeature(resource, record)).filter(Boolean),
+          }
+    }
+    return applyMutationsToGeoJson(cached, pendingOperations, resource)
+  }
+
+  if (resource === 'precipitacoes') {
+    let value = cached
+    if (value === undefined) {
+      value = safeParse(localStorage.getItem(LEGACY_STORAGE_KEYS.precipitacoes), null)
+    }
+    for (const operation of pendingOperations) {
+      if (resourceForPath(operation.path) !== 'precipitacoes') continue
+      if (operation.method === 'POST') {
+        value = {
+          id: operation.optimisticId,
+          ...operation.body,
+          updated_at: operation.createdAt,
+        }
+      } else if (operation.method === 'DELETE') {
+        value = null
+      }
+    }
+    return value
+  }
+
+  if (resource && isCollectionPath(path, resource)) {
+    const legacy = legacyCollection(resource)
+    const base = Array.isArray(cached) ? cached : legacy || []
+    return pendingOperations.reduce((records, operation) => applyMutationToCollection(records, operation, resource), base)
+  }
+
+  if (pathname === '/stats') {
+    if (cached && !pendingOperations.length) return cached
+    const counts = { ocorrencias: 0, vistorias: 0, imoveis: 0, areas_risco: 0 }
+    for (const [resource, key] of Object.entries({
+      ocorrencias: 'ocorrencias',
+      vistorias: 'vistorias',
+      imoveis: 'imoveis',
+      areas_risco: 'areas-risco',
+    })) {
+      const collection = await getCollectionSnapshot(key, pendingOperations)
+      const hasCache = Array.isArray(await readOfflineCache(RESOURCE_PATHS[key])) || legacyCollection(key)
+      if (hasCache) counts[resource] = collection.length
+      else if (cached) counts[resource] = cached[resource] ?? cached[resource === 'areas_risco' ? 'areasRisco' : resource] ?? 0
+    }
+    return counts
+  }
+
+  if (cached !== undefined) return cached
+  if (resource === 'precipitacoes') {
+    const legacy = safeParse(localStorage.getItem(LEGACY_STORAGE_KEYS.precipitacoes), null)
+    return legacy
+  }
+  return undefined
+}
+
+function localId() {
+  const unique = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  return `offline-${unique}`
+}
+
+function announceQueueChange(count) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('geovistorias:offline-queue-change', { detail: { count } }))
+  }
+}
+
+async function notifyQueueChange() {
+  const queue = await getOfflineQueue()
+  announceQueueChange(queue.length)
+}
+
+async function writeCollectionMutation(operation) {
+  const resource = resourceForPath(operation.path)
+  if (resource === 'precipitacoes') {
+    if (operation.method === 'POST') {
+      await writeOfflineCache(RESOURCE_PATHS.precipitacoes, {
+        id: operation.optimisticId,
+        ...operation.body,
+        updated_at: operation.createdAt || new Date().toISOString(),
+      })
+    } else if (operation.method === 'DELETE') {
+      await writeOfflineCache(RESOURCE_PATHS.precipitacoes, null)
+    }
+    return
+  }
+  if (!resource) {
+    return
+  }
+
+  const cacheKey = RESOURCE_PATHS[resource]
+  const cached = await readOfflineCache(cacheKey)
+  const base = Array.isArray(cached) ? cached : legacyCollection(resource) || []
+  await writeOfflineCache(cacheKey, applyMutationToCollection(base, operation, resource))
+
+  if (resource === 'ocorrencias' || resource === 'areas-risco') {
+    const geoPath = `/geojson/${resource}`
+    const geo = await readOfflineCache(geoPath)
+    if (geo) await writeOfflineCache(geoPath, applyMutationsToGeoJson(geo, [operation], resource))
+  }
+}
+
+async function replaceOptimisticId(operation, serverId) {
+  if (serverId == null || !operation.optimisticId) return
+  await writeOfflineIdMapping(operation.optimisticId, serverId)
+  const queuedOperations = await getOfflineQueue()
+  for (const queuedOperation of queuedOperations) {
+    const segments = queuedOperation.path.split('/')
+    const idIndex = segments.findIndex(segment => decodeURIComponent(segment) === String(operation.optimisticId))
+    if (idIndex >= 0) {
+      segments[idIndex] = encodeURIComponent(String(serverId))
+      await updateOfflineOperation(queuedOperation.id, { path: segments.join('/') })
+    }
+  }
+  const resource = resourceForPath(operation.path)
+  if (resource && isCollectionPath(operation.path, resource)) {
+    const key = RESOURCE_PATHS[resource]
+    const list = await readOfflineCache(key)
+    if (Array.isArray(list)) {
+      await writeOfflineCache(key, list.map(item => sameId(item.id, operation.optimisticId) ? { ...item, id: serverId } : item))
+    }
+    if (resource === 'ocorrencias' || resource === 'areas-risco') {
+      const geoPath = `/geojson/${resource}`
+      const geo = await readOfflineCache(geoPath)
+      if (geo?.features) {
+        await writeOfflineCache(geoPath, {
+          ...geo,
+          features: geo.features.map(feature => sameId(feature.properties?.id, operation.optimisticId)
+            ? { ...feature, properties: { ...feature.properties, id: serverId } }
+            : feature),
+        })
+      }
+    }
+  } else if (resource === 'precipitacoes') {
+    const data = await readOfflineCache(RESOURCE_PATHS.precipitacoes)
+    if (data) await writeOfflineCache(RESOURCE_PATHS.precipitacoes, { ...data, id: serverId })
+  }
+}
+
+async function queueMutation(method, path, body) {
+  const resource = resourceForPath(path)
+  const id = operationId({ path })
+  const queue = await getOfflineQueue()
+
+  // Mantém criação + edição como uma única operação até chegar ao servidor.
+  const pendingCreate = resource && queue.find(operation =>
+    operation.method === 'POST' &&
+    operation.optimisticId &&
+    sameId(operation.optimisticId, id) &&
+    resourceForPath(operation.path) === resource
+  )
+  const canMergePendingCreate = pendingCreate && pendingCreate.id !== syncingOperationId
+  if ((method === 'PUT' || method === 'PATCH') && canMergePendingCreate) {
+    const changes = method === 'PATCH' && body?.edificacao_planta !== undefined
+      ? { edificacao_planta: body.edificacao_planta }
+      : body
+    await updateOfflineOperation(pendingCreate.id, {
+      body: { ...pendingCreate.body, ...changes },
+    })
+    const updated = { ...pendingCreate, body: { ...pendingCreate.body, ...changes } }
+    await writeCollectionMutation(updated)
+    await notifyQueueChange()
+    return { ok: true, id, offline: true, queued: true }
+  }
+
+  // Excluir um item ainda não enviado cancela sua criação local.
+  if (method === 'DELETE' && canMergePendingCreate) {
+    await removeOfflineOperation(pendingCreate.id)
+    const deletion = { method, path, body: null }
+    await writeCollectionMutation(deletion)
+    await notifyQueueChange()
+    return { ok: true, offline: true, queued: false }
+  }
+
+  const optimisticId = method === 'POST' ? localId() : undefined
+  const operation = {
+    method,
+    path,
+    body: body ?? null,
+    optimisticId,
+    createdAt: new Date().toISOString(),
+  }
+  await enqueueOfflineOperation(operation)
+  await writeCollectionMutation(operation)
+  await notifyQueueChange()
+
+  if (method === 'POST') return { id: optimisticId, offline: true, queued: true }
+  return { ok: true, id, offline: true, queued: true }
+}
+
+async function sendMutation(method, path, body) {
+  const response = await fetch(`${BASE}${path}`, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : {},
-    body: body ? JSON.stringify(body) : undefined
+    body: body ? JSON.stringify(body) : undefined,
   })
-  if (!res.ok) throw new Error(await res.text())
-  return res.json()
+  if (!response.ok) throw new Error(await response.text())
+  const result = await response.json()
+  const operation = {
+    method,
+    path,
+    body: body ?? null,
+    optimisticId: method === 'POST' ? result?.id : undefined,
+  }
+  await writeCollectionMutation(operation)
+  return result
+}
+
+async function req(method, path, body) {
+  if (method !== 'GET') {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return queueMutation(method, path, body)
+    }
+    const pendingCreate = path.includes('/offline-') && (await getOfflineQueue()).some(operation =>
+      operation.method === 'POST' &&
+      sameId(operation.optimisticId, operationId({ path })) &&
+      resourceForPath(operation.path) === resourceForPath(path)
+    )
+    if (pendingCreate) return queueMutation(method, path, body)
+    try {
+      return await sendMutation(method, await resolveMappedPath(path), body)
+    } catch (error) {
+      if (error instanceof TypeError || error?.name === 'AbortError' || error?.name === 'TimeoutError') {
+        return queueMutation(method, path, body)
+      }
+      throw error
+    }
+  }
+
+  const queue = await getOfflineQueue()
+  try {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) throw new TypeError('Sem conexão')
+    const response = await fetch(`${BASE}${path}`, { signal: AbortSignal.timeout(8000) })
+    if (response.headers.get('X-Offline') === 'true' || response.status >= 500) {
+      throw new TypeError('API indisponível')
+    }
+    if (!response.ok) throw new Error(await response.text())
+    const data = await response.json()
+    await writeOfflineCache(path, data)
+    return await getOfflineValue(path, queue)
+  } catch (error) {
+    if (!(error instanceof TypeError) && error?.name !== 'AbortError' && error?.name !== 'TimeoutError') throw error
+    const cached = await getOfflineValue(path, queue)
+    if (cached !== undefined) return cached
+    throw error
+  }
+}
+
+export async function getPendingSyncCount() {
+  return (await getOfflineQueue()).length
+}
+
+export async function syncPendingOperations() {
+  if (isSyncing || (typeof navigator !== 'undefined' && !navigator.onLine)) return { synced: 0, pending: await getPendingSyncCount() }
+  isSyncing = true
+  let synced = 0
+  try {
+    while (true) {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) break
+      const [operation] = await getOfflineQueue()
+      if (!operation) break
+      syncingOperationId = operation.id
+      try {
+        const path = await resolveMappedPath(operation.path)
+        const response = await fetch(`${BASE}${path}`, {
+          method: operation.method,
+          headers: operation.body ? { 'Content-Type': 'application/json' } : {},
+          body: operation.body ? JSON.stringify(operation.body) : undefined,
+        })
+        if (!response.ok) {
+          syncingOperationId = null
+          break
+        }
+        const result = await response.json()
+        await replaceOptimisticId(operation, result?.id)
+        await removeOfflineOperation(operation.id)
+        synced++
+      } catch {
+        syncingOperationId = null
+        break
+      }
+      syncingOperationId = null
+    }
+  } finally {
+    isSyncing = false
+    syncingOperationId = null
+    await notifyQueueChange()
+  }
+  const pending = await getPendingSyncCount()
+  if (synced > 0 && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('geovistorias:offline-data-synced', { detail: { synced, pending } }))
+  }
+  return { synced, pending }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => { syncPendingOperations() })
+  syncPendingOperations()
 }
 
 export const api = {

@@ -33,6 +33,9 @@ export default function Imoveis() {
     carregar()
     const coord = localStorage.getItem('ultimaCoordenada')
     if (coord) setCoordAtual(JSON.parse(coord))
+    const onSynced = () => carregar()
+    window.addEventListener('geovistorias:offline-data-synced', onSynced)
+    return () => window.removeEventListener('geovistorias:offline-data-synced', onSynced)
   }, [])
 
   async function carregar() {
@@ -61,15 +64,18 @@ export default function Imoveis() {
       data: new Date().toISOString()
     }
     try {
-      await api.createImovel(payload)
+      const resultado = await api.createImovel(payload)
+      setSucesso(resultado?.offline
+        ? 'Imóvel salvo neste dispositivo; será enviado quando a conexão voltar.'
+        : 'Imóvel cadastrado com sucesso!')
     } catch {
       const lista = JSON.parse(localStorage.getItem('imoveis') || '[]')
       lista.push({ id: Date.now(), ...payload, coordenada: coordAtual })
       localStorage.setItem('imoveis', JSON.stringify(lista))
+      setSucesso('Imóvel salvo localmente; será enviado quando a conexão voltar.')
     }
     setNome(''); setTipo(''); setEndereco(''); setProprietario('')
     setContato(''); setSituacao('regular'); setMoradores(''); setObs('')
-    setSucesso(true)
     setTimeout(() => setSucesso(false), 3000)
     carregar()
     setAbaAtiva('lista')
@@ -203,7 +209,7 @@ export default function Imoveis() {
             <button type='submit' className={styles.saveBtn}>
               <FiSave /> Cadastrar Imóvel
             </button>
-            {sucesso && <div className={styles.sucesso}>Imóvel cadastrado com sucesso!</div>}
+            {sucesso && <div className={styles.sucesso}>{sucesso}</div>}
           </form>
         </div>
       )}

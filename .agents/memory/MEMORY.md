@@ -2,3 +2,4 @@
 - [http-proxy-middleware v3 pathFilter](proxy-v3-pathfilter.md) — opção `filter` ignorada na v3; usar wrapper de middleware customizado para excluir rotas /api do proxy.
 - [Terrarium DEM tiles — CORS e zoom máximo](terrarium-dem-tiles.md) — S3 não envia CORS headers; tiles Terrarium só existem até z=15 (não z=16); usar proxy `/api/dem-tile/:z/:x/:y` no Express.
 - [MapLibre-GL v5 API](maplibre-v5-api.md) — `maplibregl.supported()` foi removido no v5; usar verificação manual de WebGL via canvas.getContext.
+- [Instalação de pacotes Node](node-package-install-resolution.md) — o instalador do workspace pode atualizar manifests e lockfiles ao resolver faixas semver; confira as mudanças após instalar.
