@@ -39,6 +39,7 @@ cd server && node index.js
 cd defesa-civil && npm run dev -- --port 5173 --host 0.0.0.0
 ```
 O backend usa `DATABASE_URL` para conectar ao PostgreSQL.
+O banco de desenvolvimento do Replit foi inicializado com as tabelas necessárias e está vazio. O arquivo `server/schema.sql` é exclusivo do Cloudflare D1 (SQLite); não o execute no PostgreSQL do Replit.
 
 ## Estrutura Principal
 ```

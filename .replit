@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web", "bash"]
+modules = ["nodejs-20", "web", "bash", "postgresql-16"]
 [agent]
 expertMode = true
 stack = "BEST_EFFORT_FALLBACK"
@@ -40,7 +40,7 @@ name = "Vite Frontend"
 author = "agent"
 
 [workflows.workflow.metadata]
-outputType = "webview"
+outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
