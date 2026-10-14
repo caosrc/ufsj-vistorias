@@ -637,9 +637,32 @@ app.delete('/api/monitoramento/:id', async (req, res) => {
 })
 
 app.post('/api/monitoramento/:id/fotos', async (req, res) => {
-  const { base64, codigoTrinca } = req.body
+  const { id: photoId, base64, codigoTrinca, pontos, linhas, observacao } = req.body
   if (!base64) return res.status(400).json({ error: 'base64 obrigatório' })
-  res.json({ success: true, url: base64 })
+  try {
+    const { rows } = await pool.query(
+      'SELECT fotos_anomalias FROM vistoria_monitoramento WHERE id = $1',
+      [req.params.id]
+    )
+    if (!rows.length) return res.status(404).json({ error: 'Imóvel não encontrado' })
+    const photos = parseJ(rows[0].fotos_anomalias, [])
+    const photo = {
+      id: photoId || `foto-${Date.now()}`,
+      url: base64,
+      codigoTrinca: codigoTrinca || '',
+      pontos: Array.isArray(pontos) ? pontos : [],
+      linhas: Array.isArray(linhas) ? linhas : [],
+      observacao: observacao || '',
+    }
+    const existingIndex = photos.findIndex(item => String(item.id) === String(photo.id))
+    if (existingIndex >= 0) photos[existingIndex] = photo
+    else photos.push(photo)
+    await pool.query(
+      'UPDATE vistoria_monitoramento SET fotos_anomalias = $1, updated_at = NOW() WHERE id = $2',
+      [JSON.stringify(photos), req.params.id]
+    )
+    res.json({ success: true, id: photo.id, url: photo.url, photo })
+  } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
 app.post('/api/monitoramento/:id/relatorios', async (req, res) => {

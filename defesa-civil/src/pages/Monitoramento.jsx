@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import MonitoramentoLayout from '../components/MonitoramentoLayout'
 import styles from './Monitoramento.module.css'
 import { FiArrowRight, FiTrash2, FiEdit2 } from 'react-icons/fi'
-import { API_BASE } from '../services/api'
+import { api } from '../services/api'
 
 export default function Monitoramento() {
   const [imoveis, setImoveis] = useState([])
@@ -19,8 +19,7 @@ export default function Monitoramento() {
   const fetchImoveis = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/monitoramento`)
-      const data = await res.json()
+      const data = await api.getMonitoramentos()
       setImoveis(Array.isArray(data) ? data : [])
     } catch { showToast('Erro ao carregar imóveis', 'error') }
     finally { setLoading(false) }
@@ -31,9 +30,9 @@ export default function Monitoramento() {
   const confirmDelete = async () => {
     if (deletePassword !== '093067') { showToast('Senha incorreta', 'error'); return }
     try {
-      await fetch(`${API_BASE}/monitoramento/${deleteTarget.id}`, { method: 'DELETE' })
+      const result = await api.deleteMonitoramento(deleteTarget.id)
       setImoveis(prev => prev.filter(i => i.id !== deleteTarget.id))
-      showToast('Imóvel excluído')
+      showToast(result.offline ? 'Exclusão salva no aparelho; será sincronizada quando houver conexão.' : 'Imóvel excluído')
     } catch { showToast('Erro ao excluir', 'error') }
     finally { setDeleteTarget(null); setDeletePassword('') }
   }

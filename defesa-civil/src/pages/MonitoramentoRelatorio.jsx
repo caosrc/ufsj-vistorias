@@ -4,7 +4,7 @@ import MonitoramentoLayout from '../components/MonitoramentoLayout'
 import CrackMapper2D, { calcCorrelacao } from '../components/CrackMapper2D'
 import LocalizacaoEdificacao from '../components/LocalizacaoEdificacao'
 import styles from './MonitoramentoRelatorio.module.css'
-import { API_BASE } from '../services/api'
+import { api } from '../services/api'
 
 export default function MonitoramentoRelatorio() {
   const { id, relId } = useParams()
@@ -19,8 +19,7 @@ export default function MonitoramentoRelatorio() {
   const [editSaving,   setEditSaving]   = useState(false)
 
   useEffect(() => {
-    fetch(`${API_BASE}/monitoramento/${id}`)
-      .then(r => r.json())
+    api.getMonitoramento(id)
       .then(data => {
         setImovel(data)
         setReport(data.relatoriosSalvos?.find(r => r.id === relId) || null)
@@ -69,15 +68,10 @@ export default function MonitoramentoRelatorio() {
     setEditSaving(true)
     try {
       const newDate = editDate ? new Date(editDate).toISOString() : report.createdAt
-      const res = await fetch(`${API_BASE}/monitoramento/${id}/relatorio/${relId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ createdAt: newDate, medicoes: editMeasures }),
+      await api.patchMonitoramentoRelatorio(id, relId, {
+        createdAt: newDate,
+        medicoes: editMeasures,
       })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || `Erro ${res.status}`)
-      }
       // Aplica as mudanças localmente, preservando todas as fotos do estado atual
       // (evita depender do response do servidor que pode ter fotos grandes em base64)
       setReport(prev => ({

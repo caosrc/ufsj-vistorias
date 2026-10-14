@@ -6,7 +6,7 @@ import MonitoramentoLayout from '../components/MonitoramentoLayout'
 import LocalizacaoEdificacao from '../components/LocalizacaoEdificacao'
 import Edificio3D from '../components/Edificio3D'
 import styles from './MonitoramentoNovo.module.css'
-import { API_BASE } from '../services/api'
+import { api } from '../services/api'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -228,7 +228,7 @@ export default function MonitoramentoNovo() {
   // ── Carrega dados ao editar ─────────────────────────────────
   useEffect(() => {
     if (!isEditing) return
-    fetch(`${API_BASE}/monitoramento/${id}`).then(r => r.json()).then(data => {
+    api.getMonitoramento(id).then(data => {
       setForm({ proprietario: data.proprietario||'', cidade: data.cidade||'',
                 endereco: data.endereco||'', celular: data.celular||'' })
       if (data.latitude && data.longitude) setPosition({ lat: data.latitude, lng: data.longitude })
@@ -330,14 +330,12 @@ export default function MonitoramentoNovo() {
         alturaCasa:    alturaCasa ? parseFloat(alturaCasa) : null,
         trincasCasa:   trincasCasa.length > 0 ? trincasCasa : null,
       }
-      const res = await fetch(isEditing ? `${API_BASE}/monitoramento/${id}` : `${API_BASE}/monitoramento`, {
-        method: isEditing ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) throw new Error('Erro ao salvar')
-      const data = await res.json()
-      showToast(isEditing ? 'Imóvel atualizado!' : 'Imóvel cadastrado!')
+      const data = isEditing
+        ? await api.updateMonitoramento(id, body)
+        : await api.createMonitoramento(body)
+      showToast(data.offline
+        ? 'Salvo neste aparelho; será sincronizado quando houver conexão.'
+        : isEditing ? 'Imóvel atualizado!' : 'Imóvel cadastrado!')
       setTimeout(() => navigate(isEditing ? `/monitoramento/${id}` : `/monitoramento/${data.id}`), 800)
     } catch (err) { showToast(err.message, 'error') }
     finally { setSaving(false) }

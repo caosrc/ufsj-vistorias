@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import styles from './PhotoAnnotator.module.css'
-import { API_BASE } from '../services/api'
+import { api } from '../services/api'
 
 function dataURLtoBlob(dataurl) {
   const arr = dataurl.split(',')
@@ -197,17 +197,21 @@ export default function PhotoAnnotator({ imovelId, vistoria, activePhotoId, onVi
     const isDuplicate = vistoria?.fotosAnomalias?.some(f => f.codigoTrinca.toLowerCase() === trimmedCode.toLowerCase())
     if (isDuplicate) { showToast('Código já existe. Use um código único.', 'error'); setIsSaving(false); return }
     try {
-      const resp = await fetch(`${API_BASE}/monitoramento/${imovelId}/fotos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ base64: imageDataUrl, codigoTrinca: trimmedCode })
-      })
-      const result = await resp.json()
+      const result = await api.addMonitoramentoFoto(imovelId, imageDataUrl, trimmedCode)
       if (!result.success) throw new Error(result.error || 'Erro ao salvar foto')
-      const newPhoto = { id: `foto${Date.now()}`, url: result.url, codigoTrinca: trimmedCode, pontos: [], linhas: [], observacao: '' }
+      const newPhoto = result.photo || {
+        id: result.id || `foto${Date.now()}`,
+        url: result.url || imageDataUrl,
+        codigoTrinca: trimmedCode,
+        pontos: [],
+        linhas: [],
+        observacao: '',
+      }
       const updated = { ...vistoria, fotosAnomalias: [...(vistoria.fotosAnomalias || []), newPhoto] }
       onVistoriaChange(updated)
-      showToast(`Foto ${trimmedCode} adicionada`)
+      showToast(result.offline
+        ? `Foto ${trimmedCode} salva neste aparelho; será sincronizada quando houver conexão.`
+        : `Foto ${trimmedCode} adicionada`)
       setShowCrackCodeDialog(false); setNewlyCapturedImage(null); setCrackCode('')
       onBack()
     } catch (err) { showToast(err.message, 'error') }

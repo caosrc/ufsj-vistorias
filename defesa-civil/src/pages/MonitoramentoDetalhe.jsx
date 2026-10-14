@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import MonitoramentoLayout from '../components/MonitoramentoLayout'
 import styles from './MonitoramentoDetalhe.module.css'
 import { FiClock, FiFilePlus, FiTrendingUp, FiPhone, FiArrowRight } from 'react-icons/fi'
-import { API_BASE } from '../services/api'
+import { api } from '../services/api'
 
 export default function MonitoramentoDetalhe() {
   const { id } = useParams()
@@ -11,8 +11,7 @@ export default function MonitoramentoDetalhe() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`${API_BASE}/monitoramento/${id}`)
-      .then(r => r.json())
+    api.getMonitoramento(id)
       .then(data => { setImovel(data); setLoading(false) })
       .catch(() => setLoading(false))
   }, [id])

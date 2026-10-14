@@ -1784,8 +1784,7 @@ export default function Vistoria() {
   // ── Busca trincas do Monitoramento para exibir como referência no 3D ──
   useEffect(() => {
     if (!nome) return
-    fetch(`${API_BASE}/monitoramento`)
-      .then(r => r.ok ? r.json() : [])
+    api.getMonitoramentos()
       .then(imoveis => {
         const match = imoveis.find(im =>
           (im.proprietario || '').toLowerCase().trim() === nome.toLowerCase().trim()
@@ -1979,16 +1978,13 @@ export default function Vistoria() {
       })(),
     }
     try {
-      const res = await fetch(`${(await import('../services/api.js')).API_BASE}/monitoramento`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) throw new Error()
+      const result = await api.createMonitoramento(payload)
       const updated = new Set([...emMonitoramento, String(v.id)])
       setEmMonitoramento(updated)
       localStorage.setItem('vistoria_monitoramento_enrolled', JSON.stringify([...updated]))
-      alert(`✅ "${v.nome}" adicionado ao Monitoramento com sucesso!`)
+      alert(result.offline
+        ? `"${v.nome}" foi salvo neste aparelho e será sincronizado quando houver conexão.`
+        : `"${v.nome}" adicionado ao Monitoramento com sucesso!`)
     } catch {
       alert('Erro ao adicionar ao Monitoramento. Tente novamente.')
     }

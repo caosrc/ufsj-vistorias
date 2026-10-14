@@ -7,7 +7,7 @@ import {
   LineElement, BarElement, Title, Tooltip, Legend, Filler
 } from 'chart.js'
 import styles from './MonitoramentoEvolucao.module.css'
-import { API_BASE, api } from '../services/api'
+import { api } from '../services/api'
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement,
@@ -134,8 +134,7 @@ export default function MonitoramentoEvolucao() {
 
   useEffect(() => {
     // Carrega imóvel e precipitação em paralelo
-    const loadImovel = fetch(`${API_BASE}/monitoramento/${id}`)
-      .then(r => r.json())
+    const loadImovel = api.getMonitoramento(id)
       .then(data => setImovel(data))
       .catch(() => {})
 

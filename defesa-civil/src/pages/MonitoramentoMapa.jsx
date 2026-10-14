@@ -7,7 +7,7 @@ import MonitoramentoLayout from '../components/MonitoramentoLayout'
 import TerrainProfile3D from '../components/TerrainProfile3D'
 import { getElevationsBatchWithFallback } from '../services/terrainDEM'
 import styles from './MonitoramentoMapa.module.css'
-import { API_BASE } from '../services/api'
+import { api } from '../services/api'
 
 // ── Ícone padrão do Leaflet ──────────────────────────────────
 delete L.Icon.Default.prototype._getIconUrl
@@ -118,8 +118,7 @@ export default function MonitoramentoMapa() {
 
   // ── Carrega imóveis ──────────────────────────────────────
   useEffect(() => {
-    fetch(`${API_BASE}/monitoramento`)
-      .then(r => r.json())
+    api.getMonitoramentos()
       .then(data => { setImoveis(Array.isArray(data) ? data : []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])

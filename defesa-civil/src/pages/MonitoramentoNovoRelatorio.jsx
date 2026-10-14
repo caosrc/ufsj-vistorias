@@ -5,7 +5,7 @@ import PhotoAnnotator from '../components/PhotoAnnotator'
 import Edificio3D from '../components/Edificio3D'
 import LocalizacaoEdificacao from '../components/LocalizacaoEdificacao'
 import styles from './MonitoramentoNovoRelatorio.module.css'
-import { API_BASE } from '../services/api'
+import { api } from '../services/api'
 
 const naturalSort = (a, b) => {
   const numA = parseInt((a.codigoTrinca || '').replace(/\D/g, '') || '0', 10)
@@ -39,8 +39,7 @@ export default function MonitoramentoNovoRelatorio() {
   const showToast = (msg, type = 'info') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3500) }
 
   useEffect(() => {
-    fetch(`${API_BASE}/monitoramento/${id}`)
-      .then(r => r.json())
+    api.getMonitoramento(id)
       .then(data => {
         if (isEditing) {
           const report = data.relatoriosSalvos?.find(r => r.id === relatorioId)
@@ -211,20 +210,12 @@ export default function MonitoramentoNovoRelatorio() {
         trincasPlanta: trincasPlanta,
         metodo: metodoAtual,
       }
-      const url = isEditing
-        ? `${API_BASE}/monitoramento/${id}/relatorios/${relatorioId}`
-        : `${API_BASE}/monitoramento/${id}/relatorios`
-      const res = await fetch(url, {
-        method: isEditing ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(report),
-      })
-      if (!res.ok) {
-        let msg = 'Erro ao salvar relatório'
-        try { const json = await res.json(); msg = json.error || msg } catch {}
-        throw new Error(msg)
-      }
-      showToast('Relatório salvo!')
+      const result = isEditing
+        ? await api.updateMonitoramentoRelatorio(id, relatorioId, report)
+        : await api.createMonitoramentoRelatorio(id, report)
+      showToast(result.offline
+        ? 'Relatório salvo neste aparelho; será sincronizado quando houver conexão.'
+        : 'Relatório salvo!')
       setTimeout(() => navigate(`/monitoramento/${id}/relatorios`), 800)
     } catch (err) {
       console.error('[Relatório] Erro ao salvar:', err)

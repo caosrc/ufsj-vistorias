@@ -19,6 +19,7 @@ const RESOURCE_PATHS = {
   imoveis: '/imoveis',
   'areas-risco': '/areas-risco',
   precipitacoes: '/precipitacoes',
+  monitoramento: '/monitoramento',
 }
 
 const LEGACY_STORAGE_KEYS = {
@@ -27,6 +28,7 @@ const LEGACY_STORAGE_KEYS = {
   imoveis: 'imoveis',
   'areas-risco': 'areasRisco',
   precipitacoes: 'precipitacoes',
+  monitoramento: 'monitoramento',
 }
 
 let isSyncing = false
@@ -123,11 +125,98 @@ function applyMutationToCollection(records, operation, resource) {
 
   const method = operation.method.toUpperCase()
   if (method === 'POST' && isCollectionPath(operation.path, resource)) {
-    const record = { ...operation.body, id: operation.optimisticId }
+    const record = {
+      ...operation.body,
+      id: operation.optimisticId ?? operation.result?.id ?? operation.body?.id,
+    }
+    if (resource === 'monitoramento') {
+      record.createdAt ||= operation.createdAt
+      record.fotosAnomalias ||= []
+      record.relatoriosSalvos ||= []
+    }
     const existingIndex = list.findIndex(item => sameId(item.id, record.id))
     if (existingIndex >= 0) list[existingIndex] = { ...list[existingIndex], ...record }
     else list.unshift(record)
     return list
+  }
+
+  if (resource === 'monitoramento') {
+    const parts = pathWithoutQuery(operation.path).split('/').filter(Boolean).map(decodeURIComponent)
+    const recordIndex = parts[0] === 'monitoramento'
+      ? list.findIndex(item => sameId(item.id, parts[1]))
+      : -1
+
+    if (recordIndex >= 0 && parts[2] === 'fotos' && method === 'POST') {
+      const body = operation.body || {}
+      const photo = operation.result?.photo || {
+        id: body.id,
+        url: body.base64,
+        codigoTrinca: body.codigoTrinca,
+        pontos: body.pontos || [],
+        linhas: body.linhas || [],
+        observacao: body.observacao || '',
+      }
+      const current = list[recordIndex]
+      const photos = current.fotosAnomalias || []
+      if (!photos.some(item => sameId(item.id, photo.id))) {
+        list[recordIndex] = { ...current, fotosAnomalias: [...photos, photo] }
+      }
+      return list
+    }
+
+    if (recordIndex >= 0 && parts[2] === 'relatorios') {
+      const current = list[recordIndex]
+      const reports = current.relatoriosSalvos || []
+      if (method === 'POST' && parts.length === 3) {
+        const report = operation.body
+        list[recordIndex] = {
+          ...current,
+          relatoriosSalvos: [...reports.filter(item => !sameId(item.id, report.id)), report],
+        }
+        return list
+      }
+      if (parts.length === 4 && method === 'PUT') {
+        list[recordIndex] = {
+          ...current,
+          relatoriosSalvos: reports.map(item => sameId(item.id, parts[3]) ? operation.body : item),
+        }
+        return list
+      }
+      if (parts.length === 4 && method === 'DELETE') {
+        list[recordIndex] = {
+          ...current,
+          relatoriosSalvos: reports.filter(item => !sameId(item.id, parts[3])),
+        }
+        return list
+      }
+    }
+
+    if (recordIndex >= 0 && parts[2] === 'relatorio' && parts[3] && method === 'PATCH') {
+      const body = operation.body || {}
+      const current = list[recordIndex]
+      list[recordIndex] = {
+        ...current,
+        relatoriosSalvos: (current.relatoriosSalvos || []).map(report => {
+          if (!sameId(report.id, parts[3])) return report
+          return {
+            ...report,
+            createdAt: body.createdAt || report.createdAt,
+            fotosAnomalias: body.medicoes
+              ? (report.fotosAnomalias || []).map(photo => ({
+                  ...photo,
+                  linhas: (photo.linhas || []).map(line => {
+                    const key = `${photo.id}_${line.id}`
+                    return body.medicoes[key] !== undefined
+                      ? { ...line, comprimentos: body.medicoes[key] }
+                      : line
+                  }),
+                }))
+              : report.fotosAnomalias,
+          }
+        }),
+      }
+      return list
+    }
   }
 
   const id = operationId(operation)
@@ -182,6 +271,33 @@ async function getOfflineValue(path, queue) {
   if (cached === undefined && pathname !== path) cached = await readOfflineCache(pathname)
 
   const resource = resourceForPath(path)
+  const monitoramentoMatch = pathname.match(/^\/monitoramento\/([^/]+)$/)
+  if (resource === 'monitoramento' && monitoramentoMatch) {
+    const requestedId = decodeURIComponent(monitoramentoMatch[1])
+    const mappedId = await readOfflineIdMapping(requestedId)
+    const listCache = await readOfflineCache(RESOURCE_PATHS.monitoramento)
+    const listFallback = Array.isArray(listCache) ? listCache : legacyCollection('monitoramento') || []
+    let record = cached ?? listFallback.find(item =>
+      sameId(item.id, requestedId) || (mappedId != null && sameId(item.id, mappedId))
+    )
+
+    for (const operation of pendingOperations) {
+      const parts = pathWithoutQuery(operation.path).split('/').filter(Boolean).map(decodeURIComponent)
+      const isCreateForRecord = operation.method === 'POST' &&
+        isCollectionPath(operation.path, 'monitoramento') &&
+        (sameId(operation.optimisticId, requestedId) || (mappedId != null && sameId(operation.optimisticId, mappedId)))
+      const isOperationForRecord = parts[0] === 'monitoramento' &&
+        (sameId(parts[1], requestedId) || (mappedId != null && sameId(parts[1], mappedId)))
+
+      if (isCreateForRecord) {
+        record = applyMutationToCollection(record ? [record] : [], operation, 'monitoramento')[0]
+      } else if (record && isOperationForRecord) {
+        record = applyMutationToCollection([record], operation, 'monitoramento')[0]
+      }
+    }
+    return record
+  }
+
   if (pathname.startsWith('/geojson/')) {
     if (cached === undefined) {
       const collection = await getCollectionSnapshot(resource, pendingOperations)
@@ -251,6 +367,20 @@ function localId() {
   return `offline-${unique}`
 }
 
+function hasPendingRootCreate(path, queue) {
+  const resource = resourceForPath(path)
+  if (!resource) return false
+  const parts = pathWithoutQuery(path).split('/').filter(Boolean).map(decodeURIComponent)
+  const parentId = parts[0] === RESOURCE_PATHS[resource].slice(1) ? parts[1] : null
+  if (!parentId) return false
+  return queue.some(operation =>
+    operation.method === 'POST' &&
+    operation.optimisticId &&
+    isCollectionPath(operation.path, resource) &&
+    sameId(operation.optimisticId, parentId)
+  )
+}
+
 function announceQueueChange(count) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('geovistorias:offline-queue-change', { detail: { count } }))
@@ -284,6 +414,24 @@ async function writeCollectionMutation(operation) {
   const cached = await readOfflineCache(cacheKey)
   const base = Array.isArray(cached) ? cached : legacyCollection(resource) || []
   await writeOfflineCache(cacheKey, applyMutationToCollection(base, operation, resource))
+
+  if (resource === 'monitoramento') {
+    const parts = pathWithoutQuery(operation.path).split('/').filter(Boolean)
+    if (parts[0] === 'monitoramento' && parts[1]) {
+      const id = decodeURIComponent(parts[1])
+      const mappedId = await readOfflineIdMapping(id)
+      const detailPaths = new Set([
+        `/monitoramento/${encodeURIComponent(id)}`,
+        ...(mappedId == null ? [] : [`/monitoramento/${encodeURIComponent(mappedId)}`]),
+      ])
+      for (const detailPath of detailPaths) {
+        const detail = await readOfflineCache(detailPath)
+        if (detail === undefined) continue
+        const updated = applyMutationToCollection([detail], operation, resource)[0]
+        await writeOfflineCache(detailPath, updated ?? null)
+      }
+    }
+  }
 
   if (resource === 'ocorrencias' || resource === 'areas-risco') {
     const geoPath = `/geojson/${resource}`
@@ -364,7 +512,9 @@ async function queueMutation(method, path, body) {
     return { ok: true, offline: true, queued: false }
   }
 
-  const optimisticId = method === 'POST' ? localId() : undefined
+  const optimisticId = method === 'POST' && resource && isCollectionPath(path, resource)
+    ? localId()
+    : undefined
   const operation = {
     method,
     path,
@@ -376,7 +526,19 @@ async function queueMutation(method, path, body) {
   await writeCollectionMutation(operation)
   await notifyQueueChange()
 
-  if (method === 'POST') return { id: optimisticId, offline: true, queued: true }
+  if (method === 'POST' && resource === 'monitoramento' && pathWithoutQuery(path).endsWith('/fotos')) {
+    const photo = {
+      id: body?.id,
+      url: body?.base64,
+      codigoTrinca: body?.codigoTrinca,
+      pontos: body?.pontos || [],
+      linhas: body?.linhas || [],
+      observacao: body?.observacao || '',
+    }
+    return { success: true, id: photo.id, url: photo.url, photo, offline: true, queued: true }
+  }
+  if (method === 'POST' && optimisticId) return { id: optimisticId, offline: true, queued: true }
+  if (method === 'POST') return { ok: true, offline: true, queued: true }
   return { ok: true, id, offline: true, queued: true }
 }
 
@@ -386,13 +548,19 @@ async function sendMutation(method, path, body) {
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
   })
-  if (!response.ok) throw new Error(await response.text())
+  if (!response.ok) {
+    const error = new Error(await response.text())
+    error.status = response.status
+    throw error
+  }
   const result = await response.json()
+  const resource = resourceForPath(path)
   const operation = {
     method,
     path,
     body: body ?? null,
-    optimisticId: method === 'POST' ? result?.id : undefined,
+    optimisticId: method === 'POST' && resource && isCollectionPath(path, resource) ? result?.id : undefined,
+    result,
   }
   await writeCollectionMutation(operation)
   return result
@@ -403,16 +571,11 @@ async function req(method, path, body) {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       return queueMutation(method, path, body)
     }
-    const pendingCreate = path.includes('/offline-') && (await getOfflineQueue()).some(operation =>
-      operation.method === 'POST' &&
-      sameId(operation.optimisticId, operationId({ path })) &&
-      resourceForPath(operation.path) === resourceForPath(path)
-    )
-    if (pendingCreate) return queueMutation(method, path, body)
+    if (hasPendingRootCreate(path, await getOfflineQueue())) return queueMutation(method, path, body)
     try {
       return await sendMutation(method, await resolveMappedPath(path), body)
     } catch (error) {
-      if (error instanceof TypeError || error?.name === 'AbortError' || error?.name === 'TimeoutError') {
+      if (error instanceof TypeError || error?.name === 'AbortError' || error?.name === 'TimeoutError' || error?.status >= 500) {
         return queueMutation(method, path, body)
       }
       throw error
@@ -422,7 +585,21 @@ async function req(method, path, body) {
   const queue = await getOfflineQueue()
   try {
     if (typeof navigator !== 'undefined' && !navigator.onLine) throw new TypeError('Sem conexão')
-    const response = await fetch(`${BASE}${path}`, { signal: AbortSignal.timeout(8000) })
+    const detailId = pathWithoutQuery(path).match(/^\/[^/]+\/([^/]+)$/)?.[1]
+    const hasPendingCreate = detailId && queue.some(operation =>
+      operation.method === 'POST' &&
+      operation.optimisticId &&
+      isCollectionPath(operation.path, resourceForPath(path)) &&
+      sameId(operation.optimisticId, decodeURIComponent(detailId))
+    )
+    if (hasPendingCreate) return await getOfflineValue(path, queue)
+
+    const requestPath = await resolveMappedPath(path)
+    const fetchOptions = {}
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+      fetchOptions.signal = AbortSignal.timeout(8000)
+    }
+    const response = await fetch(`${BASE}${requestPath}`, fetchOptions)
     if (response.headers.get('X-Offline') === 'true' || response.status >= 500) {
       throw new TypeError('API indisponível')
     }
@@ -522,4 +699,23 @@ export const api = {
   getPrecipitacoes: () => req('GET', '/precipitacoes'),
   savePrecipitacoes: (filename, dados) => req('POST', '/precipitacoes', { filename, dados }),
   deletePrecipitacoes: () => req('DELETE', '/precipitacoes'),
+
+  // Monitoramento — todas as mutações usam a mesma fila offline dos demais cadastros.
+  getMonitoramentos: () => req('GET', '/monitoramento'),
+  getMonitoramento: (id) => req('GET', `/monitoramento/${encodeURIComponent(id)}`),
+  createMonitoramento: (data) => req('POST', '/monitoramento', data),
+  updateMonitoramento: (id, data) => req('PUT', `/monitoramento/${encodeURIComponent(id)}`, data),
+  deleteMonitoramento: (id) => req('DELETE', `/monitoramento/${encodeURIComponent(id)}`),
+  addMonitoramentoFoto: (id, base64, codigoTrinca) => {
+    const photoId = `foto-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}`
+    return req('POST', `/monitoramento/${encodeURIComponent(id)}/fotos`, {
+      id: photoId,
+      base64,
+      codigoTrinca,
+    })
+  },
+  createMonitoramentoRelatorio: (id, data) => req('POST', `/monitoramento/${encodeURIComponent(id)}/relatorios`, data),
+  updateMonitoramentoRelatorio: (id, reportId, data) => req('PUT', `/monitoramento/${encodeURIComponent(id)}/relatorios/${encodeURIComponent(reportId)}`, data),
+  patchMonitoramentoRelatorio: (id, reportId, data) => req('PATCH', `/monitoramento/${encodeURIComponent(id)}/relatorio/${encodeURIComponent(reportId)}`, data),
+  deleteMonitoramentoRelatorio: (id, reportId) => req('DELETE', `/monitoramento/${encodeURIComponent(id)}/relatorios/${encodeURIComponent(reportId)}`),
 }

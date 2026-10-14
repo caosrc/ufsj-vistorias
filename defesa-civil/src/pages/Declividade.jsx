@@ -2365,8 +2365,7 @@ ${placemarks}
 
           // ── Marcadores de anomalias do Monitoramento no 3D ──
           try {
-            const respMon = await fetch(`${API_BASE}/monitoramento`)
-            const imoveis = respMon.ok ? await respMon.json() : []
+            const imoveis = await api.getMonitoramentos()
             const monMarkers = []
             const padMon = 0.008
             imoveis.forEach(imovel => {

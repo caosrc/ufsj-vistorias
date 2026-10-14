@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import MonitoramentoLayout from '../components/MonitoramentoLayout'
 import styles from './MonitoramentoRelatorios.module.css'
 import { FiArrowLeft, FiPlus, FiFileText, FiCalendar, FiTrash2, FiEdit2 } from 'react-icons/fi'
-import { API_BASE } from '../services/api'
+import { api } from '../services/api'
 
 const SENHA = '093067'
 
@@ -23,8 +23,7 @@ export default function MonitoramentoRelatorios() {
   const fetchImovel = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/monitoramento/${id}`)
-      setImovel(await res.json())
+      setImovel(await api.getMonitoramento(id))
     } catch { showToast('Erro ao carregar', 'error') }
     finally { setLoading(false) }
   }
@@ -40,8 +39,10 @@ export default function MonitoramentoRelatorios() {
   const confirmDelete = async () => {
     if (deletePassword !== SENHA) { showToast('Senha incorreta', 'error'); return }
     try {
-      await fetch(`${API_BASE}/monitoramento/${id}/relatorios/${deleteTarget.id}`, { method: 'DELETE' })
-      showToast('Relatório excluído')
+      const result = await api.deleteMonitoramentoRelatorio(id, deleteTarget.id)
+      showToast(result.offline
+        ? 'Exclusão salva neste aparelho; será sincronizada quando houver conexão.'
+        : 'Relatório excluído')
       fetchImovel()
     } catch { showToast('Erro ao excluir', 'error') }
     finally { setDeleteTarget(null); setDeletePassword('') }

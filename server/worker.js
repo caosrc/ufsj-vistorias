@@ -508,9 +508,35 @@ export default {
 
     const mMonFotos = path.match(/^\/api\/monitoramento\/([^/]+)\/fotos$/)
     if (mMonFotos && method === 'POST') {
-      const { base64 } = await request.json()
+      const { id: photoId, base64, codigoTrinca, pontos, linhas, observacao } = await request.json()
       if (!base64) return json({ error: 'base64 obrigatório' }, 400)
-      return json({ success: true, url: base64 })
+      try {
+        const id = mMonFotos[1]
+        const row = await env.DB.prepare(
+          'SELECT fotos_anomalias FROM vistoria_monitoramento WHERE id = ?'
+        ).bind(id).first()
+        if (!row) return json({ error: 'Imóvel não encontrado' }, 404)
+        const photos = parseM(row.fotos_anomalias)
+        const photo = {
+          id: photoId || `foto-${Date.now()}`,
+          url: base64,
+          codigoTrinca: codigoTrinca || '',
+          pontos: Array.isArray(pontos) ? pontos : [],
+          linhas: Array.isArray(linhas) ? linhas : [],
+          observacao: observacao || '',
+        }
+        const existingIndex = photos.findIndex(item => String(item.id) === String(photo.id))
+        if (existingIndex >= 0) photos[existingIndex] = photo
+        else photos.push(photo)
+        await env.DB.prepare(
+          `UPDATE vistoria_monitoramento
+           SET fotos_anomalias = ?, updated_at = datetime('now')
+           WHERE id = ?`
+        ).bind(JSON.stringify(photos), id).run()
+        return json({ success: true, id: photo.id, url: photo.url, photo })
+      } catch (e) {
+        return json({ error: e.message }, 500)
+      }
     }
 
     const mMonRelatorio = path.match(/^\/api\/monitoramento\/([^/]+)\/relatorio\/([^/]+)$/)

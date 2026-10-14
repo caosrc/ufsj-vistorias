@@ -37,6 +37,7 @@ function generateTileUrls(bbox, minZ, maxZ) {
 
 // Bbox das duas cidades com margem
 const CITIES_BBOX = [-20.78, -20.32, -44.10, -43.48]
+const INSTALL_NUDGE_KEY = 'geovistorias-install-nudge'
 
 const ZOOM_PRESETS = [
   { label: 'Rápido (zoom 8–11)', minZ: 8, maxZ: 11, desc: '78 tiles nas 3 camadas' },
@@ -46,6 +47,9 @@ const ZOOM_PRESETS = [
 
 // ── Componente principal ─────────────────────────────────────────
 export default function OfflineManager() {
+  const standalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
   const [isOnline,     setIsOnline]     = useState(navigator.onLine)
   const [swReady,      setSwReady]      = useState(false)
   const [open,         setOpen]         = useState(false)
@@ -55,7 +59,12 @@ export default function OfflineManager() {
   const [cacheStats,   setCacheStats]   = useState(null)
   const [selectedZoom, setSelectedZoom] = useState(0)
   const [installPrompt,setInstallPrompt]= useState(null)
-  const [installed,    setInstalled]    = useState(false)
+  const [installed,    setInstalled]    = useState(standalone)
+  const [showInstallNudge, setShowInstallNudge] = useState(() => {
+    const mobileDevice = window.innerWidth <= 768 || /Android|iPad|iPhone|iPod/.test(navigator.userAgent)
+    if (standalone || !mobileDevice) return false
+    try { return !localStorage.getItem(INSTALL_NUDGE_KEY) } catch { return true }
+  })
   const [swUpdate,     setSwUpdate]     = useState(false)
   const [pendingSync,  setPendingSync]  = useState(0)
   const [syncing,      setSyncing]      = useState(false)
@@ -77,6 +86,9 @@ export default function OfflineManager() {
 
   // Detectar SW registrado
   useEffect(() => {
+    if (typeof navigator.storage?.persist === 'function') {
+      navigator.storage.persist().catch(() => {})
+    }
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.ready.then(() => setSwReady(true)).catch(() => {})
     }
@@ -88,7 +100,12 @@ export default function OfflineManager() {
   // Detectar prompt de instalação PWA
   useEffect(() => {
     const handler = e => { e.preventDefault(); setInstallPrompt(e) }
-    const onInstalled = () => { setInstalled(true); setInstallPrompt(null) }
+    const onInstalled = () => {
+      setInstalled(true)
+      setInstallPrompt(null)
+      setShowInstallNudge(false)
+      try { localStorage.setItem(INSTALL_NUDGE_KEY, 'installed') } catch {}
+    }
     window.addEventListener('beforeinstallprompt', handler)
     window.addEventListener('appinstalled', onInstalled)
     return () => {
@@ -139,9 +156,22 @@ export default function OfflineManager() {
   // Instalar PWA
   async function instalarApp() {
     if (!installPrompt) return
-    installPrompt.prompt()
-    const { outcome } = await installPrompt.userChoice
-    if (outcome === 'accepted') { setInstalled(true); setInstallPrompt(null) }
+    const prompt = installPrompt
+    setInstallPrompt(null)
+    await prompt.prompt()
+    const { outcome } = await prompt.userChoice
+    if (outcome === 'accepted') {
+      setInstalled(true)
+      setShowInstallNudge(false)
+      try { localStorage.setItem(INSTALL_NUDGE_KEY, 'installed') } catch {}
+    } else {
+      setInstallPrompt(null)
+    }
+  }
+
+  function dispensarInstallNudge() {
+    setShowInstallNudge(false)
+    try { localStorage.setItem(INSTALL_NUDGE_KEY, 'dismissed') } catch {}
   }
 
   // Iniciar pré-cache de tiles
@@ -290,6 +320,47 @@ export default function OfflineManager() {
         )}
       </button>
 
+      {/* Convite de instalação na primeira visita em celulares */}
+      {showInstallNudge && !installed && (
+        <aside aria-label="Instalar Geovistorias" style={{
+          position: 'fixed', bottom: isMobile ? 142 : 20, right: 16, zIndex: 10001,
+          width: 'min(92vw, 360px)', boxSizing: 'border-box',
+          padding: '16px', color: '#e2e8f0', background: '#0f172a',
+          border: '1px solid #2563eb', borderRadius: 14,
+          boxShadow: '0 12px 42px rgba(0,0,0,.55)',
+        }}>
+          <button type="button" aria-label="Fechar convite de instalação" onClick={dispensarInstallNudge}
+            style={{
+              position: 'absolute', top: 9, right: 9, display: 'grid', placeItems: 'center',
+              width: 30, height: 30, border: 0, borderRadius: 8, color: '#94a3b8',
+              background: 'transparent', cursor: 'pointer',
+            }}>
+            <FiX size={17}/>
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, paddingRight: 28 }}>
+            <FiSmartphone size={21} color="#38bdf8"/>
+            <strong style={{ fontSize: 15 }}>Instale o Geovistorias</strong>
+          </div>
+          <p style={{ margin: '9px 0 13px', color: '#94a3b8', fontSize: 12, lineHeight: 1.5 }}>
+            Acesse como um app e use seus cadastros e monitoramentos mesmo sem internet.
+          </p>
+          {installPrompt ? (
+            <button type="button" onClick={instalarApp} style={{
+              width: '100%', padding: '10px 12px', border: 0, borderRadius: 9,
+              color: '#fff', background: '#2563eb', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            }}>
+              Instalar no celular
+            </button>
+          ) : (
+            <p style={{ margin: 0, padding: '9px 10px', borderRadius: 8, background: '#1e293b', color: '#cbd5e1', fontSize: 11, lineHeight: 1.5 }}>
+              {isIOS
+                ? 'No iPhone/iPad: toque em Compartilhar e escolha “Adicionar à Tela de Início”.'
+                : 'No navegador, abra o menu e escolha “Instalar app” ou “Adicionar à tela inicial”.'}
+            </p>
+          )}
+        </aside>
+      )}
+
       {/* Painel de gestão offline */}
       {open && (
         <div style={{
@@ -356,15 +427,19 @@ export default function OfflineManager() {
                   <span style={{ color: '#93c5fd', fontWeight: 700, fontSize: 13 }}>Instalar no dispositivo</span>
                 </div>
                 <p style={{ color: '#64748b', fontSize: 11, margin: '0 0 10px' }}>
-                  Instale o Geovistorias como app nativo para acesso rápido mesmo sem internet.
+                  {installPrompt
+                    ? 'Instale o Geovistorias para acesso rápido e uso offline.'
+                    : isIOS
+                      ? 'No iPhone/iPad, toque em Compartilhar e escolha “Adicionar à Tela de Início”.'
+                      : 'Abra o menu do navegador e escolha “Instalar app” ou “Adicionar à tela inicial”.'}
                 </p>
-                <button onClick={instalarApp} style={{
-                  width: '100%', background: '#1d4ed8', border: 'none', color: '#fff',
-                  borderRadius: 8, padding: '9px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                }}>
-                  <FiSmartphone size={13} style={{ marginRight: 6, verticalAlign: 'middle' }}/>
-                  Instalar App
-                </button>
+                {installPrompt && <button onClick={instalarApp} style={{
+                    width: '100%', background: '#1d4ed8', border: 'none', color: '#fff',
+                    borderRadius: 8, padding: '9px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  }}>
+                    <FiSmartphone size={13} style={{ marginRight: 6, verticalAlign: 'middle' }}/>
+                    Instalar App
+                  </button>}
               </div>
             )}
             {installed && (
@@ -509,8 +584,8 @@ export default function OfflineManager() {
                 </span>
               </div>
               <div style={{ color: '#94a3b8', fontSize: 11, lineHeight: 1.55 }}>
-                Vistorias, imóveis, ocorrências, áreas de risco e precipitações ficam na fila local e são enviados quando a conexão voltar.
-                Mapas precisam ser baixados antes; clima, elevação online, fotos e recursos de monitoramento podem exigir internet.
+                Cadastros, monitoramentos, relatórios e fotos ficam salvos neste aparelho e são sincronizados quando a conexão voltar.
+                Baixe os mapas antes; elevação e serviços externos precisam de internet.
               </div>
               {pendingSync > 0 && (
                 <button

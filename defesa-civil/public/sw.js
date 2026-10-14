@@ -1,9 +1,14 @@
-// ── Geovistorias Service Worker v6 ─────────────────────────────
-const CACHE_APP   = 'geovistorias-app-v6'
+// ── Geovistorias Service Worker v7 ─────────────────────────────
+const CACHE_APP   = 'geovistorias-app-v7'
 const CACHE_TILES = 'geovistorias-tiles-v2'
-const CACHE_API   = 'geovistorias-api-v4'
+const CACHE_API   = 'geovistorias-api-v5'
 
-const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icone.png']
+const APP_SHELL = [
+  '/', '/index.html', '/manifest.json', '/icone.png',
+  '/icons/geovistorias-192.png',
+  '/icons/geovistorias-512.png',
+  '/icons/geovistorias-maskable-512.png',
+]
 
 // ── Install ────────────────────────────────────────────────────
 self.addEventListener('install', event => {
