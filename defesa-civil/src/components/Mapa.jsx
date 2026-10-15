@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as maplibregl from 'maplibre-gl'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
@@ -6,6 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { api } from '../services/api'
 import { CIDADES, CIDADE_PADRAO } from '../data/cidades'
 import PainelClima from './PainelClima'
+import MapaLeafletFallback from './MapaLeafletFallback'
 import styles from './Mapa.module.css'
 import {
   FiMapPin, FiCloud, FiX, FiCheck, FiRefreshCw, FiSquare,
@@ -41,6 +42,18 @@ const BASE_LAYER_ID = {
   esri_topo:   'base-esri',
   positron:    'base-positron',
   dark:        'base-dark',
+}
+
+function browserSupportsWebGL2() {
+  try {
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('webgl2', { failIfMajorPerformanceCaveat: false })
+    if (!context) return false
+    context.getExtension('WEBGL_lose_context')?.loseContext()
+    return true
+  } catch {
+    return false
+  }
 }
 
 function calcularRiscoAtual(precipitacao) {
@@ -88,6 +101,7 @@ function buildStyle() {
 export default function Mapa() {
   const mapRef   = useRef(null)
   const mapGl    = useRef(null)
+  const leafletMapRef = useRef(null)
   const loadedRef = useRef(false)
   const drawRef  = useRef({ ativo: false, pontos: [] })
   const nivelRef = useRef('R2')
@@ -118,15 +132,29 @@ export default function Mapa() {
   const [terreno3D,       setTerreno3D]       = useState(false)
   const [painelVistoria,  setPainelVistoria]  = useState(null)
   const [webglError,      setWebglError]      = useState(false)
+  const [leafletDrawPoints, setLeafletDrawPoints] = useState([])
+  const [leafletGpsPosition, setLeafletGpsPosition] = useState(null)
+  const [refreshMapVersion, setRefreshMapVersion] = useState(0)
   const navigate = useNavigate()
+  const handlePluvioStatus = useCallback((loading, amount) => {
+    setPluvioCarregando(loading)
+    setPluvioAcum(amount)
+  }, [])
 
   // ── Inicializar mapa ────────────────────────────────────────
   useEffect(() => {
     if (mapGl.current) return
+    if (!browserSupportsWebGL2()) {
+      loadedRef.current = false
+      setWebglError(true)
+      return
+    }
+
     const cidadeObj = CIDADES[cidade]
     const [lng0, lat0] = cidadeObj.center
 
     let map
+    let disposed = false
     try {
       map = new maplibregl.Map({
         container: mapRef.current,
@@ -141,9 +169,20 @@ export default function Mapa() {
       })
     } catch (err) {
       console.warn('Falha ao inicializar MapLibre-GL:', err?.message || err)
+      loadedRef.current = false
       setWebglError(true)
       return
     }
+
+    map.on('error', event => {
+      const message = event?.error?.message || event?.message || ''
+      if (!/webgl2|webgl context|context lost/i.test(message)) return
+      console.warn('MapLibre indisponível; usando o mapa alternativo:', message)
+      loadedRef.current = false
+      mapGl.current = null
+      try { map.remove() } catch {}
+      if (!disposed) setWebglError(true)
+    })
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }), 'top-right')
     map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }), 'bottom-left')
@@ -415,9 +454,10 @@ export default function Mapa() {
 
     mapGl.current = map
     return () => {
+      disposed = true
       if (gpsWatch.current !== null) navigator.geolocation.clearWatch(gpsWatch.current)
-      map.remove()
-      mapGl.current = null
+      try { map.remove() } catch {}
+      if (mapGl.current === map) mapGl.current = null
       loadedRef.current = false
     }
   }, [])
@@ -434,10 +474,11 @@ export default function Mapa() {
   // ── Voar para cidade ────────────────────────────────────────
   useEffect(() => {
     const map = mapGl.current
-    if (!map) return
-    const c = CIDADES[cidade]
-    const [lng, lat] = c.center
-    map.flyTo({ center: [lng, lat], zoom: c.zoom, pitch: terreno3D ? 45 : 0, bearing: 0, duration: 2200, essential: true })
+    if (map) {
+      const c = CIDADES[cidade]
+      const [lng, lat] = c.center
+      map.flyTo({ center: [lng, lat], zoom: c.zoom, pitch: terreno3D ? 45 : 0, bearing: 0, duration: 2200, essential: true })
+    }
     carregarClima(cidade)
   }, [cidade])
 
@@ -457,11 +498,10 @@ export default function Mapa() {
   // ── Cursor modo desenho ─────────────────────────────────────
   useEffect(() => {
     const map = mapGl.current
-    if (!map) return
-    map.getCanvas().style.cursor = modoDesenho ? 'crosshair' : ''
+    if (map) map.getCanvas().style.cursor = modoDesenho ? 'crosshair' : ''
     drawRef.current.ativo = !!modoDesenho
     if (!modoDesenho) limparDesenho()
-  }, [modoDesenho])
+  }, [modoDesenho, webglError])
 
   // ── nivelRisco ref atualizado ───────────────────────────────
   useEffect(() => { nivelRef.current = nivelRisco }, [nivelRisco])
@@ -624,6 +664,7 @@ export default function Mapa() {
     const map = mapInstance || mapGl.current
     const state = drawRef.current
     state.pontos.push([lngLat.lng, lngLat.lat])
+    setLeafletDrawPoints([...state.pontos])
     atualizarDesenho(map)
   }
 
@@ -649,6 +690,7 @@ export default function Mapa() {
 
   function limparDesenho() {
     drawRef.current.pontos = []
+    setLeafletDrawPoints([])
     mapGl.current?.getSource('draw-src')?.setData({ type: 'FeatureCollection', features: [] })
     mapGl.current?.getSource('draw-preview-src')?.setData({ type: 'FeatureCollection', features: [] })
   }
@@ -689,7 +731,10 @@ export default function Mapa() {
       pos => {
         const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords
         const map = mapGl.current
-        if (!map) return
+        if (!map) {
+          setLeafletGpsPosition({ lat, lng, accuracy: acc })
+          return
+        }
         const accPx = Math.min(acc / 2, 120)
         map.getSource('gps-src')?.setData({
           type: 'FeatureCollection',
@@ -701,6 +746,7 @@ export default function Mapa() {
       },
       () => {
         setGpsAtivo(false)
+        setLeafletGpsPosition(null)
         mapGl.current?.setLayoutProperty('gps-dot', 'visibility', 'none')
         mapGl.current?.setLayoutProperty('gps-acc', 'visibility', 'none')
         alert('Não foi possível obter localização. Verifique as permissões do GPS.')
@@ -713,6 +759,7 @@ export default function Mapa() {
   function desativarGPS() {
     if (gpsWatch.current !== null) { navigator.geolocation.clearWatch(gpsWatch.current); gpsWatch.current = null }
     setGpsAtivo(false)
+    setLeafletGpsPosition(null)
     mapGl.current?.setLayoutProperty('gps-dot', 'visibility', 'none')
     mapGl.current?.setLayoutProperty('gps-acc', 'visibility', 'none')
   }
@@ -782,7 +829,11 @@ export default function Mapa() {
             <FiCloud size={14} /><span>Clima</span>
           </button>
 
-          <button className={styles.iconBtn} onClick={() => carregarDados()} title="Recarregar dados">
+          <button
+            className={styles.iconBtn}
+            onClick={() => webglError ? setRefreshMapVersion(version => version + 1) : carregarDados()}
+            title="Recarregar dados"
+          >
             <FiRefreshCw size={14} />
           </button>
         </div>
@@ -1021,30 +1072,21 @@ export default function Mapa() {
       {/* Mapa */}
       <div ref={mapRef} className={styles.map} style={{ position: 'relative' }}>
         {webglError && (
-          <div style={{
-            position: 'absolute', inset: 0, zIndex: 50,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            background: '#f8fafc', gap: 16,
-          }}>
-            <div style={{ fontSize: 48 }}>🗺️</div>
-            <div style={{ fontWeight: 700, fontSize: 18, color: '#1e293b' }}>WebGL não disponível neste ambiente</div>
-            <div style={{ color: '#64748b', fontSize: 14, textAlign: 'center', maxWidth: 360 }}>
-              O mapa interativo requer aceleração gráfica (WebGL).<br />
-              Abra o app em uma aba separada do navegador para visualizá-lo.
-            </div>
-            <a
-              href={window.location.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                background: '#2563eb', color: '#fff', borderRadius: 8,
-                padding: '10px 24px', fontWeight: 600, fontSize: 14,
-                textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8,
-              }}
-            >
-              🔗 Abrir em nova aba
-            </a>
-          </div>
+          <MapaLeafletFallback
+            cidade={cidade}
+            camada={camada}
+            overlays={overlays}
+            modoDesenho={modoDesenho}
+            drawPoints={leafletDrawPoints}
+            refreshVersion={refreshMapVersion}
+            gpsPosition={leafletGpsPosition}
+            mapRef={leafletMapRef}
+            onCoordinate={setCoordAtual}
+            onDrawPoint={({ lat, lng }) => adicionarPonto({ lat, lng }, null)}
+            onVistoriaClick={setPainelVistoria}
+            onOcorrenciasCount={setOcCount}
+            onPluvioStatus={handlePluvioStatus}
+          />
         )}
       </div>
     </div>
