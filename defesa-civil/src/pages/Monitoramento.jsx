@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import MonitoramentoLayout from '../components/MonitoramentoLayout'
 import styles from './Monitoramento.module.css'
-import { FiArrowRight, FiTrash2, FiEdit2 } from 'react-icons/fi'
+import { FiArrowRight, FiTrash2, FiEdit2, FiDownload, FiFileText } from 'react-icons/fi'
 import { api } from '../services/api'
+import { exportMonitoramentosExcel, exportMonitoramentosPdf } from '../services/monitoramentoExports'
 
 export default function Monitoramento() {
   const [imoveis, setImoveis] = useState([])
@@ -12,6 +13,7 @@ export default function Monitoramento() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deletePassword, setDeletePassword] = useState('')
   const [toast, setToast] = useState(null)
+  const [exporting, setExporting] = useState('')
   const navigate = useNavigate()
 
   const showToast = (msg, type = 'info') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
@@ -37,6 +39,29 @@ export default function Monitoramento() {
     finally { setDeleteTarget(null); setDeletePassword('') }
   }
 
+  const handleExport = async format => {
+    if (!imoveis.length) {
+      showToast('Não há imóveis para exportar.', 'error')
+      return
+    }
+    setExporting(format)
+    await new Promise(resolve => setTimeout(resolve, 0))
+    try {
+      if (format === 'excel') {
+        exportMonitoramentosExcel(imoveis)
+        showToast('Planilha com imóveis, relatórios, fotos e medições baixada.')
+      } else {
+        exportMonitoramentosPdf(imoveis)
+        showToast('PDF geral do monitoramento baixado.')
+      }
+    } catch (error) {
+      console.error('[Monitoramento] Falha ao exportar:', error)
+      showToast(`Não foi possível gerar o ${format === 'excel' ? 'Excel' : 'PDF'}.`, 'error')
+    } finally {
+      setExporting('')
+    }
+  }
+
   const filtered = imoveis.filter(i =>
     i.proprietario?.toLowerCase().includes(search.toLowerCase()) ||
     i.endereco?.toLowerCase().includes(search.toLowerCase()) ||
@@ -50,7 +75,27 @@ export default function Monitoramento() {
       <div className={styles.pageHeader}>
         <div>
           <h1 className={styles.title}>Imóveis Cadastrados</h1>
-          <p className={styles.subtitle}>Imóveis cadastrados via Vistoria Residencial para monitoramento contínuo.</p>
+          <p className={styles.subtitle}>Os arquivos incluem todos os imóveis, relatórios, fotos e medições, sem limitar pela busca.</p>
+        </div>
+        <div className={styles.exportActions}>
+          <button
+            type="button"
+            className={`${styles.exportButton} ${styles.exportExcel}`}
+            onClick={() => handleExport('excel')}
+            disabled={loading || !imoveis.length || Boolean(exporting)}
+          >
+            <FiFileText size={16}/>
+            {exporting === 'excel' ? 'Gerando Excel…' : 'Exportar Excel'}
+          </button>
+          <button
+            type="button"
+            className={`${styles.exportButton} ${styles.exportPdf}`}
+            onClick={() => handleExport('pdf')}
+            disabled={loading || !imoveis.length || Boolean(exporting)}
+          >
+            <FiDownload size={16}/>
+            {exporting === 'pdf' ? 'Gerando PDF…' : 'Exportar PDF'}
+          </button>
         </div>
       </div>
 

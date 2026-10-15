@@ -412,7 +412,14 @@ async function writeCollectionMutation(operation) {
 
   const cacheKey = RESOURCE_PATHS[resource]
   const cached = await readOfflineCache(cacheKey)
-  const base = Array.isArray(cached) ? cached : legacyCollection(resource) || []
+  const base = Array.isArray(cached) ? [...cached] : legacyCollection(resource) || []
+  if (resource === 'monitoramento') {
+    const parts = pathWithoutQuery(operation.path).split('/').filter(Boolean)
+    if (parts[0] === 'monitoramento' && parts[1]) {
+      const detail = await readOfflineCache(`/monitoramento/${parts[1]}`)
+      if (detail && !base.some(item => sameId(item.id, detail.id))) base.unshift(detail)
+    }
+  }
   await writeOfflineCache(cacheKey, applyMutationToCollection(base, operation, resource))
 
   if (resource === 'monitoramento') {

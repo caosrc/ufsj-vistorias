@@ -4,6 +4,13 @@
 .pageHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
 .title { font-size: 2rem; font-weight: 700; color: #111827; margin: 0 0 4px; }
 .subtitle { font-size: 0.9rem; color: #6b7280; margin: 0; }
+.exportActions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.exportButton { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 9px 13px; border: 1px solid transparent; border-radius: 8px; color: #fff; font-size: 0.82rem; font-weight: 650; cursor: pointer; transition: background 0.15s, opacity 0.15s; }
+.exportExcel { background: #15803d; }
+.exportExcel:hover:not(:disabled) { background: #166534; }
+.exportPdf { background: #1d4ed8; }
+.exportPdf:hover:not(:disabled) { background: #1e40af; }
+.exportButton:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .searchBar { margin-bottom: 20px; }
 .searchInput { width: 100%; max-width: 480px; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; background: white; box-sizing: border-box; }
@@ -20,6 +27,11 @@
 .empty p { color: #6b7280; margin: 0 0 20px; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+
+@media (max-width: 620px) {
+  .exportActions { width: 100%; }
+  .exportButton { flex: 1; }
+}
 
 .cardWrap { background: white; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); transition: box-shadow 0.2s, border-color 0.2s; }
 .cardWrap:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.1); border-color: #d1d5db; }
