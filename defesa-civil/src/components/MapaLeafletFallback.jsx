@@ -36,12 +36,14 @@ export default function MapaLeafletFallback({
   camada,
   overlays,
   modoDesenho,
+  modoOcorrencia,
   drawPoints,
   refreshVersion,
   gpsPosition,
   mapRef,
   onCoordinate,
   onDrawPoint,
+  onOccurrencePoint,
   onVistoriaClick,
   onOcorrenciasCount,
   onPluvioStatus,
@@ -50,7 +52,7 @@ export default function MapaLeafletFallback({
   const layersRef = useRef({})
   const callbacksRef = useRef({})
   const refreshRef = useRef(null)
-  callbacksRef.current = { modoDesenho, drawPoints, onCoordinate, onDrawPoint }
+  callbacksRef.current = { cidade, modoDesenho, modoOcorrencia, drawPoints, onCoordinate, onDrawPoint, onOccurrencePoint }
 
   useEffect(() => {
     const city = CIDADES[cidade]
@@ -106,10 +108,12 @@ export default function MapaLeafletFallback({
     map.on('click', event => {
       if (callbacksRef.current.modoDesenho) {
         callbacksRef.current.onDrawPoint?.({ lat: event.latlng.lat, lng: event.latlng.lng })
+      } else if (callbacksRef.current.modoOcorrencia) {
+        callbacksRef.current.onOccurrencePoint?.({ lat: event.latlng.lat, lng: event.latlng.lng })
       } else {
         try {
           localStorage.setItem('ultimaCoordenada', JSON.stringify({
-            lat: event.latlng.lat, lng: event.latlng.lng,
+            lat: event.latlng.lat, lng: event.latlng.lng, cidade: callbacksRef.current.cidade,
           }))
         } catch {}
       }
@@ -132,6 +136,12 @@ export default function MapaLeafletFallback({
       layersRef.current = {}
     }
   }, [])
+
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.style.cursor = modoOcorrencia ? 'crosshair' : ''
+    }
+  }, [modoOcorrencia])
 
   useEffect(() => {
     const map = layersRef.current.map

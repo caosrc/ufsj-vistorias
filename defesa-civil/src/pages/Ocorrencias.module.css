@@ -2,7 +2,7 @@
   min-height: 100vh;
   background: #0b1220;
   color: #e2e8f0;
-  padding: 24px;
+  padding: 24px 24px 96px;
 }
 
 .header {
@@ -112,6 +112,23 @@
 
 .form select option { background: #1e293b; }
 
+.mapBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #2563eb;
+  border-radius: 7px;
+  padding: 9px 12px;
+  color: #bfdbfe;
+  background: #172554;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mapBtn:hover { background: #1e3a8a; }
+
 .nivelGroup {
   display: flex;
   gap: 6px;
@@ -149,6 +166,7 @@
 }
 
 .saveBtn:hover { background: #2563eb; }
+.saveBtn:disabled { opacity: 0.65; cursor: wait; }
 
 .sucesso {
   background: #064e3b;
@@ -158,6 +176,25 @@
   font-size: 13px;
   text-align: center;
   border: 1px solid #065f46;
+}
+
+.erro {
+  background: #450a0a;
+  color: #fecaca;
+  padding: 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  border: 1px solid #7f1d1d;
+}
+
+.offlineTag {
+  display: inline-block;
+  margin: 2px 0 7px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: #422006;
+  color: #fcd34d;
+  font-size: 10px;
 }
 
 .listHeader {

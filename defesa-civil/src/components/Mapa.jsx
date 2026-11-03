@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import * as maplibregl from 'maplibre-gl'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -64,6 +64,30 @@ function calcularRiscoAtual(precipitacao) {
   return { cor: '#22c55e', texto: 'Baixo' }
 }
 
+function popupSeguro(titulo, descricao, cor, etiqueta) {
+  const conteudo = document.createElement('div')
+  conteudo.style.fontFamily = 'sans-serif'
+  conteudo.style.padding = '4px'
+
+  const tituloEl = document.createElement('strong')
+  tituloEl.textContent = titulo || 'Registro'
+  tituloEl.style.color = cor
+  conteudo.appendChild(tituloEl)
+
+  const descricaoEl = document.createElement('div')
+  descricaoEl.textContent = descricao || '—'
+  descricaoEl.style.cssText = 'color:#64748b;font-size:12px;margin-top:3px;white-space:pre-wrap'
+  conteudo.appendChild(descricaoEl)
+
+  if (etiqueta) {
+    const etiquetaEl = document.createElement('span')
+    etiquetaEl.textContent = etiqueta
+    etiquetaEl.style.cssText = `display:inline-block;margin-top:6px;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:700;background:${cor}22;color:${cor}`
+    conteudo.appendChild(etiquetaEl)
+  }
+  return conteudo
+}
+
 // ── Estilo base do mapa (todas as camadas raster) ─────────────
 function buildStyle() {
   const rasterSource = (tiles, maxzoom = 19, attribution = '') => ({
@@ -114,6 +138,7 @@ export default function Mapa() {
   const [showLegenda,     setShowLegenda]     = useState(false)
   const [showCamadas,     setShowCamadas]     = useState(true)
   const [modoDesenho,     setModoDesenho]     = useState(null)
+  const [modoOcorrencia,  setModoOcorrencia]  = useState(false)
   const [salvandoArea,    setSalvandoArea]    = useState(false)
   const [nivelRisco,      setNivelRisco]      = useState('R2')
   const [descRisco,       setDescRisco]       = useState('')
@@ -136,10 +161,33 @@ export default function Mapa() {
   const [leafletGpsPosition, setLeafletGpsPosition] = useState(null)
   const [refreshMapVersion, setRefreshMapVersion] = useState(0)
   const navigate = useNavigate()
+  const location = useLocation()
+  const pickOccurrenceRef = useRef(null)
+  const cityRef = useRef(cidade)
+  cityRef.current = cidade
+  pickOccurrenceRef.current = modoOcorrencia
+    ? ({ lat, lng }) => {
+        const selected = { lat, lng, cidade: cityRef.current }
+        setCoordAtual({ lat, lng })
+        try { localStorage.setItem('ultimaCoordenada', JSON.stringify(selected)) } catch {}
+        setModoOcorrencia(false)
+        navigate('/ocorrencias?novo=1')
+      }
+    : null
   const handlePluvioStatus = useCallback((loading, amount) => {
     setPluvioCarregando(loading)
     setPluvioAcum(amount)
   }, [])
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const picking = params.get('novaOcorrencia') === '1'
+    setModoOcorrencia(picking)
+    if (picking) {
+      setModoDesenho(null)
+      drawRef.current.ativo = false
+    }
+  }, [location.search])
 
   // ── Inicializar mapa ────────────────────────────────────────
   useEffect(() => {
@@ -377,8 +425,16 @@ export default function Mapa() {
 
       // Click no mapa — desenho ou coordenada
       map.on('click', e => {
+        if (pickOccurrenceRef.current) {
+          pickOccurrenceRef.current({ lat: e.lngLat.lat, lng: e.lngLat.lng })
+          return
+        }
         if (!drawRef.current.ativo) {
-          localStorage.setItem('ultimaCoordenada', JSON.stringify({ lat: e.lngLat.lat, lng: e.lngLat.lng }))
+          try {
+            localStorage.setItem('ultimaCoordenada', JSON.stringify({
+              lat: e.lngLat.lat, lng: e.lngLat.lng, cidade: cityRef.current,
+            }))
+          } catch {}
           return
         }
         adicionarPonto(e.lngLat, map)
@@ -421,7 +477,7 @@ export default function Mapa() {
         const cor = RISCO_CORES[p.nivel] || '#94a3b8'
         new maplibregl.Popup({ closeButton: true, maxWidth: '240px' })
           .setLngLat(e.lngLat)
-          .setHTML(`<div style="font-family:sans-serif;padding:4px"><b style="color:${cor}">Área de Risco ${p.nivel}</b><br><small style="color:#64748b">${p.descricao || '—'}</small></div>`)
+          .setDOMContent(popupSeguro(`Área de Risco ${p.nivel || ''}`, p.descricao, cor))
           .addTo(map)
       })
 
@@ -431,7 +487,7 @@ export default function Mapa() {
         const cor = NIVEL_CORES[p.nivel] || '#38bdf8'
         new maplibregl.Popup({ closeButton: true, maxWidth: '220px' })
           .setLngLat(e.lngLat)
-          .setHTML(`<div style="font-family:sans-serif;padding:4px"><b>${p.tipo}</b><div style="color:#64748b;font-size:12px;margin-top:2px">${p.descricao || '—'}</div><span style="display:inline-block;margin-top:5px;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:700;background:${cor}22;color:${cor}">${(p.nivel||'').toUpperCase()}</span></div>`)
+          .setDOMContent(popupSeguro(p.tipo, p.descricao, cor, (p.nivel || '').toUpperCase()))
           .addTo(map)
       })
 
@@ -498,10 +554,10 @@ export default function Mapa() {
   // ── Cursor modo desenho ─────────────────────────────────────
   useEffect(() => {
     const map = mapGl.current
-    if (map) map.getCanvas().style.cursor = modoDesenho ? 'crosshair' : ''
+    if (map) map.getCanvas().style.cursor = modoDesenho || modoOcorrencia ? 'crosshair' : ''
     drawRef.current.ativo = !!modoDesenho
     if (!modoDesenho) limparDesenho()
-  }, [modoDesenho, webglError])
+  }, [modoDesenho, modoOcorrencia, webglError])
 
   // ── nivelRisco ref atualizado ───────────────────────────────
   useEffect(() => { nivelRef.current = nivelRisco }, [nivelRisco])
@@ -789,7 +845,15 @@ export default function Mapa() {
         </div>
 
         <div className={styles.toolbarRight}>
-          {modoDesenho ? (
+          {modoOcorrencia ? (
+            <>
+              <span className={styles.desenhoHint}>📍 Clique no mapa para marcar a ocorrência</span>
+              <button className={styles.cancelarBtn} onClick={() => {
+                setModoOcorrencia(false)
+                navigate('/')
+              }}><FiX size={13} /> Cancelar</button>
+            </>
+          ) : modoDesenho ? (
             <>
               <span className={styles.desenhoHint}>✏️ Clique para adicionar pontos</span>
               {drawRef.current.pontos.length >= 3 && (
@@ -800,9 +864,22 @@ export default function Mapa() {
               <button className={styles.cancelarBtn} onClick={cancelarArea}><FiX size={13} /> Cancelar</button>
             </>
           ) : !salvandoArea && (
-            <button className={styles.desenhoBtn} onClick={() => setModoDesenho('polygon')}>
-              <FiSquare size={12} /> Área de Risco
-            </button>
+            <>
+              <button className={styles.toolBtn} onClick={() => {
+                drawRef.current.ativo = false
+                limparDesenho()
+                setModoDesenho(null)
+                setModoOcorrencia(true)
+              }}>
+                <FiMapPin size={13} /> Nova ocorrência
+              </button>
+              <button className={styles.desenhoBtn} onClick={() => {
+                setModoOcorrencia(false)
+                setModoDesenho('polygon')
+              }}>
+                <FiSquare size={12} /> Área de Risco
+              </button>
+            </>
           )}
 
 
@@ -1077,12 +1154,14 @@ export default function Mapa() {
             camada={camada}
             overlays={overlays}
             modoDesenho={modoDesenho}
+            modoOcorrencia={modoOcorrencia}
             drawPoints={leafletDrawPoints}
             refreshVersion={refreshMapVersion}
             gpsPosition={leafletGpsPosition}
             mapRef={leafletMapRef}
             onCoordinate={setCoordAtual}
             onDrawPoint={({ lat, lng }) => adicionarPonto({ lat, lng }, null)}
+            onOccurrencePoint={coords => pickOccurrenceRef.current?.(coords)}
             onVistoriaClick={setPainelVistoria}
             onOcorrenciasCount={setOcCount}
             onPluvioStatus={handlePluvioStatus}

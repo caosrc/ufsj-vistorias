@@ -17,9 +17,9 @@ function generateTileUrls(bbox, minZ, maxZ) {
   const urls = []
 
   const providers = [
-    z => (x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`,
-    z => (x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`,
-    z => (x, y) => `https://tile.opentopomap.org/${z}/${x}/${y}.png`,
+    z => (x, y) => `/api/map-tile/osm/${z}/${x}/${y}`,
+    z => (x, y) => `/api/sat-tile/${z}/${y}/${x}`,
+    z => (x, y) => `/api/map-tile/topo/${z}/${x}/${y}`,
   ]
 
   for (let z = minZ; z <= maxZ; z++) {

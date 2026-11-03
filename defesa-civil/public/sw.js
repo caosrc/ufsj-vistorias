@@ -123,11 +123,21 @@ async function networkFirstApi(request) {
   const cache = await caches.open(CACHE_API)
   try {
     const response = await fetch(request)
-    if (response.ok) cache.put(request, response.clone())
+    if (response.ok) {
+      cache.put(request, response.clone())
+      return response
+    }
+    if (/\/api\/(?:map-tile|sat-tile)\//.test(new URL(request.url).pathname)) {
+      const cachedTile = await (await caches.open(CACHE_TILES)).match(request)
+      if (cachedTile) return cachedTile
+    }
     return response
   } catch {
     const cached = await cache.match(request)
     if (cached) return cached
+    // Tiles pré-baixados pelo painel offline ficam no cache separado.
+    const cachedTile = await (await caches.open(CACHE_TILES)).match(request)
+    if (cachedTile) return cachedTile
     return new Response(JSON.stringify({ error: 'API indisponível offline' }), {
       status: 503,
       headers: { 'Content-Type': 'application/json', 'X-Offline': 'true' },
@@ -178,13 +188,14 @@ self.addEventListener('message', async event => {
 
     for (const url of urls) {
       try {
-        const already = await cache.match(url)
+        const requestUrl = new URL(url, self.location.origin).href
+        const already = await cache.match(requestUrl)
         if (already) {
           saved++
         } else {
-          const resp = await fetch(url, { mode: 'no-cors' })
-          if (resp) {
-            await cache.put(url, resp)
+          const resp = await fetch(requestUrl, { credentials: 'same-origin' })
+          if (resp?.ok) {
+            await cache.put(requestUrl, resp.clone())
             saved++
           } else {
             failed++

@@ -40,7 +40,13 @@ cd defesa-civil && npm run dev -- --port 5173 --host 0.0.0.0
 ```
 O backend usa o PostgreSQL de desenvolvimento do Replit por `DATABASE_URL`. O esquema desse banco está em `server/schema.postgres.sql`; o arquivo `server/schema.sql` é exclusivo do Cloudflare D1 (SQLite) e não deve ser executado no PostgreSQL.
 
-As tabelas do banco de desenvolvimento foram inicializadas para este app. Em um novo ambiente, aplique `server/schema.postgres.sql` uma vez no banco Development antes de usar as rotas de dados. O servidor acrescenta algumas colunas opcionais automaticamente, mas não cria todas as tabelas. O banco está vazio inicialmente.
+As tabelas do PostgreSQL não estão inicializadas neste ambiente: as rotas de ocorrências e áreas de risco respondem que as tabelas não existem. Para usar o servidor compartilhado, aplique `server/schema.postgres.sql` uma vez no banco Development; o servidor acrescenta algumas colunas opcionais automaticamente, mas não cria todas as tabelas. O banco continua vazio inicialmente.
+
+## Áreas de risco, ocorrências e uso offline
+
+O mapa principal permite desenhar e cadastrar áreas de risco. Para registrar uma ocorrência, use **Nova ocorrência** no mapa, clique no local e complete o formulário em **Ocorrências**. As telas usam a API Express e a fila local IndexedDB do app; sem acesso às tabelas do PostgreSQL, as novas alterações ficam neste dispositivo aguardando uma API disponível para sincronizar.
+
+Para usar o mapa sem conexão, abra o controle **Uso Offline** e baixe a área do mapa antes de sair da rede. O download usa as mesmas rotas de tiles do mapa principal. O código operacional legado em `defesa-civil/src/operacional/` não está conectado às rotas principais do app; não configure o Supabase para esta integração. O armazenamento definitivo poderá ser escolhido e conectado depois.
 
 ## Estrutura Principal
 ```

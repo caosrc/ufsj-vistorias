@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { FiArrowLeft, FiAlertTriangle, FiSave, FiTrash2, FiMapPin } from 'react-icons/fi'
+import { Link, useNavigate } from 'react-router-dom'
+import { FiArrowLeft, FiAlertTriangle, FiSave, FiTrash2, FiMapPin, FiCrosshair } from 'react-icons/fi'
 import { api } from '../services/api'
+import { CIDADES, CIDADE_PADRAO } from '../data/cidades'
 import styles from './Ocorrencias.module.css'
 
 const TIPOS = [
@@ -18,21 +19,30 @@ const NIVEIS = [
 ]
 
 export default function Ocorrencias() {
+  const navigate = useNavigate()
   const [tipo, setTipo] = useState('')
   const [descricao, setDescricao] = useState('')
   const [nivel, setNivel] = useState('medio')
   const [endereco, setEndereco] = useState('')
   const [ocorrencias, setOcorrencias] = useState([])
+  const [cidade, setCidade] = useState(CIDADE_PADRAO)
   const [filtroTipo, setFiltroTipo] = useState('')
   const [filtroNivel, setFiltroNivel] = useState('')
   const [coordAtual, setCoordAtual] = useState(null)
   const [sucesso, setSucesso] = useState(false)
+  const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
+  const [salvando, setSalvando] = useState(false)
 
   useEffect(() => {
     carregar()
-    const coord = localStorage.getItem('ultimaCoordenada')
-    if (coord) setCoordAtual(JSON.parse(coord))
+    try {
+      const coord = JSON.parse(localStorage.getItem('ultimaCoordenada') || 'null')
+      if (coord && Number.isFinite(Number(coord.lat)) && Number.isFinite(Number(coord.lng))) {
+        setCoordAtual({ lat: Number(coord.lat), lng: Number(coord.lng) })
+      }
+      if (CIDADES[coord?.cidade]) setCidade(coord.cidade)
+    } catch { /* coordenada antiga inválida */ }
     const onSynced = () => carregar()
     window.addEventListener('geovistorias:offline-data-synced', onSynced)
     return () => window.removeEventListener('geovistorias:offline-data-synced', onSynced)
@@ -53,38 +63,48 @@ export default function Ocorrencias() {
   async function salvar(e) {
     e.preventDefault()
     if (!tipo) return alert('Selecione o tipo de ocorrência.')
+    if (!coordAtual || !Number.isFinite(coordAtual.lat) || !Number.isFinite(coordAtual.lng)) {
+      setErro('Marque a localização da ocorrência no mapa antes de salvar.')
+      return
+    }
     const payload = {
       tipo, descricao, nivel, endereco,
-      cidade: 'ouro_branco',
-      lat: coordAtual?.lat,
-      lng: coordAtual?.lng,
+      cidade,
+      lat: coordAtual.lat,
+      lng: coordAtual.lng,
       data: new Date().toISOString()
     }
     try {
+      setSalvando(true)
+      setErro('')
       const resultado = await api.createOcorrencia(payload)
       setSucesso(resultado?.offline
         ? 'Ocorrência salva neste dispositivo; será enviada quando a conexão voltar.'
         : 'Ocorrência registrada com sucesso!')
-    } catch {
-      const lista = JSON.parse(localStorage.getItem('ocorrencias') || '[]')
-      lista.push({ id: Date.now(), ...payload, coordenada: coordAtual })
-      localStorage.setItem('ocorrencias', JSON.stringify(lista))
-      setSucesso('Ocorrência salva localmente; será enviada quando a conexão voltar.')
+      setTipo('')
+      setDescricao('')
+      setNivel('medio')
+      setEndereco('')
+      setCoordAtual(null)
+      try { localStorage.removeItem('ultimaCoordenada') } catch {}
+      await carregar()
+      window.setTimeout(() => setSucesso(false), 4500)
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível salvar a ocorrência. Os dados do formulário foram mantidos.')
+    } finally {
+      setSalvando(false)
     }
-    setTipo(''); setDescricao(''); setNivel('medio'); setEndereco('')
-    setTimeout(() => setSucesso(false), 3000)
-    carregar()
   }
 
   async function remover(id) {
     if (!confirm('Remover esta ocorrência?')) return
     try {
       await api.deleteOcorrencia(id)
-    } catch {
-      const lista = JSON.parse(localStorage.getItem('ocorrencias') || '[]').filter(o => o.id !== id)
-      localStorage.setItem('ocorrencias', JSON.stringify(lista))
+      setErro('')
+      await carregar()
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível remover a ocorrência.')
     }
-    carregar()
   }
 
   const ocFiltradas = ocorrencias.filter(o => {
@@ -107,14 +127,23 @@ export default function Ocorrencias() {
           <h2>Nova Ocorrência</h2>
           {coordAtual ? (
             <div className={styles.coordInfo}><FiMapPin size={14} />
-              {coordAtual.lat?.toFixed(5)}, {coordAtual.lng?.toFixed(5)}
+              {coordAtual.lat.toFixed(5)}, {coordAtual.lng.toFixed(5)}
             </div>
           ) : (
             <div className={styles.coordWarning}><FiMapPin size={14} />
-              Clique no mapa para definir a localização.
+              Marque a localização no mapa para incluir a ocorrência.
             </div>
           )}
           <form onSubmit={salvar} className={styles.form}>
+            <button type='button' className={styles.mapBtn} onClick={() => navigate('/?novaOcorrencia=1')}>
+              <FiCrosshair size={15} /> Marcar localização no mapa
+            </button>
+            <label>Cidade</label>
+            <select value={cidade} onChange={e => setCidade(e.target.value)}>
+              {Object.values(CIDADES).map(item => (
+                <option key={item.codigo} value={item.codigo}>{item.nome}</option>
+              ))}
+            </select>
             <label>Tipo de Ocorrência *</label>
             <select value={tipo} onChange={e => setTipo(e.target.value)} required>
               <option value=''>Selecione...</option>
@@ -135,8 +164,11 @@ export default function Ocorrencias() {
             <input placeholder='Ex: Rua das Flores, 123' value={endereco} onChange={e => setEndereco(e.target.value)} />
             <label>Descrição</label>
             <textarea placeholder='Descreva a ocorrência...' value={descricao} onChange={e => setDescricao(e.target.value)} rows={4} />
-            <button type='submit' className={styles.saveBtn}><FiSave /> Registrar Ocorrência</button>
+            <button type='submit' className={styles.saveBtn} disabled={salvando || carregando}>
+              <FiSave /> {salvando ? 'Salvando…' : 'Registrar Ocorrência'}
+            </button>
             {sucesso && <div className={styles.sucesso}>{sucesso}</div>}
+            {erro && <div className={styles.erro} role='alert'>{erro}</div>}
           </form>
         </div>
 
@@ -171,6 +203,9 @@ export default function Ocorrencias() {
                     </div>
                     <button className={styles.deleteBtn} onClick={() => remover(oc.id)}><FiTrash2 size={14} /></button>
                   </div>
+                  {String(oc.id).startsWith('offline-') && (
+                    <div className={styles.offlineTag}>Salva neste dispositivo · aguardando sincronização</div>
+                  )}
                   {oc.endereco && <div className={styles.cardInfo}><FiMapPin size={11} /> {oc.endereco}</div>}
                   {oc.descricao && <div className={styles.cardDesc}>{oc.descricao}</div>}
                   {(oc.lat || oc.coordenada?.lat) && (
