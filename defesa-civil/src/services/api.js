@@ -733,12 +733,15 @@ export const api = {
   createMonitoramento: (data) => req('POST', '/monitoramento', data),
   updateMonitoramento: (id, data) => req('PUT', `/monitoramento/${encodeURIComponent(id)}`, data),
   deleteMonitoramento: (id) => req('DELETE', `/monitoramento/${encodeURIComponent(id)}`),
-  addMonitoramentoFoto: (id, base64, codigoTrinca) => {
-    const photoId = `foto-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}`
+  addMonitoramentoFoto: (id, base64, codigoTrinca, photo = {}) => {
+    const photoId = photo.id || `foto-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}`
     return req('POST', `/monitoramento/${encodeURIComponent(id)}/fotos`, {
       id: photoId,
       base64,
-      codigoTrinca,
+      codigoTrinca: photo.codigoTrinca || codigoTrinca,
+      pontos: photo.pontos || [],
+      linhas: photo.linhas || [],
+      observacao: photo.observacao || '',
     })
   },
   createMonitoramentoRelatorio: (id, data) => req('POST', `/monitoramento/${encodeURIComponent(id)}/relatorios`, data),

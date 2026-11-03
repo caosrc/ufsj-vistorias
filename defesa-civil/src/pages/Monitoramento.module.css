@@ -6,11 +6,15 @@
 .subtitle { font-size: 0.9rem; color: #6b7280; margin: 0; }
 .exportActions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .exportButton { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 9px 13px; border: 1px solid transparent; border-radius: 8px; color: #fff; font-size: 0.82rem; font-weight: 650; cursor: pointer; transition: background 0.15s, opacity 0.15s; }
+.importButton { background: #fff; border-color: #cbd5e1; color: #1f2937; }
+.importButton:hover:not(:disabled) { background: #f8fafc; border-color: #94a3b8; }
 .exportExcel { background: #15803d; }
 .exportExcel:hover:not(:disabled) { background: #166534; }
 .exportPdf { background: #1d4ed8; }
 .exportPdf:hover:not(:disabled) { background: #1e40af; }
 .exportButton:disabled { opacity: 0.55; cursor: not-allowed; }
+.fileInput { display: none; }
+.importHint { margin: -10px 0 18px; color: #64748b; font-size: 0.78rem; line-height: 1.5; }
 
 .searchBar { margin-bottom: 20px; }
 .searchInput { width: 100%; max-width: 480px; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; background: white; box-sizing: border-box; }
@@ -31,6 +35,7 @@
 @media (max-width: 620px) {
   .exportActions { width: 100%; }
   .exportButton { flex: 1; }
+  .importHint { margin-top: -8px; }
 }
 
 .cardWrap { background: white; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); transition: box-shadow 0.2s, border-color 0.2s; }

@@ -817,7 +817,6 @@ app.delete('/api/monitoramento/:id', async (req, res) => {
 
 app.post('/api/monitoramento/:id/fotos', async (req, res) => {
   const { id: photoId, base64, codigoTrinca, pontos, linhas, observacao } = req.body
-  if (!base64) return res.status(400).json({ error: 'base64 obrigatório' })
   try {
     const { rows } = await pool.query(
       'SELECT fotos_anomalias FROM vistoria_monitoramento WHERE id = $1',
@@ -825,15 +824,23 @@ app.post('/api/monitoramento/:id/fotos', async (req, res) => {
     )
     if (!rows.length) return res.status(404).json({ error: 'Imóvel não encontrado' })
     const photos = parseJ(rows[0].fotos_anomalias, [])
+    const id = photoId || `foto-${Date.now()}`
+    const existingIndex = photos.findIndex(item => String(item.id) === String(id))
+    const existing = existingIndex >= 0 ? photos[existingIndex] : null
+    const hasMeasurements = (Array.isArray(pontos) && pontos.length > 0) ||
+      (Array.isArray(linhas) && linhas.length > 0)
+    if (!base64 && !existing?.url && !hasMeasurements) {
+      return res.status(400).json({ error: 'Informe uma imagem ou dados de medição.' })
+    }
     const photo = {
-      id: photoId || `foto-${Date.now()}`,
-      url: base64,
+      ...existing,
+      id,
+      url: base64 || existing?.url || '',
       codigoTrinca: codigoTrinca || '',
       pontos: Array.isArray(pontos) ? pontos : [],
       linhas: Array.isArray(linhas) ? linhas : [],
       observacao: observacao || '',
     }
-    const existingIndex = photos.findIndex(item => String(item.id) === String(photo.id))
     if (existingIndex >= 0) photos[existingIndex] = photo
     else photos.push(photo)
     await pool.query(

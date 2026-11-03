@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import MonitoramentoLayout from '../components/MonitoramentoLayout'
 import styles from './Monitoramento.module.css'
-import { FiArrowRight, FiTrash2, FiEdit2, FiDownload, FiFileText } from 'react-icons/fi'
+import { FiArrowRight, FiTrash2, FiEdit2, FiDownload, FiFileText, FiUpload } from 'react-icons/fi'
 import { api } from '../services/api'
-import { exportMonitoramentosExcel, exportMonitoramentosPdf } from '../services/monitoramentoExports'
+import { exportMonitoramentosPdf } from '../services/monitoramentoExports'
+import { exportMonitoramentosExcel, readMonitoramentosWorkbook } from '../services/monitoramentoSpreadsheet'
+import { importMonitoramentosWorkbook } from '../services/monitoramentoImport'
 
 export default function Monitoramento() {
   const [imoveis, setImoveis] = useState([])
@@ -14,9 +16,15 @@ export default function Monitoramento() {
   const [deletePassword, setDeletePassword] = useState('')
   const [toast, setToast] = useState(null)
   const [exporting, setExporting] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState('')
+  const importInputRef = useRef(null)
   const navigate = useNavigate()
 
-  const showToast = (msg, type = 'info') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
+  const showToast = (msg, type = 'info', duration = 3000) => {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), duration)
+  }
 
   const fetchImoveis = async () => {
     setLoading(true)
@@ -40,7 +48,7 @@ export default function Monitoramento() {
   }
 
   const handleExport = async format => {
-    if (!imoveis.length) {
+    if (!imoveis.length && format !== 'excel') {
       showToast('Não há imóveis para exportar.', 'error')
       return
     }
@@ -48,8 +56,10 @@ export default function Monitoramento() {
     await new Promise(resolve => setTimeout(resolve, 0))
     try {
       if (format === 'excel') {
-        exportMonitoramentosExcel(imoveis)
-        showToast('Planilha com imóveis, relatórios, fotos e medições baixada.')
+        await exportMonitoramentosExcel(imoveis)
+        showToast(imoveis.length
+          ? 'Planilha com imóveis, relatórios, fotos e medições baixada.'
+          : 'Planilha modelo baixada. Preencha os imóveis e importe o arquivo.')
       } else {
         exportMonitoramentosPdf(imoveis)
         showToast('PDF geral do monitoramento baixado.')
@@ -62,6 +72,43 @@ export default function Monitoramento() {
     }
   }
 
+  const handleImportFile = async event => {
+    const input = event.currentTarget
+    const file = input.files?.[0]
+    input.value = ''
+    if (!file) return
+
+    setImporting(true)
+    setImportProgress('Lendo planilha…')
+    try {
+      const workbookData = await readMonitoramentosWorkbook(file)
+      const result = await importMonitoramentosWorkbook(
+        workbookData,
+        imoveis,
+        api,
+        setImportProgress
+      )
+      await fetchImoveis()
+
+      const summary = `${result.created} novo(s), ${result.updated} atualizado(s), ${result.reports} relatório(s) e ${result.photos} foto(s)/medição(ões).`
+      const syncNotice = result.offline
+        ? ' Os dados foram guardados neste aparelho e serão sincronizados quando a conexão voltar.'
+        : ''
+      if (result.errors.length) {
+        console.warn('[Monitoramento] Importação parcial:', result.errors)
+        showToast(`Importação parcial: ${summary} ${result.errors.length} item(ns) precisam de atenção.${syncNotice}`, 'error', 8000)
+      } else {
+        showToast(`Importação concluída: ${summary}${syncNotice}`, 'info', 7000)
+      }
+    } catch (error) {
+      console.error('[Monitoramento] Falha ao importar planilha:', error)
+      showToast(error.message || 'Não foi possível ler a planilha.', 'error', 6000)
+    } finally {
+      setImporting(false)
+      setImportProgress('')
+    }
+  }
+
   const filtered = imoveis.filter(i =>
     i.proprietario?.toLowerCase().includes(search.toLowerCase()) ||
     i.endereco?.toLowerCase().includes(search.toLowerCase()) ||
@@ -70,19 +117,37 @@ export default function Monitoramento() {
 
   return (
     <MonitoramentoLayout>
-      {toast && <div className={`${styles.toast} ${styles[toast.type]}`}>{toast.msg}</div>}
+      {toast && <div role="status" aria-live="polite" className={`${styles.toast} ${styles[toast.type]}`}>{toast.msg}</div>}
 
       <div className={styles.pageHeader}>
         <div>
           <h1 className={styles.title}>Imóveis Cadastrados</h1>
-          <p className={styles.subtitle}>Os arquivos incluem todos os imóveis, relatórios, fotos e medições, sem limitar pela busca.</p>
+          <p className={styles.subtitle}>Exporte ou importe imóveis, medidas, relatórios e fotos em uma planilha Excel.</p>
         </div>
         <div className={styles.exportActions}>
+          <input
+            ref={importInputRef}
+            className={styles.fileInput}
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            onChange={handleImportFile}
+            aria-label="Selecionar planilha Excel para importar"
+          />
+          <button
+            type="button"
+            className={`${styles.exportButton} ${styles.importButton}`}
+            onClick={() => importInputRef.current?.click()}
+            disabled={loading || importing || Boolean(exporting)}
+            title="Importa novos imóveis ou acrescenta dados aos cadastros existentes."
+          >
+            <FiUpload size={16}/>
+            {importing ? (importProgress || 'Importando…') : 'Importar Excel'}
+          </button>
           <button
             type="button"
             className={`${styles.exportButton} ${styles.exportExcel}`}
             onClick={() => handleExport('excel')}
-            disabled={loading || !imoveis.length || Boolean(exporting)}
+            disabled={loading || importing || Boolean(exporting)}
           >
             <FiFileText size={16}/>
             {exporting === 'excel' ? 'Gerando Excel…' : 'Exportar Excel'}
@@ -91,13 +156,16 @@ export default function Monitoramento() {
             type="button"
             className={`${styles.exportButton} ${styles.exportPdf}`}
             onClick={() => handleExport('pdf')}
-            disabled={loading || !imoveis.length || Boolean(exporting)}
+            disabled={loading || !imoveis.length || importing || Boolean(exporting)}
           >
             <FiDownload size={16}/>
             {exporting === 'pdf' ? 'Gerando PDF…' : 'Exportar PDF'}
           </button>
         </div>
       </div>
+      <p className={styles.importHint}>
+        Escolha um arquivo .xlsx. As fotos ficam incorporadas; cadastros são reconhecidos pelo ID ou por proprietário e endereço, e células vazias não apagam dados. Sem imóveis, exporte para baixar o modelo.
+      </p>
 
       <div className={styles.searchBar}>
         <input className={styles.searchInput} value={search} onChange={e => setSearch(e.target.value)}
