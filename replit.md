@@ -40,7 +40,7 @@ cd defesa-civil && npm run dev -- --port 5173 --host 0.0.0.0
 ```
 O backend usa o PostgreSQL de desenvolvimento do Replit por `DATABASE_URL`. O esquema desse banco está em `server/schema.postgres.sql`; o arquivo `server/schema.sql` é exclusivo do Cloudflare D1 (SQLite) e não deve ser executado no PostgreSQL.
 
-As tabelas do PostgreSQL não estão inicializadas neste ambiente: as rotas de ocorrências e áreas de risco respondem que as tabelas não existem. Para usar o servidor compartilhado, aplique `server/schema.postgres.sql` uma vez no banco Development; o servidor acrescenta algumas colunas opcionais automaticamente, mas não cria todas as tabelas. O banco continua vazio inicialmente.
+O esquema `server/schema.postgres.sql` já foi aplicado ao banco Development deste ambiente, que está vazio e pronto para receber registros. Em uma nova configuração, aplique esse arquivo uma vez antes de usar as rotas de ocorrências, vistorias e áreas de risco.
 
 ## Áreas de risco, ocorrências e uso offline
 
