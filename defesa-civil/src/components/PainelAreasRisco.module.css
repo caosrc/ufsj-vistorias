@@ -59,9 +59,11 @@
 .typeCounts > span { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; color: #475569; background: #f8fafc; border: 1px solid #e8edf5; border-radius: 999px; font-size: 10px; font-weight: 700; }
 .typeCounts i { width: 17px; height: 17px; display: grid; place-items: center; border-radius: 50%; color: #fff; font-size: 10px; font-style: normal; }
 .list { min-height: 0; overflow-y: auto; }
-.areaRow { width: 100%; display: flex; align-items: flex-start; gap: 9px; padding: 11px 14px; border: 0; border-bottom: 1px solid #edf1f6; background: #fff; text-align: left; cursor: pointer; }
+.areaRow { display: flex; align-items: center; gap: 7px; padding: 10px 11px; border-bottom: 1px solid #edf1f6; background: #fff; }
 .areaRow:hover { background: #f8fafc; }
 .areaRowAlert { background: #fff9f9; }
+.areaMain { min-width: 0; flex: 1; display: flex; align-items: flex-start; gap: 9px; padding: 0; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.areaMain:hover .areaDetails strong { color: #0369a1; }
 .typeIcon { flex: none; width: 28px; height: 28px; display: grid; place-items: center; margin-top: 1px; border: 2px solid #fff; border-radius: 50%; color: #fff; box-shadow: 0 0 0 2px #e2e8f0; font-size: 13px; }
 .areaDetails { min-width: 0; flex: 1; display: grid; gap: 3px; color: #475569; }
 .areaDetails strong { display: flex; align-items: center; gap: 6px; color: #1e293b; font-size: 12px; }
@@ -69,6 +71,11 @@
 .areaDetails small { color: #475569; font-size: 10px; }
 .areaDetails em { padding: 2px 5px; color: #b91c1c; background: #fee2e2; border-radius: 5px; font-size: 9px; font-style: normal; letter-spacing: .03em; }
 .pin { flex: none; margin-top: 3px; color: #94a3b8; font-size: 13px; }
+.areaActions { flex: none; display: flex; gap: 4px; }
+.areaAction { min-height: 29px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 0 6px; border: 1px solid #dbe3ef; border-radius: 7px; background: #fff; color: #475569; font-size: 9px; font-weight: 650; cursor: pointer; }
+.areaAction:hover { border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; }
+.areaActionDanger { color: #b91c1c; }
+.areaActionDanger:hover { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
 .empty { display: grid; justify-items: center; gap: 6px; padding: 22px 18px; color: #64748b; text-align: center; font-size: 12px; }
 .empty svg { color: #94a3b8; font-size: 19px; }
 .empty small { color: #94a3b8; font-size: 10px; }
@@ -80,5 +87,7 @@
   .panel { top: 54px; right: 8px; width: min(360px, calc(100vw - 16px)); max-height: calc(100dvh - 112px); }
   .header { padding: 11px 12px 10px; }
   .summary { padding: 9px 12px 8px; }
-  .areaRow { padding: 10px 12px; }
+  .areaRow { padding: 9px 8px; gap: 5px; }
+  .areaActions { flex-direction: column; }
+  .areaAction { min-height: 26px; }
 }

@@ -1,14 +1,12 @@
 import { Link, useLocation } from 'react-router-dom'
-import { FiMap, FiHome, FiClipboard, FiBarChart2, FiTrendingUp, FiMonitor, FiAlertTriangle } from 'react-icons/fi'
+import { FiMap, FiClipboard, FiBarChart2, FiTrendingUp, FiMonitor } from 'react-icons/fi'
 import styles from './BottomNav.module.css'
 
 const NAV_ITEMS = [
   { to: '/', icon: FiMap, label: 'Mapa' },
   { to: '/vistoria', icon: FiClipboard, label: 'Vistoria' },
-  { to: '/imoveis', icon: FiHome, label: 'Imóveis' },
   { to: '/dashboard', icon: FiBarChart2, label: 'Painel' },
   { to: '/declividade', icon: FiTrendingUp, label: 'Decliv.' },
-  { to: '/ocorrencias', icon: FiAlertTriangle, label: 'Ocorr.' },
   { to: '/monitoramento', icon: FiMonitor, label: 'Monitor.' },
 ]
 

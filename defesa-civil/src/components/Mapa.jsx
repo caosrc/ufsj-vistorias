@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import * as maplibregl from 'maplibre-gl'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -8,6 +8,7 @@ import { CIDADES, CIDADE_PADRAO } from '../data/cidades'
 import {
   areasRiscoFeatureCollection,
   areaCentroide,
+  areaGeometry,
   CORES_AREAS_RISCO,
   ICONES_AREAS_RISCO,
   TIPOS_AREAS_RISCO,
@@ -27,7 +28,6 @@ maplibregl.setWorkerUrl(maplibreWorkerUrl)
 
 // ── Constantes ────────────────────────────────────────────────
 const RISCO_CORES = { R1: '#22c55e', R2: '#eab308', R3: '#f97316', R4: '#ef4444' }
-const NIVEL_CORES = { critico: '#ef4444', alto: '#f97316', medio: '#eab308', baixo: '#22c55e' }
 const RISCO_LABELS = {
   R1: { label: 'Baixo Risco', sub: 'Condição estável' },
   R2: { label: 'Médio Risco', sub: 'Atenção moderada' },
@@ -149,7 +149,6 @@ export default function Mapa() {
   const [showAreasRisco,  setShowAreasRisco]  = useState(false)
   const [showCamadas,     setShowCamadas]     = useState(true)
   const [modoDesenho,     setModoDesenho]     = useState(null)
-  const [modoOcorrencia,  setModoOcorrencia]  = useState(false)
   const [salvandoArea,    setSalvandoArea]    = useState(false)
   const [nivelRisco,      setNivelRisco]      = useState('R2')
   const [tipoAreaRisco,   setTipoAreaRisco]   = useState('Encostas')
@@ -166,14 +165,14 @@ export default function Mapa() {
   const [carregandoPrevisaoAreas, setCarregandoPrevisaoAreas] = useState(false)
   const [erroPrevisaoAreas, setErroPrevisaoAreas] = useState('')
   const [polyRascunho,    setPolyRascunho]    = useState(null)
+  const [areaEditando,    setAreaEditando]    = useState(null)
   const [overlays,        setOverlays]        = useState({
-    heatmap: false, areas: true, vistorias: true,
+    areas: true, vistorias: true,
     pluviometrico: false, idesisema: false, incendios: false,
   })
   const [pluvioCarregando, setPluvioCarregando] = useState(false)
   const [pluvioAcum,      setPluvioAcum]      = useState(null)
   const [precipitacao,    setPrecipitacao]    = useState(null)
-  const [ocCount,         setOcCount]         = useState(0)
   const [secaoBase,       setSecaoBase]       = useState(true)
   const [secaoOverlay,    setSecaoOverlay]    = useState(true)
   const [gpsAtivo,        setGpsAtivo]        = useState(false)
@@ -185,8 +184,6 @@ export default function Mapa() {
   const [leafletGpsPosition, setLeafletGpsPosition] = useState(null)
   const [refreshMapVersion, setRefreshMapVersion] = useState(0)
   const navigate = useNavigate()
-  const location = useLocation()
-  const pickOccurrenceRef = useRef(null)
   const cityRef = useRef(cidade)
   const previsaoRequestRef = useRef(0)
   const areasDaCidade = useMemo(
@@ -198,29 +195,10 @@ export default function Mapa() {
     [areasRisco, previsoesAreas, cidade],
   )
   cityRef.current = cidade
-  pickOccurrenceRef.current = modoOcorrencia
-    ? ({ lat, lng }) => {
-        const selected = { lat, lng, cidade: cityRef.current }
-        setCoordAtual({ lat, lng })
-        try { localStorage.setItem('ultimaCoordenada', JSON.stringify(selected)) } catch {}
-        setModoOcorrencia(false)
-        navigate('/ocorrencias?novo=1')
-      }
-    : null
   const handlePluvioStatus = useCallback((loading, amount) => {
     setPluvioCarregando(loading)
     setPluvioAcum(amount)
   }, [])
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search)
-    const picking = params.get('novaOcorrencia') === '1'
-    setModoOcorrencia(picking)
-    if (picking) {
-      setModoDesenho(null)
-      drawRef.current.ativo = false
-    }
-  }, [location.search])
 
   // ── Inicializar mapa ────────────────────────────────────────
   useEffect(() => {
@@ -276,9 +254,7 @@ export default function Mapa() {
       // ── Fontes de dados GeoJSON ───────────────────────────
       const emptyGeo = { type: 'FeatureCollection', features: [] }
 
-      map.addSource('ocorrencias',         { type: 'geojson', data: emptyGeo })
       map.addSource('areas-risco',         { type: 'geojson', data: emptyGeo })
-      map.addSource('heatmap-src',         { type: 'geojson', data: emptyGeo })
       map.addSource('pluvio-src',          { type: 'geojson', data: emptyGeo })
       map.addSource('draw-src',            { type: 'geojson', data: emptyGeo })
       map.addSource('draw-preview-src',    { type: 'geojson', data: emptyGeo })
@@ -302,21 +278,6 @@ export default function Mapa() {
 
       // ── Camadas de dados ──────────────────────────────────
 
-      // Heatmap (nativo MapLibre — muito mais bonito que Leaflet)
-      map.addLayer({
-        id: 'heatmap-layer', type: 'heatmap', source: 'heatmap-src', maxzoom: 16,
-        paint: {
-          'heatmap-weight': 1,
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 15, 3],
-          'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'],
-            0, 'rgba(0,0,0,0)', 0.25, '#22c55e', 0.5, '#eab308', 0.75, '#f97316', 1, '#ef4444',
-          ],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 5, 15, 15, 50],
-          'heatmap-opacity': 0.75,
-        },
-        layout: { visibility: 'none' },
-      })
-
       // Áreas de risco
       map.addLayer({
         id: 'areas-fill', type: 'fill', source: 'areas-risco',
@@ -333,16 +294,6 @@ export default function Mapa() {
           'line-width': ['case', ['==', ['get', 'em_alerta'], true], 4, 2.5],
         },
         layout: { visibility: 'visible' },
-      })
-
-      // Ocorrências
-      map.addLayer({
-        id: 'ocorrencias-layer', type: 'circle', source: 'ocorrencias',
-        paint: {
-          'circle-radius': 8,
-          'circle-color': ['match', ['get', 'nivel'], 'critico','#ef4444','alto','#f97316','medio','#eab308','baixo','#22c55e','#38bdf8'],
-          'circle-stroke-width': 2.5, 'circle-stroke-color': '#fff',
-        },
       })
 
       // Vistorias — polígonos
@@ -460,10 +411,6 @@ export default function Mapa() {
 
       // Click no mapa — desenho ou coordenada
       map.on('click', e => {
-        if (pickOccurrenceRef.current) {
-          pickOccurrenceRef.current({ lat: e.lngLat.lat, lng: e.lngLat.lng })
-          return
-        }
         if (!drawRef.current.ativo) {
           try {
             localStorage.setItem('ultimaCoordenada', JSON.stringify({
@@ -525,22 +472,11 @@ export default function Mapa() {
           .addTo(map)
       })
 
-      // Popups — ocorrências
-      map.on('click', 'ocorrencias-layer', e => {
-        const p = e.features[0].properties
-        const cor = NIVEL_CORES[p.nivel] || '#38bdf8'
-        new maplibregl.Popup({ closeButton: true, maxWidth: '220px' })
-          .setLngLat(e.lngLat)
-          .setDOMContent(popupSeguro(p.tipo, p.descricao, cor, (p.nivel || '').toUpperCase()))
-          .addTo(map)
-      })
-
       // Cursores
       const cursors = [
         { in: 'vis-pontos',   out: 'vis-pontos' },
         { in: 'vis-clusters', out: 'vis-clusters' },
         { in: 'areas-fill',   out: 'areas-fill' },
-        { in: 'ocorrencias-layer', out: 'ocorrencias-layer' },
         { in: 'vis-poly-fill', out: 'vis-poly-fill' },
       ]
       cursors.forEach(({ in: enter, out: leave }) => {
@@ -790,10 +726,10 @@ export default function Mapa() {
   // ── Cursor modo desenho ─────────────────────────────────────
   useEffect(() => {
     const map = mapGl.current
-    if (map) map.getCanvas().style.cursor = modoDesenho || modoOcorrencia ? 'crosshair' : ''
+    if (map) map.getCanvas().style.cursor = modoDesenho ? 'crosshair' : ''
     drawRef.current.ativo = !!modoDesenho
     if (!modoDesenho) limparDesenho()
-  }, [modoDesenho, modoOcorrencia, webglError])
+  }, [modoDesenho, webglError])
 
   // ── nivelRisco ref atualizado ───────────────────────────────
   useEffect(() => { nivelRef.current = nivelRisco }, [nivelRisco])
@@ -803,7 +739,6 @@ export default function Mapa() {
     const map = mapGl.current
     if (!map || !loadedRef.current) return
     const v = (id, on) => map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')
-    v('heatmap-layer',     overlays.heatmap)
     v('areas-fill',        overlays.areas)
     v('areas-outline',     overlays.areas)
     v('vis-clusters',      overlays.vistorias)
@@ -848,16 +783,7 @@ export default function Mapa() {
     if (!map || !loadedRef.current) return
 
     try {
-      const [ocGeo, vistorias] = await Promise.all([
-        api.geojsonOcorrencias().catch(() => null),
-        api.getVistorias().catch(() => []),
-      ])
-
-      if (ocGeo?.features) {
-        map.getSource('ocorrencias')?.setData(ocGeo)
-        map.getSource('heatmap-src')?.setData(ocGeo)
-        setOcCount(ocGeo.features.length)
-      }
+      const vistorias = await api.getVistorias().catch(() => [])
 
       // Vistorias: pontos para cluster + polígonos
       const ptFeats = [], polyFeats = []
@@ -1012,7 +938,7 @@ export default function Mapa() {
     }
     try {
       setErroSalvarArea('')
-      const resultado = await api.createAreaRisco({
+      const dadosArea = {
         nivel: nivelRisco,
         tipo: tipoAreaRisco,
         descricao: descRisco.trim(),
@@ -1024,10 +950,15 @@ export default function Mapa() {
         referencia: referenciaRisco.trim(),
         observacao: observacaoRisco.trim(),
         geojson: geom,
-      })
+      }
+      const resultado = areaEditando
+        ? await api.updateAreaRisco(areaEditando.id, dadosArea)
+        : await api.createAreaRisco(dadosArea)
       setStatusSalvarArea(resultado?.offline
-        ? 'Área salva neste dispositivo; será enviada quando o serviço de dados estiver disponível.'
-        : 'Área de risco registrada.')
+        ? areaEditando
+          ? 'Alteração salva neste dispositivo; será enviada quando o serviço de dados estiver disponível.'
+          : 'Área salva neste dispositivo; será enviada quando o serviço de dados estiver disponível.'
+        : areaEditando ? 'Área de risco atualizada.' : 'Área de risco registrada.')
       await carregarAreasRisco()
     } catch (error) {
       setErroSalvarArea(error?.message || 'Não foi possível salvar a área de risco.')
@@ -1042,6 +973,7 @@ export default function Mapa() {
     setLimiteChuva('35')
     setDataInicioRisco(new Date().toISOString().slice(0, 10))
     setErroSalvarArea('')
+    setAreaEditando(null)
     setShowAreasRisco(true)
     carregarDados()
   }
@@ -1055,20 +987,74 @@ export default function Mapa() {
     setObservacaoRisco('')
     setLimiteChuva('35')
     setErroSalvarArea('')
+    setAreaEditando(null)
     setModoDesenho(null)
   }
 
   function iniciarDesenhoArea() {
-    setModoOcorrencia(false)
     setShowAreasRisco(false)
     setShowClima(false)
     setShowLegenda(false)
     setTipoAreaRisco('Encostas')
     setLimiteChuva('35')
     setPolyRascunho(null)
+    setAreaEditando(null)
     setErroSalvarArea('')
     setStatusSalvarArea('')
     limparDesenho()
+    setModoDesenho('polygon')
+  }
+
+  function editarArea(area) {
+    const geometry = areaGeometry(area)
+    const ring = geometry?.coordinates?.[0] || []
+    const first = ring[0]
+    const last = ring[ring.length - 1]
+    const closedRing = ring.length > 3 && first?.[0] === last?.[0] && first?.[1] === last?.[1]
+    const vertices = (closedRing ? ring.slice(0, -1) : ring)
+      .map(point => [Number(point?.[0]), Number(point?.[1])])
+      .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat))
+    const temPoligono = vertices.length >= 3
+
+    limparDesenho()
+    setAreaEditando(area)
+    setTipoAreaRisco(TIPOS_AREAS_RISCO.includes(area.tipo) ? area.tipo : 'Encostas')
+    setNivelRisco(['R1', 'R2', 'R3', 'R4'].includes(area.nivel) ? area.nivel : 'R2')
+    setLimiteChuva(area.limite_precipitacao_mm == null ? '35' : String(area.limite_precipitacao_mm))
+    setDataInicioRisco(String(area.data_inicio || new Date().toISOString().slice(0, 10)).slice(0, 10))
+    setDescRisco(area.descricao || '')
+    setReferenciaRisco(area.referencia || '')
+    setObservacaoRisco(area.observacao || '')
+    setPolyRascunho(temPoligono ? { pontos: vertices } : null)
+    setErroSalvarArea('')
+    setStatusSalvarArea('')
+    setShowAreasRisco(false)
+    setShowClima(false)
+    setShowLegenda(false)
+    setSalvandoArea(temPoligono)
+    setModoDesenho(temPoligono ? null : 'polygon')
+    if (area.cidade && CIDADES[area.cidade]) setCidade(area.cidade)
+    focarArea(area)
+  }
+
+  async function removerArea(area) {
+    const nome = area.tipo || 'esta área de risco'
+    if (!window.confirm(`Remover ${nome}? Esta ação também remove seus alertas do mapa.`)) return
+    try {
+      const resultado = await api.deleteAreaRisco(area.id)
+      await carregarAreasRisco()
+      setStatusSalvarArea(resultado?.offline
+        ? 'Área removida neste dispositivo; a exclusão será sincronizada quando o serviço de dados estiver disponível.'
+        : 'Área de risco removida.')
+    } catch (error) {
+      setStatusSalvarArea(error?.message || 'Não foi possível remover a área de risco.')
+    }
+  }
+
+  function redesenharPoligonoArea() {
+    limparDesenho()
+    setPolyRascunho(null)
+    setSalvandoArea(false)
     setModoDesenho('polygon')
   }
 
@@ -1148,15 +1134,7 @@ export default function Mapa() {
         </div>
 
         <div className={styles.toolbarRight}>
-          {modoOcorrencia ? (
-            <>
-              <span className={styles.desenhoHint}>📍 Clique no mapa para marcar a ocorrência</span>
-              <button className={styles.cancelarBtn} onClick={() => {
-                setModoOcorrencia(false)
-                navigate('/')
-              }}><FiX size={13} /> Cancelar</button>
-            </>
-          ) : modoDesenho ? (
+          {modoDesenho ? (
             <>
               <span className={styles.desenhoHint}>✏️ Clique para adicionar pontos</span>
               {drawRef.current.pontos.length > 0 && (
@@ -1178,14 +1156,6 @@ export default function Mapa() {
             </>
           ) : !salvandoArea && (
             <>
-              <button className={styles.toolBtn} onClick={() => {
-                drawRef.current.ativo = false
-                limparDesenho()
-                setModoDesenho(null)
-                setModoOcorrencia(true)
-              }}>
-                <FiMapPin size={13} /> Nova ocorrência
-              </button>
               <button className={styles.desenhoBtn} onClick={iniciarDesenhoArea}>
                 <FiSquare size={12} /> Área de Risco
               </button>
@@ -1240,7 +1210,7 @@ export default function Mapa() {
         <div className={styles.modalArea} role="dialog" aria-labelledby="titulo-cadastro-area">
           <div className={styles.modalAreaHeader}>
             <FiAlertTriangle size={16} color="#f97316" />
-            <h3 id="titulo-cadastro-area">Cadastrar área de risco</h3>
+            <h3 id="titulo-cadastro-area">{areaEditando ? 'Editar área de risco' : 'Cadastrar área de risco'}</h3>
           </div>
           <div className={styles.formGroup}>
             <label className={styles.modalLabel} htmlFor="tipo-area-risco">Tipo de registro</label>
@@ -1354,9 +1324,16 @@ export default function Mapa() {
               Perímetro definido · {polyRascunho.pontos.length} vértices
             </div>
           )}
+          {areaEditando && (
+            <button type="button" className={styles.cancelarModalBtn} onClick={redesenharPoligonoArea}>
+              <FiSquare size={13} /> Redesenhar perímetro
+            </button>
+          )}
           {erroSalvarArea && <p className={styles.erroArea} role="alert">{erroSalvarArea}</p>}
           <div className={styles.modalBtns}>
-            <button className={styles.confirmarBtn} onClick={confirmarArea}><FiCheck size={13} /> Registrar área</button>
+            <button className={styles.confirmarBtn} onClick={confirmarArea}>
+              <FiCheck size={13} /> {areaEditando ? 'Salvar alterações' : 'Registrar área'}
+            </button>
             <button className={styles.cancelarModalBtn} onClick={cancelarArea}><FiX size={13} /> Cancelar</button>
           </div>
         </div>
@@ -1404,7 +1381,6 @@ export default function Mapa() {
                     { key: 'incendios',     icone: '🔥', nome: 'Focos de Calor', sub: 'NASA FIRMS · WMS público' },
                     { key: 'pluviometrico', icone: '🌧️', nome: 'Índice Pluviométrico',
                       sub: overlays.pluviometrico ? (pluvioCarregando ? 'Carregando…' : pluvioAcum != null ? `Média 7d: ${pluvioAcum} mm` : '7 dias acumulado') : '' },
-                    { key: 'heatmap',       icone: '📍', nome: 'Densidade Ocorrências', sub: `${ocCount} ponto(s)` },
                     { key: 'areas',         icone: '⚠️', nome: 'Áreas de Risco', sub: '' },
                     { key: 'vistorias',     icone: '📋', nome: 'Vistorias', sub: 'por coordenada' },
                   ].map(({ key, icone, nome, sub }) => (
@@ -1447,15 +1423,6 @@ export default function Mapa() {
                   <span className={styles.legendaItemLabel}>{nivel}</span>
                   <span className={styles.legendaItemSub}>{RISCO_LABELS[nivel].label}</span>
                 </div>
-              </div>
-            ))}
-          </div>
-          <div className={styles.legendaSecao}>
-            <div className={styles.legendaSecaoTitle}>Ocorrências</div>
-            {Object.entries(NIVEL_CORES).map(([nivel, cor]) => (
-              <div key={nivel} className={styles.legendaItem}>
-                <span className={styles.legendaDot} style={{ background: cor }} />
-                <span className={styles.legendaItemLabel} style={{ textTransform:'capitalize' }}>{nivel}</span>
               </div>
             ))}
           </div>
@@ -1566,16 +1533,13 @@ export default function Mapa() {
             overlays={overlays}
             areasGeoJSON={areasGeoJSON}
             modoDesenho={modoDesenho}
-            modoOcorrencia={modoOcorrencia}
             drawPoints={leafletDrawPoints}
             refreshVersion={refreshMapVersion}
             gpsPosition={leafletGpsPosition}
             mapRef={leafletMapRef}
             onCoordinate={setCoordAtual}
             onDrawPoint={({ lat, lng }) => adicionarPonto({ lat, lng }, null)}
-            onOccurrencePoint={coords => pickOccurrenceRef.current?.(coords)}
             onVistoriaClick={setPainelVistoria}
-            onOcorrenciasCount={setOcCount}
             onPluvioStatus={handlePluvioStatus}
           />
         )}
@@ -1592,6 +1556,8 @@ export default function Mapa() {
         status={statusSalvarArea}
         aoFechar={() => setShowAreasRisco(false)}
         aoNovaArea={iniciarDesenhoArea}
+        aoEditarArea={editarArea}
+        aoRemoverArea={removerArea}
         aoAtualizar={carregarPrevisaoAreas}
         aoFocarArea={focarArea}
       />

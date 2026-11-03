@@ -2,10 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import Home from './pages/Home'
 import Vistoria from './pages/Vistoria'
-import Imoveis from './pages/Imoveis'
 import Dashboard from './pages/Dashboard'
 import Declividade from './pages/Declividade'
-import Ocorrencias from './pages/Ocorrencias'
 
 import MonitoramentoHome from './pages/MonitoramentoHome'
 import Monitoramento from './pages/Monitoramento'
@@ -28,10 +26,8 @@ export default function App() {
           <Route path='/login' element={<Navigate to='/' replace />} />
           <Route path='/' element={<Home />} />
           <Route path='/vistoria' element={<Vistoria />} />
-          <Route path='/imoveis' element={<Imoveis />} />
           <Route path='/dashboard' element={<Dashboard />} />
           <Route path='/declividade' element={<Declividade />} />
-          <Route path='/ocorrencias' element={<Ocorrencias />} />
 
           <Route path='/monitoramento' element={<MonitoramentoHome />} />
           <Route path='/monitoramento/imoveis' element={<Monitoramento />} />

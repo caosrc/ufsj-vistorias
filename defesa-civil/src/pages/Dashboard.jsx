@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { FiMap, FiAlertTriangle, FiHome, FiClipboard, FiArrowLeft, FiRefreshCw } from 'react-icons/fi'
+import { FiMap, FiClipboard, FiArrowLeft, FiRefreshCw } from 'react-icons/fi'
 import { CIDADES } from '../data/cidades'
 import { api } from '../services/api'
 import styles from './Dashboard.module.css'
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({ ocorrencias: 0, vistorias: 0, imoveis: 0, areasRisco: 0 })
-  const [recentOcorrencias, setRecentOcorrencias] = useState([])
+  const [stats, setStats] = useState({ vistorias: 0, areasRisco: 0 })
   const [recentVistorias, setRecentVistorias] = useState([])
   const [clima, setClima] = useState(null)
   const [cidadeSelecionada, setCidadeSelecionada] = useState('ouro_branco')
@@ -30,27 +29,18 @@ export default function Dashboard() {
     try {
       const statsApi = await api.getStats()
       setStats({
-        ocorrencias: statsApi.ocorrencias ?? 0,
         vistorias: statsApi.vistorias ?? 0,
-        imoveis: statsApi.imoveis ?? 0,
         areasRisco: statsApi.areasRisco ?? statsApi.areas_risco ?? 0
       })
-      const ocs = await api.getOcorrencias()
-      setRecentOcorrencias(ocs.slice(0, 5))
       const vis = await api.getVistorias()
       setRecentVistorias(vis.slice(0, 5))
     } catch {
-      const ocorrencias = JSON.parse(localStorage.getItem('ocorrencias') || '[]')
       const vistorias = JSON.parse(localStorage.getItem('vistorias') || '[]')
-      const imoveis = JSON.parse(localStorage.getItem('imoveis') || '[]')
       const areasRisco = JSON.parse(localStorage.getItem('areasRisco') || '[]')
       setStats({
-        ocorrencias: ocorrencias.length,
         vistorias: vistorias.length,
-        imoveis: imoveis.length,
         areasRisco: areasRisco.length
       })
-      setRecentOcorrencias(ocorrencias.slice(-5).reverse())
       setRecentVistorias(vistorias.slice(-5).reverse())
     }
   }
@@ -94,11 +84,6 @@ export default function Dashboard() {
     return map[risco] || '#64748b'
   }
 
-  function getNivelColor(nivel) {
-    const map = { baixo: '#22c55e', medio: '#eab308', alto: '#f97316', critico: '#ef4444' }
-    return map[nivel] || '#64748b'
-  }
-
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -127,25 +112,11 @@ export default function Dashboard() {
       </div>
 
       <div className={styles.statsGrid}>
-        <div className={styles.statCard} style={{ borderColor: '#ef4444' }}>
-          <FiAlertTriangle size={28} color='#ef4444' />
-          <div>
-            <div className={styles.statNum}>{stats.ocorrencias}</div>
-            <div className={styles.statLabel}>Ocorrências</div>
-          </div>
-        </div>
         <div className={styles.statCard} style={{ borderColor: '#3b82f6' }}>
           <FiClipboard size={28} color='#3b82f6' />
           <div>
             <div className={styles.statNum}>{stats.vistorias}</div>
             <div className={styles.statLabel}>Vistorias</div>
-          </div>
-        </div>
-        <div className={styles.statCard} style={{ borderColor: '#10b981' }}>
-          <FiHome size={28} color='#10b981' />
-          <div>
-            <div className={styles.statNum}>{stats.imoveis}</div>
-            <div className={styles.statLabel}>Imóveis</div>
           </div>
         </div>
         <div className={styles.statCard} style={{ borderColor: '#f59e0b' }}>
@@ -189,36 +160,6 @@ export default function Dashboard() {
       )}
 
       <div className={styles.tablesRow}>
-        <div className={styles.tableCard}>
-          <h2><FiAlertTriangle /> Últimas Ocorrências</h2>
-          {recentOcorrencias.length === 0 ? (
-            <p className={styles.empty}>Nenhuma ocorrência registrada.</p>
-          ) : (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Tipo</th>
-                  <th>Nível</th>
-                  <th>Data</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentOcorrencias.map((oc, i) => (
-                  <tr key={oc.id || i}>
-                    <td>{oc.tipo}</td>
-                    <td>
-                      <span className={styles.badge} style={{ background: getNivelColor(oc.nivel) }}>
-                        {oc.nivel}
-                      </span>
-                    </td>
-                    <td>{oc.data ? new Date(oc.data).toLocaleDateString('pt-BR') : '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
         <div className={styles.tableCard}>
           <h2><FiClipboard /> Últimas Vistorias</h2>
           {recentVistorias.length === 0 ? (

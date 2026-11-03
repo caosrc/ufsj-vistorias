@@ -15,7 +15,6 @@ const BASE_TILES = {
 }
 
 const RISK_COLORS = { R1: '#22c55e', R2: '#eab308', R3: '#f97316', R4: '#ef4444' }
-const EVENT_COLORS = { critico: '#ef4444', alto: '#f97316', medio: '#eab308', baixo: '#22c55e' }
 
 function textPopup(title, description, color = '#1e293b') {
   const element = document.createElement('div')
@@ -38,16 +37,13 @@ export default function MapaLeafletFallback({
   overlays,
   areasGeoJSON,
   modoDesenho,
-  modoOcorrencia,
   drawPoints,
   refreshVersion,
   gpsPosition,
   mapRef,
   onCoordinate,
   onDrawPoint,
-  onOccurrencePoint,
   onVistoriaClick,
-  onOcorrenciasCount,
   onPluvioStatus,
 }) {
   const containerRef = useRef(null)
@@ -55,8 +51,8 @@ export default function MapaLeafletFallback({
   const callbacksRef = useRef({})
   const refreshRef = useRef(null)
   callbacksRef.current = {
-    cidade, modoDesenho, modoOcorrencia, drawPoints, areasGeoJSON,
-    onCoordinate, onDrawPoint, onOccurrencePoint,
+    cidade, modoDesenho, drawPoints, areasGeoJSON,
+    onCoordinate, onDrawPoint,
   }
 
   useEffect(() => {
@@ -101,8 +97,6 @@ export default function MapaLeafletFallback({
       },
     })
     const areaIconLayer = L.layerGroup()
-    const occurrenceLayer = L.layerGroup()
-    const heatLayer = L.layerGroup()
     const inspectionLayer = L.layerGroup()
     const drawingLayer = L.layerGroup().addTo(map)
     const previewLayer = L.layerGroup().addTo(map)
@@ -118,7 +112,7 @@ export default function MapaLeafletFallback({
     })
 
     layersRef.current = {
-      map, baseLayers, areaLayer, areaIconLayer, occurrenceLayer, heatLayer, inspectionLayer,
+      map, baseLayers, areaLayer, areaIconLayer, inspectionLayer,
       drawingLayer, previewLayer, gpsLayer, rainfallLayer, contoursLayer, firesLayer,
     }
     baseLayers.ruas.addTo(map)
@@ -129,8 +123,6 @@ export default function MapaLeafletFallback({
     map.on('click', event => {
       if (callbacksRef.current.modoDesenho) {
         callbacksRef.current.onDrawPoint?.({ lat: event.latlng.lat, lng: event.latlng.lng })
-      } else if (callbacksRef.current.modoOcorrencia) {
-        callbacksRef.current.onOccurrencePoint?.({ lat: event.latlng.lat, lng: event.latlng.lng })
       } else {
         try {
           localStorage.setItem('ultimaCoordenada', JSON.stringify({
@@ -159,10 +151,8 @@ export default function MapaLeafletFallback({
   }, [])
 
   useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.style.cursor = modoOcorrencia ? 'crosshair' : ''
-    }
-  }, [modoOcorrencia])
+    if (containerRef.current) containerRef.current.style.cursor = modoDesenho ? 'crosshair' : ''
+  }, [modoDesenho])
 
   useEffect(() => {
     const map = layersRef.current.map
@@ -180,7 +170,7 @@ export default function MapaLeafletFallback({
 
   useEffect(() => {
     const {
-      map, areaLayer, occurrenceLayer, heatLayer, inspectionLayer,
+      map, areaLayer, inspectionLayer,
       contoursLayer, firesLayer,
     } = layersRef.current
     if (!map) return
@@ -190,8 +180,6 @@ export default function MapaLeafletFallback({
     }
     setLayer(areaLayer, overlays.areas)
     setLayer(layersRef.current.areaIconLayer, overlays.areas)
-    setLayer(occurrenceLayer, true)
-    setLayer(heatLayer, overlays.heatmap)
     setLayer(inspectionLayer, overlays.vistorias)
     setLayer(contoursLayer, overlays.idesisema)
     setLayer(firesLayer, overlays.incendios)
@@ -200,32 +188,10 @@ export default function MapaLeafletFallback({
 
   useEffect(() => {
     const loadData = async () => {
-      const {
-        areaLayer, occurrenceLayer, heatLayer, inspectionLayer,
-      } = layersRef.current
-      if (!areaLayer) return
+      const { inspectionLayer } = layersRef.current
+      if (!inspectionLayer) return
       try {
-        const [occurrences, inspections] = await Promise.all([
-          api.geojsonOcorrencias().catch(() => null),
-          api.getVistorias().catch(() => []),
-        ])
-
-        occurrenceLayer.clearLayers()
-        heatLayer.clearLayers()
-        const occurrenceFeatures = occurrences?.features || []
-        onOcorrenciasCount?.(occurrenceFeatures.length)
-        occurrenceFeatures.forEach(feature => {
-          const [lng, lat] = feature.geometry?.coordinates || []
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
-          const props = feature.properties || {}
-          const color = EVENT_COLORS[props.nivel] || '#38bdf8'
-          L.circleMarker([lat, lng], {
-            radius: 8, color: '#fff', weight: 2, fillColor: color, fillOpacity: 0.95,
-          }).bindPopup(textPopup(props.tipo, props.descricao, color)).addTo(occurrenceLayer)
-          L.circleMarker([lat, lng], {
-            radius: 20, color, weight: 1, fillColor: color, fillOpacity: 0.14,
-          }).addTo(heatLayer)
-        })
+        const inspections = await api.getVistorias().catch(() => [])
 
         inspectionLayer.clearLayers()
         ;(Array.isArray(inspections) ? inspections : []).forEach(item => {
@@ -260,7 +226,7 @@ export default function MapaLeafletFallback({
     }
     refreshRef.current = loadData
     loadData()
-  }, [refreshVersion, onOcorrenciasCount, onVistoriaClick])
+  }, [refreshVersion, onVistoriaClick])
 
   useEffect(() => {
     const refresh = () => refreshRef.current?.()

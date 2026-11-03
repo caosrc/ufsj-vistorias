@@ -299,6 +299,44 @@ app.post('/api/areas-risco', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+app.put('/api/areas-risco/:id', async (req, res) => {
+  const {
+    nivel, tipo, descricao, cidade, latitude, longitude, data_inicio,
+    limite_precipitacao_mm, referencia, observacao, geojson,
+  } = req.body
+  const geometry = validarPoligonoArea(geojson)
+  if (!geometry) return res.status(400).json({ error: 'Desenhe um polígono válido com pelo menos três pontos.' })
+  if (!['R1', 'R2', 'R3', 'R4'].includes(nivel)) return res.status(400).json({ error: 'Selecione um nível de risco válido.' })
+  if (!TIPOS_AREAS_RISCO.has(tipo)) return res.status(400).json({ error: 'Selecione um tipo de área de risco válido.' })
+  if (!['ouro_branco', 'congonhas'].includes(cidade)) return res.status(400).json({ error: 'Selecione Congonhas ou Ouro Branco.' })
+  const limite = tipo === 'Interdições' ? 0 : Number(limite_precipitacao_mm)
+  if (!Number.isFinite(limite) || limite < 0 || limite > 10000) {
+    return res.status(400).json({ error: 'Informe um limite de chuva válido, em milímetros.' })
+  }
+  const centro = centroidePoligono(geometry)
+  const lat = latitude == null ? centro.latitude : Number(latitude)
+  const lng = longitude == null ? centro.longitude : Number(longitude)
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+    return res.status(400).json({ error: 'A localização da área de risco é inválida.' })
+  }
+  try {
+    const { rows } = await pool.query(
+      `UPDATE areas_risco
+       SET nivel=$1, tipo=$2, descricao=$3, cidade=$4, latitude=$5, longitude=$6,
+           data_inicio=$7, limite_precipitacao_mm=$8, referencia=$9, observacao=$10, geojson=$11
+       WHERE id=$12 RETURNING id`,
+      [
+        nivel, tipo, descricao?.trim() || null, cidade, lat, lng,
+        data_inicio || new Date().toISOString().slice(0, 10), limite,
+        referencia?.trim() || null, observacao?.trim() || null, JSON.stringify(geometry),
+        req.params.id,
+      ]
+    )
+    if (!rows.length) return res.status(404).json({ error: 'Área de risco não encontrada.' })
+    res.json({ id: rows[0].id })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 app.delete('/api/areas-risco/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM areas_risco WHERE id = $1', [req.params.id])

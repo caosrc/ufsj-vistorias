@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { FiAlertTriangle, FiCloudRain, FiVolume2, FiVolumeX, FiPlus, FiRefreshCw, FiMapPin } from 'react-icons/fi'
+import {
+  FiAlertTriangle, FiCloudRain, FiVolume2, FiVolumeX, FiPlus,
+  FiRefreshCw, FiMapPin, FiEdit2, FiTrash2,
+} from 'react-icons/fi'
 import { CORES_AREAS_RISCO, ICONES_AREAS_RISCO, TIPOS_AREAS_RISCO } from '../data/areasRisco'
 import styles from './PainelAreasRisco.module.css'
 
@@ -35,6 +38,8 @@ export default function PainelAreasRisco({
   erro,
   aoFechar,
   aoNovaArea,
+  aoEditarArea,
+  aoRemoverArea,
   aoAtualizar,
   aoFocarArea,
   status,
@@ -191,26 +196,46 @@ export default function PainelAreasRisco({
               && Number.isFinite(Number(chuva))
               && Number(chuva) > limite
             return (
-              <button
-                type="button"
+              <article
                 className={`${styles.areaRow} ${emAlerta ? styles.areaRowAlert : ''}`}
                 key={area.id}
-                onClick={() => aoFocarArea(area)}
               >
-                <span className={styles.typeIcon} style={{ background: CORES_AREAS_RISCO[area.tipo] || '#d97706' }}>
-                  {ICONES_AREAS_RISCO[area.tipo] || '⚠'}
-                </span>
-                <span className={styles.areaDetails}>
-                  <strong>{area.tipo || 'Área de risco'}{emAlerta && <em>ALERTA</em>}</strong>
-                  <span>{area.referencia || area.descricao || 'Sem referência local'}</span>
-                  <small>
-                    {area.tipo === 'Interdições'
-                      ? 'Interdição cadastrada'
-                      : `Limite ${formatarChuva(limite)} · Previsto ${formatarChuva(chuva)}`}
-                  </small>
-                </span>
-                <FiMapPin className={styles.pin} />
-              </button>
+                <button type="button" className={styles.areaMain} onClick={() => aoFocarArea(area)}>
+                  <span className={styles.typeIcon} style={{ background: CORES_AREAS_RISCO[area.tipo] || '#d97706' }}>
+                    {ICONES_AREAS_RISCO[area.tipo] || '⚠'}
+                  </span>
+                  <span className={styles.areaDetails}>
+                    <strong>{area.tipo || 'Área de risco'}{emAlerta && <em>ALERTA</em>}</strong>
+                    <span>{area.referencia || area.descricao || 'Sem referência local'}</span>
+                    <small>
+                      {area.tipo === 'Interdições'
+                        ? 'Interdição cadastrada'
+                        : `Limite ${formatarChuva(limite)} · Previsto ${formatarChuva(chuva)}`}
+                    </small>
+                  </span>
+                  <FiMapPin className={styles.pin} />
+                </button>
+                <div className={styles.areaActions}>
+                  <button
+                    type="button"
+                    className={styles.areaAction}
+                    onClick={() => aoEditarArea(area)}
+                    title={`Editar ${area.tipo || 'área de risco'}`}
+                    aria-label={`Editar ${area.tipo || 'área de risco'}`}
+                  >
+                    <FiEdit2 /><span>Editar</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.areaAction} ${styles.areaActionDanger}`}
+                    onClick={() => aoRemoverArea(area)}
+                    title={`Remover ${area.tipo || 'área de risco'}`}
+                    aria-label={`Remover ${area.tipo || 'área de risco'}`}
+                  >
+                    <FiTrash2 /><span>Remover</span>
+                  </button>
+                </div>
+              </article>
             )
           })}
         </div>

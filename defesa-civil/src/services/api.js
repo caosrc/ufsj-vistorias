@@ -262,6 +262,13 @@ function applyMutationsToGeoJson(data, operations, resource) {
       if (feature && !result.features.some(item => sameId(item.properties?.id, feature.properties.id))) {
         result.features.unshift(feature)
       }
+    } else if (method === 'PUT') {
+      const feature = createGeoFeature(resource, { ...operation.body, id })
+      if (feature) {
+        const featureIndex = result.features.findIndex(item => sameId(item.properties?.id, id))
+        if (featureIndex >= 0) result.features[featureIndex] = feature
+        else result.features.unshift(feature)
+      }
     }
   }
   return result
@@ -708,6 +715,7 @@ export const api = {
   // Áreas de Risco
   getAreasRisco: () => req('GET', '/areas-risco'),
   createAreaRisco: (data) => req('POST', '/areas-risco', data),
+  updateAreaRisco: (id, data) => req('PUT', `/areas-risco/${id}`, data),
   deleteAreaRisco: (id) => req('DELETE', `/areas-risco/${id}`),
   geojsonAreasRisco: () => req('GET', '/geojson/areas-risco'),
 
