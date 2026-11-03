@@ -1,12 +1,9 @@
 [build]
-  base    = "defesa-civil"
+  base = "defesa-civil"
+  command = "pnpm install --no-frozen-lockfile && pnpm run build"
   publish = "dist"
-  command = "npm install -g pnpm && pnpm install --no-frozen-lockfile && pnpm run build"
-
-[build.environment]
-  NODE_VERSION = "20"
 
 [[redirects]]
-  from   = "/*"
-  to     = "/index.html"
+  from = "/*"
+  to = "/index.html"
   status = 200
