@@ -60,12 +60,28 @@ CREATE TABLE IF NOT EXISTS imoveis (
 
 CREATE TABLE IF NOT EXISTS areas_risco (
   id SERIAL PRIMARY KEY,
-  nivel TEXT NOT NULL,
+  nivel TEXT NOT NULL DEFAULT 'R2',
+  tipo TEXT NOT NULL DEFAULT 'Encostas',
   descricao TEXT,
   cidade TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  data_inicio DATE NOT NULL DEFAULT CURRENT_DATE,
+  limite_precipitacao_mm NUMERIC(8, 2) NOT NULL DEFAULT 35 CHECK (limite_precipitacao_mm >= 0),
+  referencia TEXT,
+  observacao TEXT,
   geojson TEXT,
   criado_em TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE areas_risco ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'Encostas';
+ALTER TABLE areas_risco ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE areas_risco ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+ALTER TABLE areas_risco ADD COLUMN IF NOT EXISTS data_inicio DATE NOT NULL DEFAULT CURRENT_DATE;
+ALTER TABLE areas_risco ADD COLUMN IF NOT EXISTS limite_precipitacao_mm NUMERIC(8, 2) NOT NULL DEFAULT 35;
+ALTER TABLE areas_risco ADD COLUMN IF NOT EXISTS referencia TEXT;
+ALTER TABLE areas_risco ADD COLUMN IF NOT EXISTS observacao TEXT;
+CREATE INDEX IF NOT EXISTS areas_risco_cidade_idx ON areas_risco (cidade);
 
 CREATE TABLE IF NOT EXISTS vistoria_monitoramento (
   id TEXT PRIMARY KEY,

@@ -226,6 +226,36 @@ app.delete('/api/imoveis/:id', async (req, res) => {
 })
 
 // ── ÁREAS DE RISCO ────────────────────────────────────────────
+const TIPOS_AREAS_RISCO = new Set([
+  'Encostas', 'Erosões', 'Drenagem', 'Alagamentos', 'Deslizamentos',
+  'Problemas de vias', 'Obras', 'Interdições',
+])
+
+function validarPoligonoArea(geojson) {
+  let geometry = geojson
+  if (geometry?.type === 'Feature') geometry = geometry.geometry
+  const ring = geometry?.type === 'Polygon' ? geometry.coordinates?.[0] : null
+  if (!Array.isArray(ring) || ring.length < 4) return null
+  const points = ring.map(point => [Number(point?.[0]), Number(point?.[1])])
+  if (points.some(([lng, lat]) =>
+    !Number.isFinite(lng) || lng < -180 || lng > 180 ||
+    !Number.isFinite(lat) || lat < -90 || lat > 90
+  )) return null
+  const first = points[0]
+  const last = points[points.length - 1]
+  if (first[0] !== last[0] || first[1] !== last[1]) points.push([...first])
+  return { type: 'Polygon', coordinates: [points] }
+}
+
+function centroidePoligono(geometry) {
+  const ring = geometry.coordinates[0].slice(0, -1)
+  const total = ring.reduce((sum, [lng, lat]) => ({
+    latitude: sum.latitude + lat,
+    longitude: sum.longitude + lng,
+  }), { latitude: 0, longitude: 0 })
+  return { latitude: total.latitude / ring.length, longitude: total.longitude / ring.length }
+}
+
 app.get('/api/areas-risco', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM areas_risco ORDER BY criado_em DESC')
@@ -234,11 +264,36 @@ app.get('/api/areas-risco', async (req, res) => {
 })
 
 app.post('/api/areas-risco', async (req, res) => {
-  const { nivel, descricao, cidade, geojson } = req.body
+  const {
+    nivel, tipo, descricao, cidade, latitude, longitude, data_inicio,
+    limite_precipitacao_mm, referencia, observacao, geojson,
+  } = req.body
+  const geometry = validarPoligonoArea(geojson)
+  if (!geometry) return res.status(400).json({ error: 'Desenhe um polígono válido com pelo menos três pontos.' })
+  if (!['R1', 'R2', 'R3', 'R4'].includes(nivel)) return res.status(400).json({ error: 'Selecione um nível de risco válido.' })
+  if (!TIPOS_AREAS_RISCO.has(tipo)) return res.status(400).json({ error: 'Selecione um tipo de área de risco válido.' })
+  if (!['ouro_branco', 'congonhas'].includes(cidade)) return res.status(400).json({ error: 'Selecione Congonhas ou Ouro Branco.' })
+  const limite = tipo === 'Interdições' ? 0 : Number(limite_precipitacao_mm)
+  if (!Number.isFinite(limite) || limite < 0 || limite > 10000) {
+    return res.status(400).json({ error: 'Informe um limite de chuva válido, em milímetros.' })
+  }
+  const centro = centroidePoligono(geometry)
+  const lat = latitude == null ? centro.latitude : Number(latitude)
+  const lng = longitude == null ? centro.longitude : Number(longitude)
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+    return res.status(400).json({ error: 'A localização da área de risco é inválida.' })
+  }
   try {
     const { rows } = await pool.query(
-      `INSERT INTO areas_risco (nivel, descricao, cidade, geojson) VALUES ($1,$2,$3,$4) RETURNING id`,
-      [nivel, descricao ?? null, cidade ?? null, JSON.stringify(geojson)]
+      `INSERT INTO areas_risco
+        (nivel, tipo, descricao, cidade, latitude, longitude, data_inicio,
+         limite_precipitacao_mm, referencia, observacao, geojson)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+      [
+        nivel, tipo, descricao?.trim() || null, cidade, lat, lng,
+        data_inicio || new Date().toISOString().slice(0, 10), limite,
+        referencia?.trim() || null, observacao?.trim() || null, JSON.stringify(geometry),
+      ]
     )
     res.json({ id: rows[0].id })
   } catch (e) { res.status(500).json({ error: e.message }) }
@@ -249,6 +304,85 @@ app.delete('/api/areas-risco/:id', async (req, res) => {
     await pool.query('DELETE FROM areas_risco WHERE id = $1', [req.params.id])
     res.json({ ok: true })
   } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+const areasRiscoPrevisaoCache = new Map()
+const AREAS_RISCO_PREVISAO_TTL_MS = 10 * 60 * 1000
+
+app.post('/api/tempo-areas-risco', async (req, res) => {
+  const areas = Array.isArray(req.body?.areas) ? req.body.areas : []
+  if (areas.length < 1 || areas.length > 50) {
+    return res.status(400).json({ erro: 'Envie de 1 a 50 áreas para consultar a previsão.' })
+  }
+  const validAreas = areas.map(area => ({
+    id: String(area?.id ?? '').trim(),
+    latitude: Number(area?.latitude),
+    longitude: Number(area?.longitude),
+  }))
+  if (validAreas.some(area =>
+    !area.id ||
+    !Number.isFinite(area.latitude) || area.latitude < -90 || area.latitude > 90 ||
+    !Number.isFinite(area.longitude) || area.longitude < -180 || area.longitude > 180
+  )) {
+    return res.status(400).json({ erro: 'Uma ou mais áreas têm coordenadas inválidas.' })
+  }
+
+  const cacheKey = validAreas.map(area =>
+    `${area.id}:${area.latitude.toFixed(3)}:${area.longitude.toFixed(3)}`
+  ).join('|')
+  const cached = areasRiscoPrevisaoCache.get(cacheKey)
+  if (cached && Date.now() - cached.atualizadoEm < AREAS_RISCO_PREVISAO_TTL_MS) {
+    return res.json({
+      previsoes: cached.previsoes,
+      atualizadoEm: new Date(cached.atualizadoEm).toISOString(),
+      cache: true,
+    })
+  }
+
+  try {
+    const params = new URLSearchParams({
+      latitude: validAreas.map(area => area.latitude.toFixed(4)).join(','),
+      longitude: validAreas.map(area => area.longitude.toFixed(4)).join(','),
+      timezone: 'America/Sao_Paulo',
+      forecast_days: '2',
+      precipitation_unit: 'mm',
+      hourly: 'precipitation',
+    })
+    const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!response.ok) throw new Error(`Open-Meteo: ${response.status}`)
+    const body = await response.json()
+    const previsoes = validAreas.map((area, index) => {
+      const pointForecast = Array.isArray(body) ? body[index] : body
+      const hourly = pointForecast?.hourly?.precipitation
+      const total = Array.isArray(hourly)
+        ? hourly.slice(0, 24).reduce((sum, value) => (
+          sum + (Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : 0)
+        ), 0)
+        : null
+      return { id: area.id, precipitacao_24h_mm: total }
+    })
+    const updatedAt = Date.now()
+    areasRiscoPrevisaoCache.set(cacheKey, { previsoes, atualizadoEm: updatedAt })
+    if (areasRiscoPrevisaoCache.size > 100) {
+      const oldestKey = areasRiscoPrevisaoCache.keys().next().value
+      if (oldestKey) areasRiscoPrevisaoCache.delete(oldestKey)
+    }
+    res.json({ previsoes, atualizadoEm: new Date(updatedAt).toISOString(), cache: false })
+  } catch (error) {
+    console.error('Erro na previsão para áreas de risco:', error?.message || error)
+    if (cached) {
+      return res.json({
+        previsoes: cached.previsoes,
+        atualizadoEm: new Date(cached.atualizadoEm).toISOString(),
+        cache: true,
+        erroAtualizacao: true,
+      })
+    }
+    res.status(503).json({ erro: 'Previsão de precipitação para as áreas de risco indisponível.' })
+  }
 })
 
 // ── ESTATÍSTICAS ──────────────────────────────────────────────
@@ -289,14 +423,21 @@ app.get('/api/geojson/ocorrencias', async (req, res) => {
 app.get('/api/geojson/areas-risco', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'SELECT id, nivel, descricao, geojson FROM areas_risco WHERE geojson IS NOT NULL'
+      `SELECT id, nivel, tipo, cidade, latitude, longitude, data_inicio,
+              limite_precipitacao_mm, referencia, observacao, descricao, geojson
+       FROM areas_risco WHERE geojson IS NOT NULL`
     )
     res.json({
       type: 'FeatureCollection',
       features: rows.map(r => ({
         type: 'Feature',
         geometry: parse(r.geojson),
-        properties: { id: r.id, nivel: r.nivel, descricao: r.descricao }
+        properties: {
+          id: r.id, nivel: r.nivel, tipo: r.tipo, cidade: r.cidade,
+          latitude: r.latitude, longitude: r.longitude, data_inicio: r.data_inicio,
+          limite_precipitacao_mm: r.limite_precipitacao_mm,
+          referencia: r.referencia, observacao: r.observacao, descricao: r.descricao,
+        }
       }))
     })
   } catch (e) { res.status(500).json({ error: e.message }) }

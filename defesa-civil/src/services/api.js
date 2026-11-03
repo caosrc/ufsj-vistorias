@@ -113,7 +113,19 @@ function createGeoFeature(resource, record) {
     return {
       type: 'Feature',
       geometry,
-      properties: { id: record.id, nivel: record.nivel, descricao: record.descricao },
+      properties: {
+        id: record.id,
+        nivel: record.nivel,
+        tipo: record.tipo,
+        cidade: record.cidade,
+        latitude: record.latitude,
+        longitude: record.longitude,
+        data_inicio: record.data_inicio,
+        limite_precipitacao_mm: record.limite_precipitacao_mm,
+        referencia: record.referencia,
+        observacao: record.observacao,
+        descricao: record.descricao,
+      },
     }
   }
   return null

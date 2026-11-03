@@ -1,11 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import * as maplibregl from 'maplibre-gl'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { api } from '../services/api'
 import { CIDADES, CIDADE_PADRAO } from '../data/cidades'
+import {
+  areasRiscoFeatureCollection,
+  areaCentroide,
+  CORES_AREAS_RISCO,
+  TIPOS_AREAS_RISCO,
+} from '../data/areasRisco'
 import PainelClima from './PainelClima'
+import PainelAreasRisco from './PainelAreasRisco'
 import MapaLeafletFallback from './MapaLeafletFallback'
 import styles from './Mapa.module.css'
 import {
@@ -136,12 +143,25 @@ export default function Mapa() {
   const [coordAtual,      setCoordAtual]      = useState(null)
   const [showClima,       setShowClima]       = useState(false)
   const [showLegenda,     setShowLegenda]     = useState(false)
+  const [showAreasRisco,  setShowAreasRisco]  = useState(false)
   const [showCamadas,     setShowCamadas]     = useState(true)
   const [modoDesenho,     setModoDesenho]     = useState(null)
   const [modoOcorrencia,  setModoOcorrencia]  = useState(false)
   const [salvandoArea,    setSalvandoArea]    = useState(false)
   const [nivelRisco,      setNivelRisco]      = useState('R2')
+  const [tipoAreaRisco,   setTipoAreaRisco]   = useState('Encostas')
+  const [limiteChuva,     setLimiteChuva]     = useState('')
+  const [dataInicioRisco, setDataInicioRisco] = useState(() => new Date().toISOString().slice(0, 10))
   const [descRisco,       setDescRisco]       = useState('')
+  const [referenciaRisco, setReferenciaRisco] = useState('')
+  const [observacaoRisco, setObservacaoRisco] = useState('')
+  const [erroSalvarArea,  setErroSalvarArea]  = useState('')
+  const [statusSalvarArea,setStatusSalvarArea]= useState('')
+  const [areasRisco,      setAreasRisco]      = useState([])
+  const [previsoesAreas,  setPrevisoesAreas]  = useState({})
+  const [previsaoAtualizadaEm, setPrevisaoAtualizadaEm] = useState(null)
+  const [carregandoPrevisaoAreas, setCarregandoPrevisaoAreas] = useState(false)
+  const [erroPrevisaoAreas, setErroPrevisaoAreas] = useState('')
   const [polyRascunho,    setPolyRascunho]    = useState(null)
   const [overlays,        setOverlays]        = useState({
     heatmap: false, areas: true, vistorias: true,
@@ -157,6 +177,7 @@ export default function Mapa() {
   const [terreno3D,       setTerreno3D]       = useState(false)
   const [painelVistoria,  setPainelVistoria]  = useState(null)
   const [webglError,      setWebglError]      = useState(false)
+  const [mapLoaded,       setMapLoaded]       = useState(false)
   const [leafletDrawPoints, setLeafletDrawPoints] = useState([])
   const [leafletGpsPosition, setLeafletGpsPosition] = useState(null)
   const [refreshMapVersion, setRefreshMapVersion] = useState(0)
@@ -164,6 +185,15 @@ export default function Mapa() {
   const location = useLocation()
   const pickOccurrenceRef = useRef(null)
   const cityRef = useRef(cidade)
+  const previsaoRequestRef = useRef(0)
+  const areasDaCidade = useMemo(
+    () => areasRisco.filter(area => !area.cidade || area.cidade === cidade),
+    [areasRisco, cidade],
+  )
+  const areasGeoJSON = useMemo(
+    () => areasRiscoFeatureCollection(areasRisco, previsoesAreas, cidade),
+    [areasRisco, previsoesAreas, cidade],
+  )
   cityRef.current = cidade
   pickOccurrenceRef.current = modoOcorrencia
     ? ({ lat, lng }) => {
@@ -228,6 +258,7 @@ export default function Mapa() {
       console.warn('MapLibre indisponível; usando o mapa alternativo:', message)
       loadedRef.current = false
       mapGl.current = null
+      setMapLoaded(false)
       try { map.remove() } catch {}
       if (!disposed) setWebglError(true)
     })
@@ -237,6 +268,7 @@ export default function Mapa() {
 
     map.on('load', () => {
       loadedRef.current = true
+      setMapLoaded(true)
 
       // ── Fontes de dados GeoJSON ───────────────────────────
       const emptyGeo = { type: 'FeatureCollection', features: [] }
@@ -286,16 +318,16 @@ export default function Mapa() {
       map.addLayer({
         id: 'areas-fill', type: 'fill', source: 'areas-risco',
         paint: {
-          'fill-color': ['match', ['get', 'nivel'], 'R1','#22c55e','R2','#eab308','R3','#f97316','R4','#ef4444','#94a3b8'],
-          'fill-opacity': 0.2,
+          'fill-color': ['coalesce', ['get', 'cor'], ['match', ['get', 'nivel'], 'R1','#22c55e','R2','#eab308','R3','#f97316','R4','#ef4444','#94a3b8']],
+          'fill-opacity': ['case', ['==', ['get', 'em_alerta'], true], 0.34, 0.2],
         },
         layout: { visibility: 'visible' },
       })
       map.addLayer({
         id: 'areas-outline', type: 'line', source: 'areas-risco',
         paint: {
-          'line-color': ['match', ['get', 'nivel'], 'R1','#22c55e','R2','#eab308','R3','#f97316','R4','#ef4444','#94a3b8'],
-          'line-width': 2.5,
+          'line-color': ['coalesce', ['get', 'cor'], ['match', ['get', 'nivel'], 'R1','#22c55e','R2','#eab308','R3','#f97316','R4','#ef4444','#94a3b8']],
+          'line-width': ['case', ['==', ['get', 'em_alerta'], true], 4, 2.5],
         },
         layout: { visibility: 'visible' },
       })
@@ -474,10 +506,19 @@ export default function Mapa() {
       // Popups — áreas de risco
       map.on('click', 'areas-fill', e => {
         const p = e.features[0].properties
-        const cor = RISCO_CORES[p.nivel] || '#94a3b8'
+        const cor = p.cor || RISCO_CORES[p.nivel] || '#94a3b8'
+        const emAlerta = p.em_alerta === true || p.em_alerta === 'true'
+        const detalhes = [
+          p.descricao,
+          `Previsão 24 h: ${p.previsao_24h_mm == null ? 'sem dado' : `${Number(p.previsao_24h_mm).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mm`}`,
+          `Limite: ${p.limite_precipitacao_mm == null ? '—' : `${Number(p.limite_precipitacao_mm).toLocaleString('pt-BR')} mm`}`,
+          p.referencia && `Referência: ${p.referencia}`,
+          p.observacao && `Observação: ${p.observacao}`,
+          CIDADES[p.cidade]?.nome,
+        ].filter(Boolean).join('\n')
         new maplibregl.Popup({ closeButton: true, maxWidth: '240px' })
           .setLngLat(e.lngLat)
-          .setDOMContent(popupSeguro(`Área de Risco ${p.nivel || ''}`, p.descricao, cor))
+          .setDOMContent(popupSeguro(`${p.tipo || 'Área de Risco'} · ${p.nivel || ''}`, detalhes, cor, emAlerta ? 'ALERTA · chuva acima do limite' : ''))
           .addTo(map)
       })
 
@@ -537,6 +578,103 @@ export default function Mapa() {
     }
     carregarClima(cidade)
   }, [cidade])
+
+  const carregarAreasRisco = useCallback(async () => {
+    try {
+      const records = await api.getAreasRisco()
+      setAreasRisco(Array.isArray(records) ? records : [])
+    } catch {
+      setAreasRisco([])
+    }
+  }, [])
+
+  useEffect(() => {
+    void carregarAreasRisco()
+    const onSynced = () => { void carregarAreasRisco() }
+    window.addEventListener('geovistorias:offline-data-synced', onSynced)
+    return () => window.removeEventListener('geovistorias:offline-data-synced', onSynced)
+  }, [carregarAreasRisco])
+
+  const carregarPrevisaoAreas = useCallback(async () => {
+    const requestId = ++previsaoRequestRef.current
+    const areasComCoordenadas = areasDaCidade
+      .filter(area => area.tipo !== 'Interdições')
+      .map(area => ({ area, centro: areaCentroide(area) }))
+      .filter(item => item.centro
+        && Number.isFinite(item.centro.latitude)
+        && Number.isFinite(item.centro.longitude))
+
+    let cacheLocal = null
+    try {
+      cacheLocal = JSON.parse(localStorage.getItem(`areasRiscoPrevisao:v1:${cidade}`) || 'null')
+    } catch {}
+    if (cacheLocal?.previsoes && requestId === previsaoRequestRef.current) {
+      setPrevisoesAreas(cacheLocal.previsoes)
+      setPrevisaoAtualizadaEm(cacheLocal.atualizadoEm || null)
+    }
+
+    if (areasComCoordenadas.length === 0) {
+      if (requestId === previsaoRequestRef.current) {
+        setPrevisoesAreas({})
+        setPrevisaoAtualizadaEm(null)
+        setErroPrevisaoAreas('')
+        setCarregandoPrevisaoAreas(false)
+      }
+      return
+    }
+
+    setCarregandoPrevisaoAreas(true)
+    setErroPrevisaoAreas('')
+    try {
+      const previsoes = {}
+      for (let start = 0; start < areasComCoordenadas.length; start += 50) {
+        const lote = areasComCoordenadas.slice(start, start + 50)
+        const response = await fetch('/api/tempo-areas-risco', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            areas: lote.map(({ area, centro }) => ({
+              id: String(area.id),
+              latitude: centro.latitude,
+              longitude: centro.longitude,
+            })),
+          }),
+        })
+        const body = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(body?.erro || `Falha ao carregar a previsão (${response.status}).`)
+        for (const item of body.previsoes || []) {
+          previsoes[item.id] = item.precipitacao_24h_mm == null
+            ? null
+            : Number(item.precipitacao_24h_mm)
+        }
+        if (body.atualizadoEm) setPrevisaoAtualizadaEm(body.atualizadoEm)
+      }
+      if (requestId !== previsaoRequestRef.current) return
+      const atualizadoEm = new Date().toISOString()
+      setPrevisoesAreas(previsoes)
+      setPrevisaoAtualizadaEm(atualizadoEm)
+      setErroPrevisaoAreas('')
+      try {
+        localStorage.setItem(`areasRiscoPrevisao:v1:${cidade}`, JSON.stringify({ previsoes, atualizadoEm }))
+      } catch {}
+    } catch (error) {
+      if (requestId !== previsaoRequestRef.current) return
+      setErroPrevisaoAreas(error?.message || 'Previsão de chuva indisponível.')
+    } finally {
+      if (requestId === previsaoRequestRef.current) setCarregandoPrevisaoAreas(false)
+    }
+  }, [areasDaCidade, cidade])
+
+  useEffect(() => {
+    void carregarPrevisaoAreas()
+    const interval = window.setInterval(carregarPrevisaoAreas, 10 * 60 * 1000)
+    return () => window.clearInterval(interval)
+  }, [carregarPrevisaoAreas])
+
+  useEffect(() => {
+    if (!mapLoaded || webglError) return
+    mapGl.current?.getSource('areas-risco')?.setData(areasGeoJSON)
+  }, [areasGeoJSON, mapLoaded, webglError])
 
   // ── Terreno 3D ──────────────────────────────────────────────
   useEffect(() => {
@@ -612,9 +750,8 @@ export default function Mapa() {
     if (!map || !loadedRef.current) return
 
     try {
-      const [ocGeo, arGeo, vistorias] = await Promise.all([
+      const [ocGeo, vistorias] = await Promise.all([
         api.geojsonOcorrencias().catch(() => null),
-        api.geojsonAreasRisco().catch(() => null),
         api.getVistorias().catch(() => []),
       ])
 
@@ -622,10 +759,6 @@ export default function Mapa() {
         map.getSource('ocorrencias')?.setData(ocGeo)
         map.getSource('heatmap-src')?.setData(ocGeo)
         setOcCount(ocGeo.features.length)
-      }
-
-      if (arGeo?.features) {
-        map.getSource('areas-risco')?.setData(arGeo)
       }
 
       // Vistorias: pontos para cluster + polígonos
@@ -755,17 +888,48 @@ export default function Mapa() {
     if (!polyRascunho) return
     const coords = polyRascunho.pontos
     const geom = { type: 'Polygon', coordinates: [[...coords, coords[0]]] }
+    const centro = areaCentroide({ geojson: geom })
+    const limite = tipoAreaRisco === 'Interdições' ? 0 : Number(limiteChuva)
+    if (tipoAreaRisco !== 'Interdições' && (!Number.isFinite(limite) || limite < 0)) {
+      setErroSalvarArea('Informe o limite de chuva para as próximas 24 horas, em milímetros.')
+      return
+    }
+    if (!centro) {
+      setErroSalvarArea('Não foi possível calcular a localização deste polígono.')
+      return
+    }
     try {
-      await api.createAreaRisco({ nivel: nivelRisco, descricao: descRisco, cidade, geojson: geom })
-    } catch {
-      const areas = JSON.parse(localStorage.getItem('areasRisco') || '[]')
-      areas.push({ nivel: nivelRisco, descricao: descRisco, cidade, data: new Date().toISOString() })
-      localStorage.setItem('areasRisco', JSON.stringify(areas))
+      setErroSalvarArea('')
+      const resultado = await api.createAreaRisco({
+        nivel: nivelRisco,
+        tipo: tipoAreaRisco,
+        descricao: descRisco.trim(),
+        cidade,
+        latitude: centro.latitude,
+        longitude: centro.longitude,
+        data_inicio: dataInicioRisco,
+        limite_precipitacao_mm: limite,
+        referencia: referenciaRisco.trim(),
+        observacao: observacaoRisco.trim(),
+        geojson: geom,
+      })
+      setStatusSalvarArea(resultado?.offline
+        ? 'Área salva neste dispositivo; será enviada quando o serviço de dados estiver disponível.'
+        : 'Área de risco registrada.')
+      await carregarAreasRisco()
+    } catch (error) {
+      setErroSalvarArea(error?.message || 'Não foi possível salvar a área de risco.')
+      return
     }
     limparDesenho()
     setSalvandoArea(false)
     setPolyRascunho(null)
     setDescRisco('')
+    setReferenciaRisco('')
+    setObservacaoRisco('')
+    setLimiteChuva('')
+    setDataInicioRisco(new Date().toISOString().slice(0, 10))
+    setErroSalvarArea('')
     carregarDados()
   }
 
@@ -774,7 +938,30 @@ export default function Mapa() {
     setSalvandoArea(false)
     setPolyRascunho(null)
     setDescRisco('')
+    setReferenciaRisco('')
+    setObservacaoRisco('')
+    setLimiteChuva('')
+    setErroSalvarArea('')
     setModoDesenho(null)
+  }
+
+  function iniciarDesenhoArea() {
+    setModoOcorrencia(false)
+    setShowAreasRisco(false)
+    setShowClima(false)
+    setShowLegenda(false)
+    setErroSalvarArea('')
+    setStatusSalvarArea('')
+    limparDesenho()
+    setModoDesenho('polygon')
+  }
+
+  function focarArea(area) {
+    const centro = areaCentroide(area)
+    if (!centro) return
+    setShowAreasRisco(false)
+    if (webglError) leafletMapRef.current?.setView([centro.latitude, centro.longitude], 15, { animate: true })
+    else mapGl.current?.easeTo({ center: [centro.longitude, centro.latitude], zoom: 15, duration: 500 })
   }
 
   // ── GPS ─────────────────────────────────────────────────────
