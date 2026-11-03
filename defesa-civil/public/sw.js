@@ -1,6 +1,7 @@
-// ── Geovistorias Service Worker v7 ─────────────────────────────
-const CACHE_APP   = 'geovistorias-app-v7'
+// ── Geovistorias Service Worker v8 ─────────────────────────────
+const CACHE_APP   = 'geovistorias-app-v8'
 const CACHE_TILES = 'geovistorias-tiles-v2'
+const CACHE_TILES_CORS = 'geovistorias-tiles-cors-v1'
 const CACHE_API   = 'geovistorias-api-v5'
 
 const APP_SHELL = [
@@ -35,7 +36,7 @@ self.addEventListener('install', event => {
 
 // ── Activate ──────────────────────────────────────────────────
 self.addEventListener('activate', event => {
-  const KEEP = [CACHE_APP, CACHE_TILES, CACHE_API]
+  const KEEP = [CACHE_APP, CACHE_TILES, CACHE_TILES_CORS, CACHE_API]
   event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(keys.filter(k => !KEEP.includes(k)).map(k => caches.delete(k))))
@@ -47,6 +48,7 @@ self.addEventListener('activate', event => {
 const TILE_HOSTS = [
   'tile.openstreetmap.org',
   'server.arcgisonline.com',
+  'basemaps.cartocdn.com',
   'tile.opentopomap.org',
   'a.tile.openstreetmap.org',
   'b.tile.openstreetmap.org',
@@ -65,9 +67,9 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(req.url)
 
-  // Tiles do mapa → CacheFirst (evita re-download)
+  // Tiles do mapa → CacheFirst com cache separado para respostas CORS do MapLibre
   if (TILE_HOSTS.some(h => url.hostname.includes(h))) {
-    event.respondWith(cacheFirstNoCorsTile(req))
+    event.respondWith(cacheFirstTile(req))
     return
   }
 
@@ -93,13 +95,16 @@ self.addEventListener('fetch', event => {
 })
 
 // ── Estratégias de cache ───────────────────────────────────────
-async function cacheFirstNoCorsTile(request) {
-  const cache  = await caches.open(CACHE_TILES)
+async function cacheFirstTile(request) {
+  const cacheName = request.mode === 'cors' ? CACHE_TILES_CORS : CACHE_TILES
+  const cache  = await caches.open(cacheName)
   const cached = await cache.match(request)
   if (cached) return cached
   try {
-    const response = await fetch(request, { mode: 'no-cors' })
-    if (response) cache.put(request, response.clone())
+    const response = await fetch(request)
+    if (response && (response.ok || response.type === 'opaque')) {
+      cache.put(request, response.clone())
+    }
     return response
   } catch {
     return cached || new Response('', { status: 504 })

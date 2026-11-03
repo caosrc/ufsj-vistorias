@@ -106,12 +106,12 @@ function buildStyle() {
     version: 8,
     glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
     sources: {
-      'src-ruas':     rasterSource(['/api/map-tile/osm/{z}/{x}/{y}'], 19, '© OpenStreetMap'),
-      'src-satelite': rasterSource(['/api/sat-tile/{z}/{y}/{x}'], 20, '© Esri'),
-      'src-topo':     rasterSource(['/api/map-tile/topo/{z}/{x}/{y}'], 17, '© OpenTopoMap'),
-      'src-esri':     rasterSource(['/api/map-tile/esri/{z}/{x}/{y}'], 19, '© Esri'),
-      'src-positron': rasterSource(['/api/map-tile/carto_l/{z}/{x}/{y}'], 19, '© CartoDB'),
-      'src-dark':     rasterSource(['/api/map-tile/carto_d/{z}/{x}/{y}'], 19, '© CartoDB'),
+      'src-ruas':     rasterSource(['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], 19, '© OpenStreetMap'),
+      'src-satelite': rasterSource(['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], 20, '© Esri'),
+      'src-topo':     rasterSource(['https://a.tile.opentopomap.org/{z}/{x}/{y}.png'], 17, '© OpenTopoMap'),
+      'src-esri':     rasterSource(['https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}'], 19, '© Esri'),
+      'src-positron': rasterSource(['https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'], 19, '© CartoDB'),
+      'src-dark':     rasterSource(['https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'], 19, '© CartoDB'),
       'terrain': {
         type: 'raster-dem',
         tiles: ['/api/dem-tile/{z}/{x}/{y}'],

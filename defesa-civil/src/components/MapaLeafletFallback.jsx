@@ -6,12 +6,12 @@ import { CIDADES } from '../data/cidades'
 import { areaCentroide, ICONES_AREAS_RISCO } from '../data/areasRisco'
 
 const BASE_TILES = {
-  ruas: ['/api/map-tile/osm/{z}/{x}/{y}', '© OpenStreetMap', 19],
-  satelite: ['/api/sat-tile/{z}/{y}/{x}', '© Esri', 19],
-  topografico: ['/api/map-tile/topo/{z}/{x}/{y}', '© OpenTopoMap', 17],
-  esri_topo: ['/api/map-tile/esri/{z}/{x}/{y}', '© Esri', 19],
-  positron: ['/api/map-tile/carto_l/{z}/{x}/{y}', '© CartoDB', 19],
-  dark: ['/api/map-tile/carto_d/{z}/{x}/{y}', '© CartoDB', 19],
+  ruas: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png', '© OpenStreetMap', 19],
+  satelite: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', '© Esri', 19],
+  topografico: ['https://a.tile.opentopomap.org/{z}/{x}/{y}.png', '© OpenTopoMap', 17],
+  esri_topo: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', '© Esri', 19],
+  positron: ['https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', '© CartoDB', 19],
+  dark: ['https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', '© CartoDB', 19],
 }
 
 const RISK_COLORS = { R1: '#22c55e', R2: '#eab308', R3: '#f97316', R4: '#ef4444' }
