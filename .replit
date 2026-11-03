@@ -69,3 +69,6 @@ run = ["node", "server/index.js"]
 
 [userenv.shared]
 NODE_ENV = "development"
+VITE_SUPABASE_ANON_KEY = "sb_publishable_ORvPfUlA9IL42_KhvGeVbA_UxOOOE_Q"
+VITE_SUPABASE_URL = "https://bocirhsehjuvrbajcggm.supabase.co"
+VITE_USE_SUPABASE = "true"

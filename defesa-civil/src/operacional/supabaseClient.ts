@@ -6,6 +6,13 @@ type DisabledSupabaseClient = {
   channel: (...args: unknown[]) => any
   removeChannel: (...args: unknown[]) => any
   functions: { invoke: (...args: unknown[]) => any }
+  storage: { from: (...args: unknown[]) => any }
+  auth: {
+    getSession: (...args: unknown[]) => any
+    onAuthStateChange: (...args: unknown[]) => any
+    signInWithPassword: (...args: unknown[]) => any
+    signOut: (...args: unknown[]) => any
+  }
 }
 
 const supabaseDisabled = (): never => {
@@ -13,7 +20,11 @@ const supabaseDisabled = (): never => {
 }
 
 const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').trim()
-const supabaseAnonKey = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim()
+const supabaseAnonKey = String(
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  '',
+).trim()
 const usarSupabase = String(import.meta.env.VITE_USE_SUPABASE || '').toLowerCase() === 'true'
 
 // O build do Netlify injeta essas variáveis VITE_* no frontend. No Replit,
@@ -22,12 +33,19 @@ export const supabaseDisponivel = usarSupabase && Boolean(supabaseUrl && supabas
 
 export const supabase = supabaseDisponivel
   ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
     })
   : ({
       from: supabaseDisabled,
       channel: supabaseDisabled,
       removeChannel: supabaseDisabled,
       functions: { invoke: supabaseDisabled },
+      storage: { from: supabaseDisabled },
+      auth: {
+        getSession: supabaseDisabled,
+        onAuthStateChange: supabaseDisabled,
+        signInWithPassword: supabaseDisabled,
+        signOut: supabaseDisabled,
+      },
     } as DisabledSupabaseClient)
 
