@@ -43,6 +43,7 @@
 .alertBanner { display: grid; gap: 2px; margin: 0 12px 9px; padding: 10px; color: #991b1b; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 9px; font-size: 11px; }
 .alertBanner strong { font-size: 10px; letter-spacing: .04em; }
 .warning { margin: 0 12px 9px; padding: 8px 9px; color: #854d0e; background: #fefce8; border-radius: 8px; font-size: 11px; }
+.status { margin: 0 12px 9px; padding: 8px 9px; color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; font-size: 11px; }
 
 .actions { display: flex; align-items: center; gap: 7px; padding: 0 12px 11px; }
 .primary, .iconButton { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid #dbe3ef; border-radius: 8px; background: #fff; color: #334155; cursor: pointer; }
@@ -54,11 +55,14 @@
 
 .listHeader { display: flex; align-items: center; justify-content: space-between; padding: 9px 15px; color: #64748b; background: #f8fafc; border-top: 1px solid #e8edf5; font-size: 10px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
 .listHeader strong { color: #334155; font-size: 12px; letter-spacing: normal; }
+.typeCounts { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px 12px; border-bottom: 1px solid #edf1f6; }
+.typeCounts > span { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; color: #475569; background: #f8fafc; border: 1px solid #e8edf5; border-radius: 999px; font-size: 10px; font-weight: 700; }
+.typeCounts i { width: 17px; height: 17px; display: grid; place-items: center; border-radius: 50%; color: #fff; font-size: 10px; font-style: normal; }
 .list { min-height: 0; overflow-y: auto; }
 .areaRow { width: 100%; display: flex; align-items: flex-start; gap: 9px; padding: 11px 14px; border: 0; border-bottom: 1px solid #edf1f6; background: #fff; text-align: left; cursor: pointer; }
 .areaRow:hover { background: #f8fafc; }
 .areaRowAlert { background: #fff9f9; }
-.colorDot { flex: none; width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; box-shadow: 0 0 0 3px #f1f5f9; }
+.typeIcon { flex: none; width: 28px; height: 28px; display: grid; place-items: center; margin-top: 1px; border: 2px solid #fff; border-radius: 50%; color: #fff; box-shadow: 0 0 0 2px #e2e8f0; font-size: 13px; }
 .areaDetails { min-width: 0; flex: 1; display: grid; gap: 3px; color: #475569; }
 .areaDetails strong { display: flex; align-items: center; gap: 6px; color: #1e293b; font-size: 12px; }
 .areaDetails > span { overflow: hidden; color: #64748b; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }

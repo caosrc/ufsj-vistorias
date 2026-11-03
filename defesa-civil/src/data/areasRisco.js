@@ -20,6 +20,17 @@ export const CORES_AREAS_RISCO = {
   Interdições: '#c2410c',
 }
 
+export const ICONES_AREAS_RISCO = {
+  Encostas: '▲',
+  'Erosões': '🪨',
+  Drenagem: '💧',
+  Alagamentos: '🌊',
+  Deslizamentos: '⛰️',
+  'Problemas de vias': '🛣️',
+  Obras: '🚧',
+  Interdições: '⛔',
+}
+
 export function areaGeometry(area) {
   let geometry = area?.geojson ?? area?.geometry ?? null
   if (typeof geometry === 'string') {

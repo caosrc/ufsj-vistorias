@@ -3,6 +3,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { api } from '../services/api'
 import { CIDADES } from '../data/cidades'
+import { areaCentroide, ICONES_AREAS_RISCO } from '../data/areasRisco'
 
 const BASE_TILES = {
   ruas: ['/api/map-tile/osm/{z}/{x}/{y}', '© OpenStreetMap', 19],
@@ -35,6 +36,7 @@ export default function MapaLeafletFallback({
   cidade,
   camada,
   overlays,
+  areasGeoJSON,
   modoDesenho,
   modoOcorrencia,
   drawPoints,
@@ -52,7 +54,10 @@ export default function MapaLeafletFallback({
   const layersRef = useRef({})
   const callbacksRef = useRef({})
   const refreshRef = useRef(null)
-  callbacksRef.current = { cidade, modoDesenho, modoOcorrencia, drawPoints, onCoordinate, onDrawPoint, onOccurrencePoint }
+  callbacksRef.current = {
+    cidade, modoDesenho, modoOcorrencia, drawPoints, areasGeoJSON,
+    onCoordinate, onDrawPoint, onOccurrencePoint,
+  }
 
   useEffect(() => {
     const city = CIDADES[cidade]
@@ -72,14 +77,30 @@ export default function MapaLeafletFallback({
     ]))
     const areaLayer = L.geoJSON(undefined, {
       style: feature => {
-        const color = RISK_COLORS[feature?.properties?.nivel] || '#94a3b8'
-        return { color, weight: 2, fillColor: color, fillOpacity: 0.2 }
+        const color = feature?.properties?.cor || RISK_COLORS[feature?.properties?.nivel] || '#94a3b8'
+        const emAlerta = feature?.properties?.em_alerta === true || feature?.properties?.em_alerta === 'true'
+        return { color, weight: emAlerta ? 4 : 2, fillColor: color, fillOpacity: emAlerta ? 0.34 : 0.2 }
       },
       onEachFeature: (feature, layer) => {
         const props = feature.properties || {}
-        layer.bindPopup(textPopup(`Área de Risco ${props.nivel || ''}`, props.descricao))
+        const chuva = props.previsao_24h_mm == null
+          ? 'sem dado'
+          : `${Number(props.previsao_24h_mm).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mm`
+        const detalhes = [
+          props.descricao,
+          `Previsão 24 h: ${chuva}`,
+          `Limite: ${props.limite_precipitacao_mm == null ? '—' : `${Number(props.limite_precipitacao_mm).toLocaleString('pt-BR')} mm`}`,
+          props.referencia && `Referência: ${props.referencia}`,
+          props.observacao && `Observação: ${props.observacao}`,
+        ].filter(Boolean).join('\n')
+        layer.bindPopup(textPopup(
+          `${props.tipo || 'Área de risco'} · ${props.nivel || ''}`,
+          detalhes,
+          props.cor || '#d97706',
+        ))
       },
     })
+    const areaIconLayer = L.layerGroup()
     const occurrenceLayer = L.layerGroup()
     const heatLayer = L.layerGroup()
     const inspectionLayer = L.layerGroup()
@@ -97,7 +118,7 @@ export default function MapaLeafletFallback({
     })
 
     layersRef.current = {
-      map, baseLayers, areaLayer, occurrenceLayer, heatLayer, inspectionLayer,
+      map, baseLayers, areaLayer, areaIconLayer, occurrenceLayer, heatLayer, inspectionLayer,
       drawingLayer, previewLayer, gpsLayer, rainfallLayer, contoursLayer, firesLayer,
     }
     baseLayers.ruas.addTo(map)
@@ -168,6 +189,7 @@ export default function MapaLeafletFallback({
       if (!enabled && map.hasLayer(layer)) map.removeLayer(layer)
     }
     setLayer(areaLayer, overlays.areas)
+    setLayer(layersRef.current.areaIconLayer, overlays.areas)
     setLayer(occurrenceLayer, true)
     setLayer(heatLayer, overlays.heatmap)
     setLayer(inspectionLayer, overlays.vistorias)
@@ -183,14 +205,10 @@ export default function MapaLeafletFallback({
       } = layersRef.current
       if (!areaLayer) return
       try {
-        const [occurrences, areas, inspections] = await Promise.all([
+        const [occurrences, inspections] = await Promise.all([
           api.geojsonOcorrencias().catch(() => null),
-          api.geojsonAreasRisco().catch(() => null),
           api.getVistorias().catch(() => []),
         ])
-
-        areaLayer.clearLayers()
-        if (areas?.features) areaLayer.addData(areas)
 
         occurrenceLayer.clearLayers()
         heatLayer.clearLayers()
@@ -249,6 +267,76 @@ export default function MapaLeafletFallback({
     window.addEventListener('geovistorias:offline-data-synced', refresh)
     return () => window.removeEventListener('geovistorias:offline-data-synced', refresh)
   }, [])
+
+  useEffect(() => {
+    const { map, areaLayer, areaIconLayer } = layersRef.current
+    if (!map || !areaLayer || !areaIconLayer || !areasGeoJSON) return undefined
+
+    areaLayer.clearLayers()
+    areaIconLayer.clearLayers()
+    areaLayer.addData(areasGeoJSON)
+
+    areasGeoJSON.features.forEach(feature => {
+      const props = feature.properties || {}
+      const centro = areaCentroide({ geojson: feature.geometry })
+      if (!centro) return
+
+      const emAlerta = props.em_alerta === true || props.em_alerta === 'true'
+      const marker = document.createElement('div')
+      marker.className = `mapa-area-marker${emAlerta ? ' mapa-area-marker-alerta' : ''}`
+      marker.style.setProperty('--area-marker-color', props.cor || '#d97706')
+      const icon = document.createElement('span')
+      icon.className = 'mapa-area-marker-icone'
+      icon.textContent = ICONES_AREAS_RISCO[props.tipo] || '⚠'
+      marker.appendChild(icon)
+
+      const chuva = props.previsao_24h_mm == null
+        ? 'sem dado'
+        : `${Number(props.previsao_24h_mm).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mm`
+      const detalhes = [
+        props.descricao,
+        `Previsão 24 h: ${chuva}`,
+        `Limite: ${props.limite_precipitacao_mm == null ? '—' : `${Number(props.limite_precipitacao_mm).toLocaleString('pt-BR')} mm`}`,
+        props.referencia && `Referência: ${props.referencia}`,
+        props.observacao && `Observação: ${props.observacao}`,
+      ].filter(Boolean).join('\n')
+      L.marker([centro.latitude, centro.longitude], {
+        icon: L.divIcon({
+          className: 'mapa-area-marker-leaflet',
+          html: marker.outerHTML,
+          iconSize: [42, 42],
+          iconAnchor: [21, 21],
+        }),
+        title: `${props.tipo || 'Área de risco'}${emAlerta ? ' · alerta de chuva' : ''}`,
+        keyboard: true,
+      }).bindPopup(textPopup(
+        `${props.tipo || 'Área de risco'} · ${props.nivel || ''}`,
+        detalhes,
+        props.cor || '#d97706',
+      )).addTo(areaIconLayer)
+    })
+
+    const possuiAlerta = areasGeoJSON.features.some(feature =>
+      feature.properties?.em_alerta === true || feature.properties?.em_alerta === 'true'
+    )
+    let fase = false
+    const pulsar = () => {
+      fase = !fase
+      areaLayer.eachLayer(layer => {
+        const props = layer.feature?.properties || {}
+        if (props.em_alerta === true || props.em_alerta === 'true') {
+          layer.setStyle({
+            fillOpacity: fase ? 0.38 : 0.07,
+            weight: fase ? 5 : 2.5,
+          })
+        }
+      })
+    }
+    if (!possuiAlerta) return undefined
+    pulsar()
+    const timer = window.setInterval(pulsar, 700)
+    return () => window.clearInterval(timer)
+  }, [areasGeoJSON])
 
   useEffect(() => {
     const { drawingLayer, previewLayer } = layersRef.current

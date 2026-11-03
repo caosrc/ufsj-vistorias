@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { FiAlertTriangle, FiCloudRain, FiVolume2, FiVolumeX, FiPlus, FiRefreshCw, FiMapPin } from 'react-icons/fi'
+import { CORES_AREAS_RISCO, ICONES_AREAS_RISCO, TIPOS_AREAS_RISCO } from '../data/areasRisco'
 import styles from './PainelAreasRisco.module.css'
 
 const SOUND_KEY = 'geovistorias:alerta-sonoro-areas-risco'
 
 function lerSomSalvo() {
-  try { return localStorage.getItem(SOUND_KEY) === 'true' } catch { return false }
+  try {
+    const salvo = localStorage.getItem(SOUND_KEY)
+    return salvo == null || salvo === 'true'
+  } catch { return true }
 }
 
 function formatarChuva(valor) {
@@ -33,6 +37,7 @@ export default function PainelAreasRisco({
   aoNovaArea,
   aoAtualizar,
   aoFocarArea,
+  status,
 }) {
   const [somAtivo, setSomAtivo] = useState(lerSomSalvo)
   const audioRef = useRef(null)
@@ -43,13 +48,14 @@ export default function PainelAreasRisco({
     return Number.isFinite(previsto) && Number.isFinite(limite) && previsto > limite
   })
 
-  function emitirSom() {
+  async function emitirSom() {
     try {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext
       if (!AudioContextClass) return
       audioRef.current ??= new AudioContextClass()
       const context = audioRef.current
-      if (context.state === 'suspended') void context.resume()
+      if (context.state === 'suspended') await context.resume()
+      if (context.state !== 'running') return
       const oscillator = context.createOscillator()
       const volume = context.createGain()
       oscillator.type = 'sine'
@@ -65,20 +71,33 @@ export default function PainelAreasRisco({
   }
 
   function alternarSom() {
-    setSomAtivo(atual => {
-      const proximo = !atual
-      try { localStorage.setItem(SOUND_KEY, String(proximo)) } catch {}
-      if (proximo && alertas.length) emitirSom()
-      return proximo
-    })
+    const proximo = !somAtivo
+    setSomAtivo(proximo)
+    try { localStorage.setItem(SOUND_KEY, String(proximo)) } catch {}
+    if (proximo && alertas.length) void emitirSom()
   }
 
   useEffect(() => {
     if (!somAtivo || alertas.length === 0) return undefined
-    emitirSom()
-    const timer = window.setInterval(emitirSom, 15000)
-    return () => window.clearInterval(timer)
+    void emitirSom()
+    const timer = window.setInterval(() => { void emitirSom() }, 15000)
+    const liberarAudio = () => {
+      void emitirSom()
+    }
+    window.addEventListener('pointerdown', liberarAudio)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('pointerdown', liberarAudio)
+    }
   }, [somAtivo, alertas.map(area => area.id).sort().join('|')])
+
+  useEffect(() => () => {
+    if (audioRef.current && audioRef.current.state !== 'closed') void audioRef.current.close()
+  }, [])
+
+  const contagemPorTipo = TIPOS_AREAS_RISCO
+    .map(tipo => ({ tipo, quantidade: areas.filter(area => area.tipo === tipo).length }))
+    .filter(item => item.quantidade > 0)
 
   if (!aberto) return null
 
@@ -123,6 +142,8 @@ export default function PainelAreasRisco({
         </div>
       )}
 
+      {status && <div className={styles.status} role="status">{status}</div>}
+
       <div className={styles.actions}>
         <button className={styles.primary} onClick={aoNovaArea}><FiPlus /> Desenhar área</button>
         <button className={styles.iconButton} onClick={aoAtualizar} disabled={carregando} title="Atualizar previsão" aria-label="Atualizar previsão">
@@ -143,6 +164,18 @@ export default function PainelAreasRisco({
         <span>Áreas cadastradas</span>
         <strong>{areas.length}</strong>
       </div>
+      {contagemPorTipo.length > 0 && (
+        <div className={styles.typeCounts} aria-label="Quantidade por tipo de área">
+          {contagemPorTipo.map(({ tipo, quantidade }) => (
+            <span key={tipo} title={tipo}>
+              <i style={{ background: CORES_AREAS_RISCO[tipo] || '#64748b' }}>
+                {ICONES_AREAS_RISCO[tipo]}
+              </i>
+              {quantidade}
+            </span>
+          ))}
+        </div>
+      )}
       {areas.length === 0 ? (
         <div className={styles.empty}>
           <FiMapPin />
@@ -164,7 +197,9 @@ export default function PainelAreasRisco({
                 key={area.id}
                 onClick={() => aoFocarArea(area)}
               >
-                <span className={styles.colorDot} style={{ background: area.cor || '#d97706' }} />
+                <span className={styles.typeIcon} style={{ background: CORES_AREAS_RISCO[area.tipo] || '#d97706' }}>
+                  {ICONES_AREAS_RISCO[area.tipo] || '⚠'}
+                </span>
                 <span className={styles.areaDetails}>
                   <strong>{area.tipo || 'Área de risco'}{emAlerta && <em>ALERTA</em>}</strong>
                   <span>{area.referencia || area.descricao || 'Sem referência local'}</span>

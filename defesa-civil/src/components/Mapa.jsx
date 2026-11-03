@@ -9,6 +9,7 @@ import {
   areasRiscoFeatureCollection,
   areaCentroide,
   CORES_AREAS_RISCO,
+  ICONES_AREAS_RISCO,
   TIPOS_AREAS_RISCO,
 } from '../data/areasRisco'
 import PainelClima from './PainelClima'
@@ -18,7 +19,8 @@ import styles from './Mapa.module.css'
 import {
   FiMapPin, FiCloud, FiX, FiCheck, FiRefreshCw, FiSquare,
   FiLayers, FiBookOpen, FiAlertTriangle, FiChevronDown,
-  FiChevronRight, FiNavigation, FiClipboard, FiZoomIn,
+  FiChevronRight, FiNavigation, FiClipboard, FiZoomIn, FiCloudRain,
+  FiRotateCcw, FiTrash2,
 } from 'react-icons/fi'
 
 maplibregl.setWorkerUrl(maplibreWorkerUrl)
@@ -133,6 +135,7 @@ export default function Mapa() {
   const mapRef   = useRef(null)
   const mapGl    = useRef(null)
   const leafletMapRef = useRef(null)
+  const markersAreasRiscoRef = useRef([])
   const loadedRef = useRef(false)
   const drawRef  = useRef({ ativo: false, pontos: [] })
   const nivelRef = useRef('R2')
@@ -150,7 +153,7 @@ export default function Mapa() {
   const [salvandoArea,    setSalvandoArea]    = useState(false)
   const [nivelRisco,      setNivelRisco]      = useState('R2')
   const [tipoAreaRisco,   setTipoAreaRisco]   = useState('Encostas')
-  const [limiteChuva,     setLimiteChuva]     = useState('')
+  const [limiteChuva,     setLimiteChuva]     = useState('35')
   const [dataInicioRisco, setDataInicioRisco] = useState(() => new Date().toISOString().slice(0, 10))
   const [descRisco,       setDescRisco]       = useState('')
   const [referenciaRisco, setReferenciaRisco] = useState('')
@@ -676,6 +679,101 @@ export default function Mapa() {
     mapGl.current?.getSource('areas-risco')?.setData(areasGeoJSON)
   }, [areasGeoJSON, mapLoaded, webglError])
 
+  useEffect(() => {
+    const map = mapGl.current
+    if (!map || !mapLoaded || webglError) return undefined
+
+    markersAreasRiscoRef.current.forEach(marker => marker.remove())
+    markersAreasRiscoRef.current = []
+
+    areasGeoJSON.features.forEach(feature => {
+      const properties = feature.properties || {}
+      const centro = areaCentroide({ geojson: feature.geometry })
+      if (!centro) return
+
+      const emAlerta = properties.em_alerta === true || properties.em_alerta === 'true'
+      const color = properties.cor || CORES_AREAS_RISCO[properties.tipo] || '#d97706'
+      const markerElement = document.createElement('div')
+      markerElement.className = `mapa-area-marker${emAlerta ? ' mapa-area-marker-alerta' : ''}`
+      markerElement.style.setProperty('--area-marker-color', color)
+      markerElement.setAttribute('role', 'img')
+      markerElement.setAttribute(
+        'aria-label',
+        `${properties.tipo || 'Área de risco'}${emAlerta ? ', alerta de chuva' : ''}`,
+      )
+      const icon = document.createElement('span')
+      icon.className = 'mapa-area-marker-icone'
+      icon.textContent = ICONES_AREAS_RISCO[properties.tipo] || '⚠'
+      markerElement.appendChild(icon)
+
+      markerElement.addEventListener('click', event => {
+        event.stopPropagation()
+        const chuva = properties.previsao_24h_mm == null
+          ? 'sem dado'
+          : `${Number(properties.previsao_24h_mm).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mm`
+        const detalhes = [
+          properties.descricao,
+          `Previsão 24 h: ${chuva}`,
+          `Limite: ${properties.limite_precipitacao_mm == null ? '—' : `${Number(properties.limite_precipitacao_mm).toLocaleString('pt-BR')} mm`}`,
+          properties.referencia && `Referência: ${properties.referencia}`,
+          properties.observacao && `Observação: ${properties.observacao}`,
+          CIDADES[properties.cidade]?.nome,
+        ].filter(Boolean).join('\n')
+        new maplibregl.Popup({ closeButton: true, maxWidth: '240px' })
+          .setLngLat([centro.longitude, centro.latitude])
+          .setDOMContent(popupSeguro(
+            `${properties.tipo || 'Área de risco'} · ${properties.nivel || ''}`,
+            detalhes,
+            color,
+            emAlerta ? 'ALERTA · chuva acima do limite' : '',
+          ))
+          .addTo(map)
+      })
+
+      const marker = new maplibregl.Marker({ element: markerElement, anchor: 'center' })
+        .setLngLat([centro.longitude, centro.latitude])
+        .addTo(map)
+      markersAreasRiscoRef.current.push(marker)
+    })
+
+    return () => {
+      markersAreasRiscoRef.current.forEach(marker => marker.remove())
+      markersAreasRiscoRef.current = []
+    }
+  }, [areasGeoJSON, mapLoaded, webglError])
+
+  useEffect(() => {
+    const map = mapGl.current
+    if (!map || !mapLoaded || webglError) return undefined
+
+    const temAlerta = areasGeoJSON.features.some(feature =>
+      feature.properties?.em_alerta === true || feature.properties?.em_alerta === 'true'
+    )
+    let fase = false
+    const atualizarPulso = () => {
+      fase = !fase
+      try {
+        map.setPaintProperty('areas-fill', 'fill-opacity', [
+          'case', ['==', ['get', 'em_alerta'], true], fase ? 0.38 : 0.07, 0.2,
+        ])
+        map.setPaintProperty('areas-outline', 'line-width', [
+          'case', ['==', ['get', 'em_alerta'], true], fase ? 5 : 2.5, 2.5,
+        ])
+        map.setPaintProperty('areas-outline', 'line-opacity', [
+          'case', ['==', ['get', 'em_alerta'], true], fase ? 1 : 0.42, 1,
+        ])
+      } catch {}
+    }
+
+    if (!temAlerta) {
+      atualizarPulso()
+      return undefined
+    }
+    atualizarPulso()
+    const timer = window.setInterval(atualizarPulso, 700)
+    return () => window.clearInterval(timer)
+  }, [areasGeoJSON, mapLoaded, webglError])
+
   // ── Terreno 3D ──────────────────────────────────────────────
   useEffect(() => {
     const map = mapGl.current
@@ -877,6 +975,19 @@ export default function Mapa() {
     mapGl.current?.getSource('draw-preview-src')?.setData({ type: 'FeatureCollection', features: [] })
   }
 
+  function desfazerPonto() {
+    drawRef.current.pontos.pop()
+    setLeafletDrawPoints([...drawRef.current.pontos])
+    atualizarDesenho(mapGl.current)
+  }
+
+  function limparPontos() {
+    drawRef.current.pontos = []
+    setLeafletDrawPoints([])
+    atualizarDesenho(mapGl.current)
+    mapGl.current?.getSource('draw-preview-src')?.setData({ type: 'FeatureCollection', features: [] })
+  }
+
   function limparDesenho() {
     drawRef.current.pontos = []
     setLeafletDrawPoints([])
@@ -890,7 +1001,8 @@ export default function Mapa() {
     const geom = { type: 'Polygon', coordinates: [[...coords, coords[0]]] }
     const centro = areaCentroide({ geojson: geom })
     const limite = tipoAreaRisco === 'Interdições' ? 0 : Number(limiteChuva)
-    if (tipoAreaRisco !== 'Interdições' && (!Number.isFinite(limite) || limite < 0)) {
+    if (tipoAreaRisco !== 'Interdições'
+      && (limiteChuva.trim() === '' || !Number.isFinite(limite) || limite < 0)) {
       setErroSalvarArea('Informe o limite de chuva para as próximas 24 horas, em milímetros.')
       return
     }
@@ -927,9 +1039,10 @@ export default function Mapa() {
     setDescRisco('')
     setReferenciaRisco('')
     setObservacaoRisco('')
-    setLimiteChuva('')
+    setLimiteChuva('35')
     setDataInicioRisco(new Date().toISOString().slice(0, 10))
     setErroSalvarArea('')
+    setShowAreasRisco(true)
     carregarDados()
   }
 
@@ -940,7 +1053,7 @@ export default function Mapa() {
     setDescRisco('')
     setReferenciaRisco('')
     setObservacaoRisco('')
-    setLimiteChuva('')
+    setLimiteChuva('35')
     setErroSalvarArea('')
     setModoDesenho(null)
   }
@@ -950,6 +1063,9 @@ export default function Mapa() {
     setShowAreasRisco(false)
     setShowClima(false)
     setShowLegenda(false)
+    setTipoAreaRisco('Encostas')
+    setLimiteChuva('35')
+    setPolyRascunho(null)
     setErroSalvarArea('')
     setStatusSalvarArea('')
     limparDesenho()
@@ -1043,9 +1159,19 @@ export default function Mapa() {
           ) : modoDesenho ? (
             <>
               <span className={styles.desenhoHint}>✏️ Clique para adicionar pontos</span>
+              {drawRef.current.pontos.length > 0 && (
+                <>
+                  <button className={styles.toolBtn} title="Desfazer último ponto" onClick={desfazerPonto}>
+                    <FiRotateCcw size={13} /><span>Desfazer</span>
+                  </button>
+                  <button className={styles.toolBtn} title="Limpar todos os pontos" onClick={limparPontos}>
+                    <FiTrash2 size={13} /><span>Limpar</span>
+                  </button>
+                </>
+              )}
               {drawRef.current.pontos.length >= 3 && (
                 <button className={styles.confirmarBtn} style={{ padding: '4px 10px', fontSize: 12 }} onClick={fecharPoligono}>
-                  <FiCheck size={12} /> Fechar
+                  <FiCheck size={12} /><span>Fechar polígono</span>
                 </button>
               )}
               <button className={styles.cancelarBtn} onClick={cancelarArea}><FiX size={13} /> Cancelar</button>
@@ -1060,11 +1186,17 @@ export default function Mapa() {
               }}>
                 <FiMapPin size={13} /> Nova ocorrência
               </button>
-              <button className={styles.desenhoBtn} onClick={() => {
-                setModoOcorrencia(false)
-                setModoDesenho('polygon')
-              }}>
+              <button className={styles.desenhoBtn} onClick={iniciarDesenhoArea}>
                 <FiSquare size={12} /> Área de Risco
+              </button>
+              <button
+                className={`${styles.toolBtn} ${showAreasRisco ? styles.toolBtnActive : ''}`}
+                aria-pressed={showAreasRisco}
+                onClick={() => setShowAreasRisco(open => !open)}
+                title="Ver áreas cadastradas e alertas de chuva"
+              >
+                <FiCloudRain size={14} />
+                <span>Áreas ({areasDaCidade.length})</span>
               </button>
             </>
           )}
@@ -1105,34 +1237,126 @@ export default function Mapa() {
 
       {/* Modal confirmar área */}
       {salvandoArea && (
-        <div className={styles.modalArea}>
+        <div className={styles.modalArea} role="dialog" aria-labelledby="titulo-cadastro-area">
           <div className={styles.modalAreaHeader}>
             <FiAlertTriangle size={16} color="#f97316" />
-            <h3>Confirmar Área de Risco</h3>
+            <h3 id="titulo-cadastro-area">Cadastrar área de risco</h3>
           </div>
-          <label className={styles.modalLabel}>Nível de Risco</label>
-          <div className={styles.riscoOpcoes}>
-            {['R1','R2','R3','R4'].map(r => (
-              <button
-                key={r}
-                className={`${styles.riscoOpcao} ${nivelRisco === r ? styles.riscoOpcaoAtivo : ''}`}
-                style={nivelRisco === r ? { background: RISCO_CORES[r]+'30', borderColor: RISCO_CORES[r], color: RISCO_CORES[r] } : {}}
-                onClick={() => setNivelRisco(r)}
+          <div className={styles.formGroup}>
+            <label className={styles.modalLabel} htmlFor="tipo-area-risco">Tipo de registro</label>
+            <div className={styles.tipoSelectWrap}>
+              <span className={styles.tipoSelectIcon}>{ICONES_AREAS_RISCO[tipoAreaRisco]}</span>
+              <select
+                id="tipo-area-risco"
+                className={styles.areaSelect}
+                value={tipoAreaRisco}
+                onChange={event => {
+                  const proximoTipo = event.target.value
+                  setTipoAreaRisco(proximoTipo)
+                  setLimiteChuva(proximoTipo === 'Interdições'
+                    ? '0'
+                    : limiteChuva === '0' ? '35' : limiteChuva)
+                }}
               >
-                <span className={styles.riscoOpcaoNivel}>{r}</span>
-                <span className={styles.riscoOpcaoSub}>{RISCO_LABELS[r].label}</span>
-              </button>
-            ))}
+                {TIPOS_AREAS_RISCO.map(tipo => (
+                  <option key={tipo} value={tipo}>{ICONES_AREAS_RISCO[tipo]} {tipo}</option>
+                ))}
+              </select>
+            </div>
           </div>
-          <label className={styles.modalLabel}>Descrição (opcional)</label>
-          <input
-            className={styles.descInput}
-            placeholder="Descreva a área de risco..."
-            value={descRisco}
-            onChange={e => setDescRisco(e.target.value)}
-          />
+
+          <div className={styles.formGroup}>
+            <label className={styles.modalLabel}>Nível de risco</label>
+            <div className={styles.riscoOpcoes}>
+              {['R1','R2','R3','R4'].map(r => (
+                <button
+                  type="button"
+                  key={r}
+                  className={`${styles.riscoOpcao} ${nivelRisco === r ? styles.riscoOpcaoAtivo : ''}`}
+                  style={nivelRisco === r ? { background: RISCO_CORES[r]+'30', borderColor: RISCO_CORES[r], color: RISCO_CORES[r] } : {}}
+                  onClick={() => setNivelRisco(r)}
+                >
+                  <span className={styles.riscoOpcaoNivel}>{r}</span>
+                  <span className={styles.riscoOpcaoSub}>{RISCO_LABELS[r].label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className={styles.formGrid}>
+            <div className={styles.formGroup}>
+              <label className={styles.modalLabel} htmlFor="data-inicio-risco">Início do risco</label>
+              <input
+                id="data-inicio-risco"
+                className={styles.areaInput}
+                type="date"
+                value={dataInicioRisco}
+                onChange={event => setDataInicioRisco(event.target.value)}
+              />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.modalLabel} htmlFor="limite-chuva">Limite de chuva (mm)</label>
+              <input
+                id="limite-chuva"
+                className={styles.areaInput}
+                type="number"
+                min="0"
+                max="10000"
+                step="0.1"
+                inputMode="decimal"
+                placeholder="Ex.: 35"
+                value={limiteChuva}
+                disabled={tipoAreaRisco === 'Interdições'}
+                onChange={event => setLimiteChuva(event.target.value)}
+              />
+            </div>
+          </div>
+          <p className={styles.formHint}>
+            {tipoAreaRisco === 'Interdições'
+              ? 'Interdições não recebem alerta por previsão de chuva.'
+              : 'A área será alertada se a previsão acumulada nas próximas 24 horas superar este valor.'}
+          </p>
+
+          <div className={styles.formGroup}>
+            <label className={styles.modalLabel} htmlFor="referencia-risco">Referência local (opcional)</label>
+            <input
+              id="referencia-risco"
+              className={styles.areaInput}
+              placeholder="Rua, bairro ou ponto próximo"
+              value={referenciaRisco}
+              onChange={event => setReferenciaRisco(event.target.value)}
+            />
+          </div>
+          <div className={styles.formGroup}>
+            <label className={styles.modalLabel} htmlFor="descricao-risco">Descrição (opcional)</label>
+            <input
+              id="descricao-risco"
+              className={styles.areaInput}
+              placeholder="Descreva a área de risco"
+              value={descRisco}
+              onChange={event => setDescRisco(event.target.value)}
+            />
+          </div>
+          <div className={styles.formGroup}>
+            <label className={styles.modalLabel} htmlFor="observacao-risco">Observações (opcional)</label>
+            <textarea
+              id="observacao-risco"
+              className={styles.formTextarea}
+              placeholder="Condição observada, acesso ou orientação à equipe"
+              value={observacaoRisco}
+              onChange={event => setObservacaoRisco(event.target.value)}
+              rows={3}
+            />
+          </div>
+          {polyRascunho && (
+            <div className={styles.poligonoResumo}>
+              <FiMapPin size={13} />
+              Perímetro definido · {polyRascunho.pontos.length} vértices
+            </div>
+          )}
+          {erroSalvarArea && <p className={styles.erroArea} role="alert">{erroSalvarArea}</p>}
           <div className={styles.modalBtns}>
-            <button className={styles.confirmarBtn} onClick={confirmarArea}><FiCheck size={13} /> Salvar Área</button>
+            <button className={styles.confirmarBtn} onClick={confirmarArea}><FiCheck size={13} /> Registrar área</button>
             <button className={styles.cancelarModalBtn} onClick={cancelarArea}><FiX size={13} /> Cancelar</button>
           </div>
         </div>
@@ -1340,6 +1564,7 @@ export default function Mapa() {
             cidade={cidade}
             camada={camada}
             overlays={overlays}
+            areasGeoJSON={areasGeoJSON}
             modoDesenho={modoDesenho}
             modoOcorrencia={modoOcorrencia}
             drawPoints={leafletDrawPoints}
@@ -1355,6 +1580,21 @@ export default function Mapa() {
           />
         )}
       </div>
+
+      <PainelAreasRisco
+        aberto={showAreasRisco}
+        nomeCidade={CIDADES[cidade]?.nome || cidade}
+        areas={areasDaCidade}
+        previsoes={previsoesAreas}
+        atualizadoEm={previsaoAtualizadaEm}
+        carregando={carregandoPrevisaoAreas}
+        erro={erroPrevisaoAreas}
+        status={statusSalvarArea}
+        aoFechar={() => setShowAreasRisco(false)}
+        aoNovaArea={iniciarDesenhoArea}
+        aoAtualizar={carregarPrevisaoAreas}
+        aoFocarArea={focarArea}
+      />
     </div>
   )
 }
