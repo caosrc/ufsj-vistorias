@@ -55,7 +55,7 @@ export default function ResidentHome() {
   }
 
   if (carregando) return <PortalLayout section="Minha área"><div className={styles.loadingBox} role="status" data-testid="status-home-loading">Carregando sua área…</div></PortalLayout>
-  if (!usuario || usuario.role !== 'morador') {
+  if (!usuario || usuario.role !== 'resident') {
     return (
       <PortalLayout section="Minha área" title="Entre para acessar seu cadastro." description="Suas informações familiares ficam disponíveis apenas na sua área protegida.">
         <h2 className={styles.formHeading}>Acesso do cidadão</h2>

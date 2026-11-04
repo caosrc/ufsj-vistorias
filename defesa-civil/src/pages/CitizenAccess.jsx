@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import PortalLayout from './PortalLayout'
 import styles from './Portal.module.css'
 
 export default function CitizenAccess() {
   const { usuario, carregando, cadastrarConta, login, solicitarRedefinicaoSenha } = useAuth()
+  const location = useLocation()
   const navigate = useNavigate()
-  const [mode, setMode] = useState('login')
+  const [mode, setMode] = useState(location.pathname === '/morador/cadastro' ? 'register' : 'login')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [confirmacao, setConfirmacao] = useState('')
@@ -61,7 +62,7 @@ export default function CitizenAccess() {
         setMode('confirmation')
       } else {
         const user = await login(cleanEmail, senha)
-        if (user?.role !== 'morador') {
+        if (user?.role !== 'resident') {
           setError('Esta conta não tem acesso ao portal do cidadão. Use o acesso de servidores.')
           return
         }
@@ -78,7 +79,7 @@ export default function CitizenAccess() {
     return <PortalLayout section="Portal do cidadão"><div className={styles.loadingBox} role="status" data-testid="status-session-loading">Verificando sua sessão com segurança…</div></PortalLayout>
   }
 
-  if (usuario?.role === 'morador') {
+  if (usuario?.role === 'resident') {
     return (
       <PortalLayout section="Portal do cidadão" title="Que bom ter você por aqui." description="Sua área de morador está pronta para continuar.">
         <h2 className={styles.formHeading}>Acesso à sua área</h2>

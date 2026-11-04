@@ -7,7 +7,7 @@ import styles from './Portal.module.css'
 export default function StaffLogin() {
   const { login, sair, carregando, usuario } = useAuth()
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState('socrates.resende@gmail.com')
   const [senha, setSenha] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -22,7 +22,7 @@ export default function StaffLogin() {
     setBusy(true)
     try {
       const user = await login(email.trim(), senha)
-      if (!['admin', 'servidor'].includes(user?.role)) {
+      if (!['admin', 'staff'].includes(user?.role)) {
         try { await sair() } catch {}
         setError('Esta conta é de morador e não está autorizada para acesso da equipe. Entre pelo portal do cidadão ou solicite um convite administrativo.')
         return
@@ -35,10 +35,10 @@ export default function StaffLogin() {
     }
   }
 
-  if (carregando) return <PortalLayout section="Acesso da equipe"><div className={styles.loadingBox} role="status" data-testid="status-session-loading">Verificando sua sessão…</div></PortalLayout>
-  if (usuario && ['admin', 'servidor'].includes(usuario.role)) {
+  if (carregando) return <PortalLayout section="Acesso administrativo"><div className={styles.loadingBox} role="status" data-testid="status-session-loading">Verificando sua sessão…</div></PortalLayout>
+  if (usuario && ['admin', 'staff'].includes(usuario.role)) {
     return (
-      <PortalLayout section="Acesso da equipe" title="Bem-vinda, equipe." description="Continue para o ambiente de trabalho municipal.">
+      <PortalLayout section="Acesso administrativo" title="Acesso autorizado." description="Sua sessão está pronta para continuar no ambiente municipal.">
         <h2 className={styles.formHeading}>Sessão já iniciada</h2>
         <p className={styles.formIntro}>Você está conectado como {usuario.email}.</p>
         <Link className={styles.button} to="/dashboard" data-testid="link-staff-dashboard">Ir para o painel</Link>
@@ -47,9 +47,9 @@ export default function StaffLogin() {
   }
 
   return (
-    <PortalLayout section="Acesso da equipe" title="O território também precisa de você." description="Acesso reservado a profissionais autorizados da Defesa Civil municipal.">
-      <h2 className={styles.formHeading}>Entrar como equipe</h2>
-      <p className={styles.formIntro}>Use o e-mail associado ao seu convite de acesso.</p>
+    <PortalLayout section="Acesso administrativo" title="Entre no ambiente SISMAR." description="Acesso reservado ao administrador e à equipe autorizada da Defesa Civil municipal.">
+      <h2 className={styles.formHeading}>Entrar como administrador ou equipe</h2>
+      <p className={styles.formIntro}>Use o e-mail e a senha da sua conta autorizada.</p>
       <form className={styles.form} onSubmit={handleSubmit} noValidate>
         <div className={styles.field}>
           <label htmlFor="staff-email">E-mail</label>

@@ -24,9 +24,9 @@ export default function PortalLayout({ children, section = 'Portal do cidadão',
             <p className={styles.storyFoot}>Prevenção começa com escuta, cuidado e informação de quem vive aqui.</p>
           </div>
           <div className={styles.mapMotif} aria-hidden="true">
-            <span className={styles.contour contourOne} />
-            <span className={styles.contour contourTwo} />
-            <span className={styles.contour contourThree} />
+            <span className={`${styles.contour} ${styles.contourOne}`} />
+            <span className={`${styles.contour} ${styles.contourTwo}`} />
+            <span className={`${styles.contour} ${styles.contourThree}`} />
             <span className={styles.mapPin}><i /></span>
             <span className={styles.mapCaption}>Território · comunidade · cuidado</span>
           </div>

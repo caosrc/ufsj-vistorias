@@ -59,9 +59,9 @@ export default function PasswordUpdate() {
         <button className={styles.button} type="submit" disabled={busy || !usuario} data-testid="button-update-password">{busy ? 'Atualizando…' : 'Salvar nova senha'}</button>
       </form>
       <div className={styles.switchLine} style={{ marginTop: 18 }}>
-        {success && usuario?.role === 'morador' ? <Link className={styles.softLink} to="/morador/inicio" data-testid="link-continue-resident">Ir para minha área</Link> : null}
-        {success && ['admin', 'servidor'].includes(usuario?.role) ? <button type="button" className={styles.textButton} onClick={() => navigate('/dashboard')} data-testid="button-continue-staff">Continuar para o painel</button> : null}
-        {!success && <Link className={styles.softLink} to={usuario?.role === 'morador' ? '/morador/acesso' : '/setores/login'} data-testid="link-back-to-sign-in">Voltar para entrar</Link>}
+        {success && usuario?.role === 'resident' ? <Link className={styles.softLink} to="/morador/inicio" data-testid="link-continue-resident">Ir para minha área</Link> : null}
+        {success && ['admin', 'staff'].includes(usuario?.role) ? <button type="button" className={styles.textButton} onClick={() => navigate('/dashboard')} data-testid="button-continue-staff">Continuar para o painel</button> : null}
+        {!success && <Link className={styles.softLink} to={usuario?.role === 'resident' ? '/morador/acesso' : '/setores/login'} data-testid="link-back-to-sign-in">Voltar para entrar</Link>}
       </div>
     </PortalLayout>
   )

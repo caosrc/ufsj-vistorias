@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { FiMap, FiClipboard, FiBarChart2, FiChevronLeft, FiChevronRight, FiTrendingUp, FiMonitor } from 'react-icons/fi'
+import { FiMap, FiClipboard, FiBarChart2, FiChevronLeft, FiChevronRight, FiTrendingUp, FiMonitor, FiShield, FiUserPlus } from 'react-icons/fi'
 import styles from './Sidebar.module.css'
 
 const NAV_ITEMS = [
@@ -9,6 +9,8 @@ const NAV_ITEMS = [
   { to: '/dashboard', icon: <FiBarChart2 />, label: 'Painel Operacional' },
   { to: '/declividade', icon: <FiTrendingUp />, label: 'Declividade' },
   { to: '/monitoramento', icon: <FiMonitor />, label: 'Monitoramento' },
+  { to: '/setores/login', icon: <FiShield />, label: 'Acesso do administrador' },
+  { to: '/morador/cadastro', icon: <FiUserPlus />, label: 'Cadastro do cidadão' },
 ]
 
 export default function Sidebar() {

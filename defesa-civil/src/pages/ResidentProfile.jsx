@@ -102,7 +102,7 @@ export default function ResidentProfile() {
   }
 
   if (carregando) return <PortalLayout section="Cadastro familiar"><div className={styles.loadingBox} role="status" data-testid="status-profile-loading">Carregando seu cadastro…</div></PortalLayout>
-  if (!usuario || usuario.role !== 'morador') {
+  if (!usuario || usuario.role !== 'resident') {
     return (
       <PortalLayout section="Cadastro familiar" title="Acesso necessário." description="Entre com uma conta de morador confirmada para preencher ou atualizar seu cadastro.">
         <h2 className={styles.formHeading}>Entre para continuar</h2>

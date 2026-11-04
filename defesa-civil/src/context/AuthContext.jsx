@@ -3,12 +3,12 @@ import { supabase, supabaseAuthDisponivel } from '../operacional/supabaseClient'
 import {
   closeServerSession,
   getResidentProfile,
-  getServerSession,
   inviteStaff as inviteStaffRequest,
   openServerSession,
   saveResidentProfile,
 } from '../services/authApi'
-import { clearOfflineStorage, getPendingSyncCount, syncPendingOperations } from '../services/offlineStorage'
+import { clearOfflineStorage } from '../services/offlineStorage'
+import { getPendingSyncCount, syncPendingOperations } from '../services/api'
 
 const AuthContext = createContext(null)
 
