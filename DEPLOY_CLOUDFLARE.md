@@ -82,7 +82,6 @@ Adicione os seguintes segredos no repositório GitHub
 | `CLOUDFLARE_API_TOKEN`    | Cloudflare → My Profile → API Tokens → Create Token        |
 | `CLOUDFLARE_ACCOUNT_ID`   | Cloudflare Dashboard → lado direito da tela                |
 | `VITE_API_URL`            | URL do Worker (ex: `https://geovistorias-api.xxx.workers.dev`) |
-| `AUTH_USERS_JSON`         | Mesmo valor do secret Replit — ex: `[{"email":"...","senha":"..."}]` |
 
 A cada push na branch `main`:
 - Mudanças em `server/` → deploy automático do Worker

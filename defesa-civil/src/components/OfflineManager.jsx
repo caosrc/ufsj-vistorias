@@ -322,7 +322,7 @@ export default function OfflineManager() {
 
       {/* Convite de instalação na primeira visita em celulares */}
       {showInstallNudge && !installed && (
-        <aside aria-label="Instalar Geovistorias" style={{
+        <aside aria-label="Instalar SISMAR" style={{
           position: 'fixed', bottom: isMobile ? 142 : 20, right: 16, zIndex: 10001,
           width: 'min(92vw, 360px)', boxSizing: 'border-box',
           padding: '16px', color: '#e2e8f0', background: '#0f172a',
@@ -339,7 +339,7 @@ export default function OfflineManager() {
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, paddingRight: 28 }}>
             <FiSmartphone size={21} color="#38bdf8"/>
-            <strong style={{ fontSize: 15 }}>Instale o Geovistorias</strong>
+            <strong style={{ fontSize: 15 }}>Instale o SISMAR</strong>
           </div>
           <p style={{ margin: '9px 0 13px', color: '#94a3b8', fontSize: 12, lineHeight: 1.5 }}>
             Acesse como um app e use seus cadastros e monitoramentos mesmo sem internet.
@@ -428,7 +428,7 @@ export default function OfflineManager() {
                 </div>
                 <p style={{ color: '#64748b', fontSize: 11, margin: '0 0 10px' }}>
                   {installPrompt
-                    ? 'Instale o Geovistorias para acesso rápido e uso offline.'
+                    ? 'Instale o SISMAR para acesso rápido e uso offline.'
                     : isIOS
                       ? 'No iPhone/iPad, toque em Compartilhar e escolha “Adicionar à Tela de Início”.'
                       : 'Abra o menu do navegador e escolha “Instalar app” ou “Adicionar à tela inicial”.'}

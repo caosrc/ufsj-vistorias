@@ -18,11 +18,11 @@ export default function Sidebar() {
   return (
     <div className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>
       <div className={styles.logo}>
-        <FiLayers size={22} color='#2563eb' />
+        <img className={styles.logoIcon} src='/icons/sismar-192.png' alt='' />
         {!collapsed && (
           <div className={styles.logoText}>
-            <span className={styles.logoTitle}>Geovistorias</span>
-            <span className={styles.logoSub}>Ouro Branco · Congonhas</span>
+            <span className={styles.logoTitle}>SISMAR</span>
+            <span className={styles.logoSub}>Defesa Civil · MG</span>
           </div>
         )}
       </div>

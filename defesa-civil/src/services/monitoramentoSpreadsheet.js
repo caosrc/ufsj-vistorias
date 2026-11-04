@@ -187,7 +187,7 @@ async function appendPhotoRows(workbook, sheet, properties) {
 export async function buildMonitoramentosWorkbook(properties = []) {
   const ExcelJS = await loadExcelJs()
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = 'Geovistorias'
+  workbook.creator = 'SISMAR'
   workbook.subject = 'Imóveis, relatórios, fotos e medições do Monitoramento'
   workbook.title = 'Exportação de Imóveis do Monitoramento'
   workbook.created = new Date()

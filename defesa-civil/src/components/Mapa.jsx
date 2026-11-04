@@ -1120,6 +1120,10 @@ export default function Mapa() {
       {/* Toolbar superior */}
       <div className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
+          <div className={styles.toolbarBrand}>
+            <img src='/icons/sismar-192.png' alt='' />
+            <strong>SISMAR</strong>
+          </div>
           <select className={styles.select} value={cidade} onChange={e => setCidade(e.target.value)}>
             {Object.values(CIDADES).map(c => <option key={c.codigo} value={c.codigo}>{c.nome}</option>)}
           </select>

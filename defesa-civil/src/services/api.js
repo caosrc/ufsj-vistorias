@@ -30,25 +30,12 @@ export function setAppAccessToken(token) {
 }
 
 export async function fetchApi(url, options = {}) {
-  const token = getAppAccessToken()
-  if (!token) {
-    const error = new Error('Entre novamente para acessar os dados.')
-    error.status = 401
-    throw error
-  }
-
-  const response = await fetch(url, {
+  return fetch(url, {
     ...options,
     headers: {
       ...(options.headers || {}),
-      Authorization: `Bearer ${token}`,
     },
   })
-  if (response.status === 401) {
-    setAppAccessToken(null)
-    if (typeof window !== 'undefined') window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
-  }
-  return response
 }
 
 const RESOURCE_PATHS = {

@@ -23,6 +23,8 @@
 
 .toolbarLeft { display: flex; align-items: center; gap: 10px; }
 .toolbarRight { display: flex; align-items: center; gap: 7px; }
+.toolbarBrand { display: none; align-items: center; gap: 5px; color: #123b80; font-size: 12px; }
+.toolbarBrand img { width: 25px; height: 25px; object-fit: contain; }
 
 .select {
   background: #f8fafc;
@@ -557,6 +559,11 @@
     flex-shrink: 1;
   }
 
+  .toolbarBrand {
+    display: flex;
+    flex-shrink: 0;
+  }
+
   .toolbarRight {
     gap: 4px;
     flex-shrink: 0;
@@ -577,7 +584,7 @@
   .select {
     padding: 5px 8px;
     font-size: 12px;
-    max-width: 130px;
+    max-width: 118px;
   }
 
   .toolBtn {

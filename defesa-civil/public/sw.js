@@ -1,14 +1,15 @@
-// ── Geovistorias Service Worker v8 ─────────────────────────────
-const CACHE_APP   = 'geovistorias-app-v8'
+// ── SISMAR Service Worker v9 ───────────────────────────────────
+const CACHE_APP   = 'geovistorias-app-v9'
 const CACHE_TILES = 'geovistorias-tiles-v2'
 const CACHE_TILES_CORS = 'geovistorias-tiles-cors-v1'
 const CACHE_API   = 'geovistorias-api-v5'
 
 const APP_SHELL = [
-  '/', '/index.html', '/manifest.json', '/icone.png',
-  '/icons/geovistorias-192.png',
-  '/icons/geovistorias-512.png',
-  '/icons/geovistorias-maskable-512.png',
+  '/', '/index.html', '/manifest.json',
+  '/icons/sismar-180.png',
+  '/icons/sismar-192.png',
+  '/icons/sismar-512.png',
+  '/icons/sismar-maskable-512.png',
 ]
 
 // ── Install ────────────────────────────────────────────────────
@@ -76,11 +77,6 @@ self.addEventListener('fetch', event => {
   // APIs externas (clima, elevação) → CacheFirst com TTL longo
   if (EXT_DATA_HOSTS.some(h => url.hostname.includes(h))) {
     event.respondWith(cacheFirstNoCors(req))
-    return
-  }
-
-  // Rotas de autenticação → nunca interceptar, deixar ir direto à rede
-  if (url.pathname.startsWith('/api/auth/')) {
     return
   }
 

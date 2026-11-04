@@ -1,9 +1,9 @@
 {
-  "name": "Geovistorias — Defesa Civil",
-  "short_name": "Geovistorias",
-  "description": "Sistema WebGIS de monitoramento geotécnico — Ouro Branco e Congonhas MG",
-  "theme_color": "#0b1220",
-  "background_color": "#0b1220",
+  "name": "SISMAR — Sistema Integrado de Mapeamento de Áreas de Risco",
+  "short_name": "SISMAR",
+  "description": "Sistema Integrado de Mapeamento de Áreas de Risco — Defesa Civil",
+  "theme_color": "#0849b8",
+  "background_color": "#0849b8",
   "display": "standalone",
   "orientation": "any",
   "start_url": "/",
@@ -12,19 +12,19 @@
   "categories": ["utilities", "government"],
   "icons": [
     {
-      "src": "/icons/geovistorias-192.png",
+      "src": "/icons/sismar-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/geovistorias-512.png",
+      "src": "/icons/sismar-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/geovistorias-maskable-512.png",
+      "src": "/icons/sismar-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

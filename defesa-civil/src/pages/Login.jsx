@@ -34,8 +34,8 @@ export default function Login() {
       <div className={styles.card}>
 
         <div className={styles.logoWrap}>
-          <img src='/icone.png' alt='Geovistorias' className={styles.logo} />
-          <h1 className={styles.titulo}>Geovistorias</h1>
+          <img src='/icons/sismar-192.png' alt='SISMAR' className={styles.logo} />
+          <h1 className={styles.titulo}>SISMAR</h1>
           <p className={styles.subtitulo}>DEFESA CIVIL · OURO BRANCO &amp; CONGONHAS</p>
         </div>
 

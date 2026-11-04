@@ -38,6 +38,13 @@
   overflow: hidden;
 }
 
+.logoIcon {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  object-fit: contain;
+}
+
 .logoTitle {
   font-size: 15px;
   font-weight: 700;

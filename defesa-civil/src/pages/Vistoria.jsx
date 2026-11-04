@@ -874,7 +874,7 @@ async function exportKMZ(vistorias) {
   const kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
-    <name>Geovistorias — ${new Date().toLocaleDateString('pt-BR')}</name>
+    <name>SISMAR — ${new Date().toLocaleDateString('pt-BR')}</name>
     ${placemarks}
   </Document>
 </kml>`
@@ -1328,7 +1328,7 @@ async function exportarPDFVistoria(v) {
     doc.setFillColor(248,250,252); doc.rect(0, 283, W, 14, 'F')
     doc.setFillColor(rR,rG,rB); doc.rect(0, 283, W, 0.7, 'F')
     doc.setFontSize(6.5); doc.setFont('helvetica','italic'); doc.setTextColor(148,163,184)
-    doc.text('Geovistorias — Sistema WebGIS Defesa Civil · Ouro Branco & Congonhas MG', PL, 290)
+    doc.text('SISMAR — Sistema Integrado de Mapeamento de Áreas de Risco', PL, 290)
     doc.text(`Documento técnico oficial · ${new Date().toLocaleDateString('pt-BR')}`, W - PR, 290, { align: 'right' })
   }
 

@@ -3,7 +3,7 @@
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type',
 }
 
 const json = (data, status = 200) =>
@@ -157,16 +157,6 @@ export default {
     if (env?.DB && !_migrated) {
       _migrated = true
       await runMigrations(env.DB)
-    }
-
-    // ── Auth ──────────────────────────────────────────────────
-    if (method === 'POST' && path === '/api/auth/login') {
-      const { email, senha } = await request.json().catch(() => ({}))
-      if (!email || !senha) return json({ error: 'Credenciais inválidas' }, 400)
-      let usuarios = []
-      try { if (env?.AUTH_USERS_JSON) usuarios = JSON.parse(env.AUTH_USERS_JSON) } catch (_) {}
-      const ok = usuarios.some(u => u.email === email.trim().toLowerCase() && u.senha === senha)
-      return ok ? json({ ok: true }) : json({ error: 'E-mail ou senha incorretos.' }, 401)
     }
 
     // ── Ping ──────────────────────────────────────────────────
