@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { FiMap, FiClipboard, FiBarChart2, FiChevronLeft, FiChevronRight, FiLayers, FiTrendingUp, FiMonitor } from 'react-icons/fi'
+import { FiMap, FiClipboard, FiBarChart2, FiChevronLeft, FiChevronRight, FiTrendingUp, FiMonitor } from 'react-icons/fi'
 import styles from './Sidebar.module.css'
 
 const NAV_ITEMS = [
@@ -22,7 +22,6 @@ export default function Sidebar() {
         {!collapsed && (
           <div className={styles.logoText}>
             <span className={styles.logoTitle}>SISMAR</span>
-            <span className={styles.logoSub}>Defesa Civil · MG</span>
           </div>
         )}
       </div>

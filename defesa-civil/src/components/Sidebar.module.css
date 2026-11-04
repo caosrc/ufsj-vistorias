@@ -52,12 +52,6 @@
   white-space: nowrap;
 }
 
-.logoSub {
-  font-size: 11px;
-  color: #94a3b8;
-  white-space: nowrap;
-}
-
 .nav {
   display: flex;
   flex-direction: column;

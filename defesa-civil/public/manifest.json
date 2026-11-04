@@ -1,7 +1,7 @@
 {
   "name": "SISMAR — Sistema Integrado de Mapeamento de Áreas de Risco",
   "short_name": "SISMAR",
-  "description": "Sistema Integrado de Mapeamento de Áreas de Risco — Defesa Civil",
+  "description": "Sistema para mapeamento e acompanhamento de áreas de risco",
   "theme_color": "#0849b8",
   "background_color": "#0849b8",
   "display": "standalone",
