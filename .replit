@@ -74,3 +74,5 @@ run = ["node", "server/index.js"]
 [userenv.shared]
 NODE_ENV = "development"
 SUPABASE_INITIAL_ADMIN_EMAIL = "socrates.resende@gmail.com"
+VITE_SUPABASE_URL = "https://bocirhsehjuvrbajcggm.supabase.co"
+VITE_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvY2lyaHNlaGp1dnJiYWpjZ2dtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3MzI0MjQsImV4cCI6MjEwOTMwODQyNH0.VRz86V10oxVsJQLtSqQu144Qro_T5xZB0Dd8qKKgCg8"

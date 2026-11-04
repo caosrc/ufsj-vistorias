@@ -1,20 +1,37 @@
 import express from 'express'
 import cors from 'cors'
 import pg from 'pg'
+import { createHmac, timingSafeEqual } from 'node:crypto'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createProxyMiddleware } from 'http-proxy-middleware'
 
 const { Pool } = pg
+const serverDir = path.dirname(fileURLToPath(import.meta.url))
+const frontendDist = path.resolve(serverDir, '../defesa-civil/dist')
 const poolerUrlValue = process.env.SUPABASE_SESSION_POOLER_URL
 const databasePassword = process.env.SUPABASE_DB_PASSWORD
+const supabaseUrlValue = process.env.VITE_SUPABASE_URL
+const supabasePublicKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
+const sessionSecret = process.env.SESSION_SECRET
 if (!poolerUrlValue || !databasePassword) {
   throw new Error('Configure os segredos SUPABASE_SESSION_POOLER_URL e SUPABASE_DB_PASSWORD.')
 }
+if (!supabaseUrlValue || !supabasePublicKey || !sessionSecret) {
+  throw new Error('Configure VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY e SESSION_SECRET.')
+}
 
 const poolerUrl = new URL(poolerUrlValue)
+const supabaseUrl = new URL(supabaseUrlValue)
 if (!poolerUrl.hostname.endsWith('.pooler.supabase.com')) {
   throw new Error('SUPABASE_SESSION_POOLER_URL precisa apontar para o Session Pooler do Supabase.')
 }
+if (!['https:', 'http:'].includes(supabaseUrl.protocol)) {
+  throw new Error('VITE_SUPABASE_URL precisa ser uma URL HTTP ou HTTPS válida.')
+}
 const supabaseCa = process.env.SUPABASE_CA_CERT?.replace(/\\n/g, '\n')
+const SESSION_COOKIE = 'sismar_session'
+const SESSION_DURATION_SECONDS = 8 * 60 * 60
 
 const pool = new Pool({
   host: poolerUrl.hostname,
@@ -30,13 +47,103 @@ const pool = new Pool({
 })
 
 const app = express()
+app.set('trust proxy', 1)
 app.use(cors())
 app.use(express.json({ limit: '100mb' }))
 app.use(express.urlencoded({ extended: true, limit: '100mb' }))
+app.use('/api', (_req, res, next) => {
+  res.set('Cache-Control', 'no-store')
+  next()
+})
 
 // ── Inicialização e migrações aditivas do Supabase ────────────
 try {
   await pool.query('SELECT 1')
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS public.app_users (
+      user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+      email TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'resident'
+        CHECK (role IN ('resident', 'staff', 'admin')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS public.cadastros_moradores (
+      user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+      nome_completo TEXT NOT NULL,
+      telefone_whatsapp TEXT NOT NULL,
+      email TEXT NOT NULL,
+      quantidade_moradores INTEGER NOT NULL CHECK (quantidade_moradores BETWEEN 1 AND 100),
+      endereco_completo TEXT NOT NULL,
+      tipo_imovel TEXT NOT NULL CHECK (tipo_imovel IN ('casa', 'apartamento', 'barraco', 'sitio', 'outro')),
+      ocupacao TEXT NOT NULL CHECK (ocupacao IN ('proprio', 'alugado', 'cedido', 'outro')),
+      tempo_residencia TEXT NOT NULL,
+      quantidade_criancas INTEGER CHECK (quantidade_criancas BETWEEN 0 AND 100),
+      quantidade_idosos INTEGER CHECK (quantidade_idosos BETWEEN 0 AND 100),
+      quantidade_mobilidade_reduzida INTEGER CHECK (quantidade_mobilidade_reduzida BETWEEN 0 AND 100),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(`
+    CREATE OR REPLACE FUNCTION public.sismar_usuario_interno()
+    RETURNS BOOLEAN
+    LANGUAGE SQL
+    STABLE
+    SECURITY DEFINER
+    SET search_path = pg_catalog, public
+    AS $$
+      SELECT EXISTS (
+        SELECT 1 FROM public.app_users
+        WHERE user_id = auth.uid() AND role IN ('staff', 'admin')
+      )
+    $$
+  `)
+  await pool.query('REVOKE ALL ON FUNCTION public.sismar_usuario_interno() FROM PUBLIC')
+  await pool.query('GRANT EXECUTE ON FUNCTION public.sismar_usuario_interno() TO authenticated')
+  await pool.query('ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY')
+  await pool.query('REVOKE ALL ON public.app_users FROM anon, authenticated')
+  await pool.query('ALTER TABLE public.cadastros_moradores ENABLE ROW LEVEL SECURITY')
+  await pool.query('GRANT SELECT, INSERT, UPDATE ON public.cadastros_moradores TO authenticated')
+  await pool.query('DROP POLICY IF EXISTS resident_profile_owner ON public.cadastros_moradores')
+  await pool.query('CREATE POLICY resident_profile_owner ON public.cadastros_moradores FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid())')
+  await pool.query('DROP POLICY IF EXISTS resident_profile_internal_read ON public.cadastros_moradores')
+  await pool.query('CREATE POLICY resident_profile_internal_read ON public.cadastros_moradores FOR SELECT TO authenticated USING (public.sismar_usuario_interno())')
+  const internalTables = [
+    'ocorrencias', 'vistorias', 'imoveis', 'areas_risco',
+    'vistoria_monitoramento', 'monitoramento_relatorios', 'monitoramento_fotos',
+    'arquivos_app', 'precipitacoes', 'escala_estado', 'materiais',
+    'checklists_ferramental', 'emprestimos', 'equipamentos_campo',
+    'checklists_viatura', 'planejamentos', 'monitoramento_cnl_cotas',
+    'radar_bilhetes', 'push_subscriptions', 'sos_ativos_db',
+    'curral_registros', 'procon_relatorios',
+  ]
+  for (const table of internalTables) {
+    await pool.query(`ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY`)
+    await pool.query(`DROP POLICY IF EXISTS shared_authenticated_all ON public.${table}`)
+    await pool.query(`DROP POLICY IF EXISTS internal_staff_all ON public.${table}`)
+    await pool.query(`CREATE POLICY internal_staff_all ON public.${table} FOR ALL TO authenticated USING (public.sismar_usuario_interno()) WITH CHECK (public.sismar_usuario_interno())`)
+    await pool.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON public.${table} TO authenticated`)
+  }
+  await pool.query('ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY')
+  await pool.query('DROP POLICY IF EXISTS profile_read_shared ON public.profiles')
+  await pool.query('DROP POLICY IF EXISTS profile_read_self_or_staff ON public.profiles')
+  await pool.query('CREATE POLICY profile_read_self_or_staff ON public.profiles FOR SELECT TO authenticated USING (id = auth.uid() OR public.sismar_usuario_interno())')
+  await pool.query('ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY')
+  await pool.query('DROP POLICY IF EXISTS shared_media_read ON storage.objects')
+  await pool.query('DROP POLICY IF EXISTS shared_media_insert ON storage.objects')
+  await pool.query('DROP POLICY IF EXISTS shared_media_update ON storage.objects')
+  await pool.query('DROP POLICY IF EXISTS shared_media_delete ON storage.objects')
+  await pool.query('DROP POLICY IF EXISTS internal_media_read ON storage.objects')
+  await pool.query('DROP POLICY IF EXISTS internal_media_insert ON storage.objects')
+  await pool.query('DROP POLICY IF EXISTS internal_media_update ON storage.objects')
+  await pool.query('DROP POLICY IF EXISTS internal_media_delete ON storage.objects')
+  await pool.query("CREATE POLICY internal_media_read ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'defesa-civil-private' AND public.sismar_usuario_interno())")
+  await pool.query("CREATE POLICY internal_media_insert ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'defesa-civil-private' AND public.sismar_usuario_interno())")
+  await pool.query("CREATE POLICY internal_media_update ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'defesa-civil-private' AND public.sismar_usuario_interno()) WITH CHECK (bucket_id = 'defesa-civil-private' AND public.sismar_usuario_interno())")
+  await pool.query("CREATE POLICY internal_media_delete ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'defesa-civil-private' AND public.sismar_usuario_interno())")
   await pool.query(`ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS area_m2 REAL`)
   await pool.query(`ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS area_vertices JSONB`)
   await pool.query(`ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS construcoes JSONB`)
@@ -68,6 +175,280 @@ const parse = (value) => {
   if (typeof value !== 'string') return value
   try { return JSON.parse(value) } catch { return [] }
 }
+
+function signSession(userId) {
+  const payload = Buffer.from(JSON.stringify({
+    sub: userId,
+    exp: Math.floor(Date.now() / 1000) + SESSION_DURATION_SECONDS,
+  })).toString('base64url')
+  const signature = createHmac('sha256', sessionSecret).update(payload).digest('base64url')
+  return `${payload}.${signature}`
+}
+
+function readSession(req) {
+  const cookieHeader = req.headers.cookie || ''
+  const cookie = cookieHeader.split(';').map((value) => value.trim())
+    .find((value) => value.startsWith(`${SESSION_COOKIE}=`))
+  if (!cookie) return null
+
+  const value = decodeURIComponent(cookie.slice(SESSION_COOKIE.length + 1))
+  const [payload, signature] = value.split('.')
+  if (!payload || !signature) return null
+  const expected = createHmac('sha256', sessionSecret).update(payload).digest()
+  let actual
+  try { actual = Buffer.from(signature, 'base64url') } catch { return null }
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null
+
+  try {
+    const session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'))
+    return session.exp > Math.floor(Date.now() / 1000) ? session : null
+  } catch {
+    return null
+  }
+}
+
+function setSessionCookie(req, res, userId) {
+  res.cookie(SESSION_COOKIE, signSession(userId), {
+    httpOnly: true,
+    secure: req.secure,
+    sameSite: 'strict',
+    path: '/',
+    maxAge: SESSION_DURATION_SECONDS * 1000,
+  })
+}
+
+async function requireSession(req, res, next) {
+  const session = readSession(req)
+  if (!session?.sub) return res.status(401).json({ error: 'Entre na sua conta para continuar.' })
+  try {
+    const { rows } = await pool.query(
+      'SELECT user_id, email, role FROM public.app_users WHERE user_id = $1',
+      [session.sub],
+    )
+    if (!rows[0]) return res.status(401).json({ error: 'Sessão inválida. Entre novamente.' })
+    req.appUser = {
+      id: rows[0].user_id,
+      email: rows[0].email,
+      role: rows[0].role,
+    }
+    next()
+  } catch (error) {
+    console.error('Falha ao consultar usuário autenticado:', error.message)
+    res.status(500).json({ error: 'Não foi possível validar sua conta.' })
+  }
+}
+
+function requireInternal(req, res, next) {
+  if (!['staff', 'admin'].includes(req.appUser?.role)) {
+    return res.status(403).json({ error: 'Esta área é exclusiva dos setores autorizados.' })
+  }
+  next()
+}
+
+function requireAdmin(req, res, next) {
+  if (req.appUser?.role !== 'admin') {
+    return res.status(403).json({ error: 'Somente administradores podem convidar servidores.' })
+  }
+  next()
+}
+
+function requireResident(req, res, next) {
+  if (req.appUser?.role !== 'resident') {
+    return res.status(403).json({ error: 'Esta função é exclusiva do cadastro residencial.' })
+  }
+  next()
+}
+
+app.post('/api/auth/session', async (req, res) => {
+  const accessToken = req.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1]
+  if (!accessToken) return res.status(401).json({ error: 'Sessão do Supabase não enviada.' })
+  try {
+    const response = await fetch(new URL('/auth/v1/user', supabaseUrl), {
+      headers: {
+        apikey: supabasePublicKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!response.ok) return res.status(401).json({ error: 'Não foi possível confirmar sua sessão do Supabase.' })
+    const authUser = await response.json()
+    const email = String(authUser.email || '').trim().toLowerCase()
+    if (!authUser.id || !email) return res.status(401).json({ error: 'A conta não possui um e-mail válido.' })
+    if (!authUser.email_confirmed_at && !authUser.confirmed_at) {
+      return res.status(403).json({ error: 'Confirme seu e-mail antes de acessar o cadastro.' })
+    }
+
+    const primeiroAdmin = String(process.env.SUPABASE_INITIAL_ADMIN_EMAIL || '').trim().toLowerCase()
+    const bootstrapRole = primeiroAdmin && email === primeiroAdmin ? 'admin' : 'resident'
+    const { rows } = await pool.query(
+      `INSERT INTO public.app_users (user_id, email, role)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id) DO UPDATE SET
+         email = EXCLUDED.email,
+         role = CASE WHEN EXCLUDED.role = 'admin' THEN 'admin' ELSE public.app_users.role END,
+         updated_at = NOW()
+       RETURNING user_id, email, role`,
+      [authUser.id, email, bootstrapRole],
+    )
+    setSessionCookie(req, res, rows[0].user_id)
+    res.json({ user: { id: rows[0].user_id, email: rows[0].email, role: rows[0].role } })
+  } catch (error) {
+    console.error('Falha ao abrir sessão:', error.message)
+    res.status(502).json({ error: 'Não foi possível validar sua conta com o Supabase.' })
+  }
+})
+
+app.get('/api/auth/session', requireSession, (req, res) => {
+  res.json({ user: req.appUser })
+})
+
+app.post('/api/auth/logout', (req, res) => {
+  res.clearCookie(SESSION_COOKIE, {
+    httpOnly: true,
+    secure: req.secure,
+    sameSite: 'strict',
+    path: '/',
+  })
+  res.json({ ok: true })
+})
+
+app.get('/api/resident/profile', requireSession, requireResident, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM public.cadastros_moradores WHERE user_id = $1',
+      [req.appUser.id],
+    )
+    res.json({ profile: rows[0] || null })
+  } catch (error) {
+    console.error('Falha ao carregar cadastro residencial:', error.message)
+    res.status(500).json({ error: 'Não foi possível carregar seu cadastro.' })
+  }
+})
+
+app.put('/api/resident/profile', requireSession, requireResident, async (req, res) => {
+  const body = req.body || {}
+  const text = (value, field, max) => {
+    if (typeof value !== 'string') throw new Error(`Preencha ${field}.`)
+    const normalized = value.trim()
+    if (!normalized || normalized.length > max) throw new Error(`Confira o campo ${field}.`)
+    return normalized
+  }
+  const count = (value, field, required = false) => {
+    if ((value === '' || value == null) && !required) return null
+    const parsed = Number(value)
+    if (!Number.isInteger(parsed) || parsed < (required ? 1 : 0) || parsed > 100) {
+      throw new Error(`Informe uma quantidade válida para ${field}.`)
+    }
+    return parsed
+  }
+
+  try {
+    const nome = text(body.nome_completo, 'nome completo', 160)
+    const telefone = text(body.telefone_whatsapp, 'telefone/WhatsApp', 40)
+    const moradores = count(body.quantidade_moradores, 'moradores', true)
+    const endereco = text(body.endereco_completo, 'endereço completo', 500)
+    const tempo = text(body.tempo_residencia, 'tempo de residência', 120)
+    const tiposImovel = new Set(['casa', 'apartamento', 'barraco', 'sitio', 'outro'])
+    const tiposOcupacao = new Set(['proprio', 'alugado', 'cedido', 'outro'])
+    if (!tiposImovel.has(body.tipo_imovel)) throw new Error('Selecione um tipo de imóvel válido.')
+    if (!tiposOcupacao.has(body.ocupacao)) throw new Error('Selecione um tipo de ocupação válido.')
+    const values = [
+      req.appUser.id,
+      nome,
+      telefone,
+      req.appUser.email,
+      moradores,
+      endereco,
+      body.tipo_imovel,
+      body.ocupacao,
+      tempo,
+      count(body.quantidade_criancas, 'crianças'),
+      count(body.quantidade_idosos, 'idosos'),
+      count(body.quantidade_mobilidade_reduzida, 'pessoas com mobilidade reduzida'),
+    ]
+    const { rows } = await pool.query(
+      `INSERT INTO public.cadastros_moradores (
+         user_id, nome_completo, telefone_whatsapp, email, quantidade_moradores,
+         endereco_completo, tipo_imovel, ocupacao, tempo_residencia,
+         quantidade_criancas, quantidade_idosos, quantidade_mobilidade_reduzida
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       ON CONFLICT (user_id) DO UPDATE SET
+         nome_completo = EXCLUDED.nome_completo,
+         telefone_whatsapp = EXCLUDED.telefone_whatsapp,
+         email = EXCLUDED.email,
+         quantidade_moradores = EXCLUDED.quantidade_moradores,
+         endereco_completo = EXCLUDED.endereco_completo,
+         tipo_imovel = EXCLUDED.tipo_imovel,
+         ocupacao = EXCLUDED.ocupacao,
+         tempo_residencia = EXCLUDED.tempo_residencia,
+         quantidade_criancas = EXCLUDED.quantidade_criancas,
+         quantidade_idosos = EXCLUDED.quantidade_idosos,
+         quantidade_mobilidade_reduzida = EXCLUDED.quantidade_mobilidade_reduzida,
+         updated_at = NOW()
+       RETURNING *`,
+      values,
+    )
+    res.json({ profile: rows[0] })
+  } catch (error) {
+    const isValidationError = error instanceof Error && !error.code
+    if (isValidationError) return res.status(400).json({ error: error.message })
+    console.error('Falha ao salvar cadastro residencial:', error.message)
+    res.status(500).json({ error: 'Não foi possível salvar seu cadastro.' })
+  }
+})
+
+app.post('/api/admin/invites', requireSession, requireAdmin, async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase()
+  const redirectTo = String(req.body?.redirectTo || '')
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceKey) return res.status(503).json({ error: 'Convites indisponíveis: configure a chave administrativa do Supabase.' })
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Informe um e-mail válido.' })
+
+  try {
+    const origin = req.get('origin')
+    const redirect = new URL(redirectTo)
+    if (!origin || redirect.origin !== origin || !redirect.pathname.startsWith('/setores/')) {
+      return res.status(400).json({ error: 'O endereço de confirmação do convite não é válido.' })
+    }
+    const inviteUrl = new URL('/auth/v1/invite', supabaseUrl)
+    inviteUrl.searchParams.set('redirect_to', redirect.href)
+    const invitation = await fetch(inviteUrl, {
+      method: 'POST',
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+      signal: AbortSignal.timeout(12000),
+    })
+    const result = await invitation.json().catch(() => ({}))
+    if (!invitation.ok) {
+      return res.status(invitation.status === 422 ? 409 : 502).json({
+        error: result.msg || result.message || 'O Supabase não conseguiu enviar o convite.',
+      })
+    }
+    if (!result.id) return res.status(502).json({ error: 'O Supabase não retornou o identificador da conta convidada.' })
+    await pool.query(
+      `INSERT INTO public.app_users (user_id, email, role)
+       VALUES ($1, $2, 'staff')
+       ON CONFLICT (user_id) DO UPDATE SET email = EXCLUDED.email, role = 'staff', updated_at = NOW()`,
+      [result.id, email],
+    )
+    res.status(201).json({ ok: true, email })
+  } catch (error) {
+    console.error('Falha ao enviar convite de servidor:', error.message)
+    res.status(400).json({ error: 'Não foi possível enviar o convite. Confira o e-mail e as configurações de autenticação.' })
+  }
+})
+
+app.use('/api', async (req, res, next) => {
+  if (req.path === '/ping') return next()
+  await requireSession(req, res, (error) => {
+    if (error) return next(error)
+    requireInternal(req, res, next)
+  })
+})
 
 // ── OCORRÊNCIAS ──────────────────────────────────────────────
 app.get('/api/ocorrencias', async (req, res) => {
@@ -937,7 +1318,12 @@ app.delete('/api/precipitacoes', async (req, res) => {
 // ── Diagnóstico rápido ────────────────────────────────────────
 app.get('/api/ping', (req, res) => res.json({ ok: true, ts: Date.now() }))
 
-// ── Proxy para Vite dev server (tudo que não é /api) ──────────
+// ── Arquivos estáticos em produção e proxy para Vite no desenvolvimento ──
+const productionBuild = process.env.NODE_ENV === 'production'
+if (productionBuild) {
+  app.use(express.static(frontendDist, { index: false, maxAge: '1d' }))
+}
+
 const viteProxy = createProxyMiddleware({
   target: 'http://localhost:5173',
   changeOrigin: true,
@@ -959,7 +1345,12 @@ const viteProxy = createProxyMiddleware({
 
 app.use((req, res, next) => {
   if (req.path.startsWith('/api')) return next()
-  viteProxy(req, res, next)
+  if (productionBuild) {
+    return res.sendFile(path.join(frontendDist, 'index.html'), (error) => {
+      if (error) next(error)
+    })
+  }
+  return viteProxy(req, res, next)
 })
 
 const PORT = process.env.PORT || 5000

@@ -11,6 +11,9 @@ type DisabledSupabaseClient = {
     getSession: (...args: unknown[]) => any
     onAuthStateChange: (...args: unknown[]) => any
     signInWithPassword: (...args: unknown[]) => any
+    signUp: (...args: unknown[]) => any
+    resetPasswordForEmail: (...args: unknown[]) => any
+    updateUser: (...args: unknown[]) => any
     signOut: (...args: unknown[]) => any
   }
 }
@@ -26,12 +29,14 @@ const supabaseAnonKey = String(
   '',
 ).trim()
 const usarSupabase = String(import.meta.env.VITE_USE_SUPABASE || '').toLowerCase() === 'true'
+const clienteSupabaseConfigurado = Boolean(supabaseUrl && supabaseAnonKey)
 
 // O build do Netlify injeta essas variáveis VITE_* no frontend. No Replit,
-// quando elas não existem, o app continua usando o servidor Express local.
-export const supabaseDisponivel = usarSupabase && Boolean(supabaseUrl && supabaseAnonKey)
+// a autenticação usa o Supabase, mas as operações de dados continuam no Express.
+export const supabaseAuthDisponivel = clienteSupabaseConfigurado
+export const supabaseDisponivel = usarSupabase && clienteSupabaseConfigurado
 
-export const supabase = supabaseDisponivel
+export const supabase = clienteSupabaseConfigurado
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
     })
@@ -45,6 +50,9 @@ export const supabase = supabaseDisponivel
         getSession: supabaseDisabled,
         onAuthStateChange: supabaseDisabled,
         signInWithPassword: supabaseDisabled,
+        signUp: supabaseDisabled,
+        resetPasswordForEmail: supabaseDisabled,
+        updateUser: supabaseDisabled,
         signOut: supabaseDisabled,
       },
     } as DisabledSupabaseClient)

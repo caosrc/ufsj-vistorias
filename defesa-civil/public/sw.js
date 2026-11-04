@@ -1,5 +1,5 @@
 // ── SISMAR Service Worker v9 ───────────────────────────────────
-const CACHE_APP   = 'geovistorias-app-v9'
+const CACHE_APP   = 'geovistorias-app-v10'
 const CACHE_TILES = 'geovistorias-tiles-v2'
 const CACHE_TILES_CORS = 'geovistorias-tiles-cors-v1'
 const CACHE_API   = 'geovistorias-api-v5'
@@ -37,7 +37,7 @@ self.addEventListener('install', event => {
 
 // ── Activate ──────────────────────────────────────────────────
 self.addEventListener('activate', event => {
-  const KEEP = [CACHE_APP, CACHE_TILES, CACHE_TILES_CORS, CACHE_API]
+  const KEEP = [CACHE_APP, CACHE_TILES, CACHE_TILES_CORS]
   event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(keys.filter(k => !KEEP.includes(k)).map(k => caches.delete(k))))
@@ -80,9 +80,13 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // API local /api/ → NetworkFirst com fallback em cache
+  // Apenas tiles são persistidos; dados privados da API nunca entram no cache.
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirstApi(req))
+    if (/\/api\/(?:map-tile|sat-tile|dem-tile)\//.test(url.pathname)) {
+      event.respondWith(networkFirstTileApi(req))
+    } else {
+      event.respondWith(networkOnlyApi(req))
+    }
     return
   }
 
@@ -120,29 +124,26 @@ async function cacheFirstNoCors(request) {
   }
 }
 
-async function networkFirstApi(request) {
-  const cache = await caches.open(CACHE_API)
+async function networkOnlyApi(request) {
   try {
-    const response = await fetch(request)
-    if (response.ok) {
-      cache.put(request, response.clone())
-      return response
-    }
-    if (/\/api\/(?:map-tile|sat-tile)\//.test(new URL(request.url).pathname)) {
-      const cachedTile = await (await caches.open(CACHE_TILES)).match(request)
-      if (cachedTile) return cachedTile
-    }
-    return response
+    return await fetch(request)
   } catch {
-    const cached = await cache.match(request)
-    if (cached) return cached
-    // Tiles pré-baixados pelo painel offline ficam no cache separado.
-    const cachedTile = await (await caches.open(CACHE_TILES)).match(request)
-    if (cachedTile) return cachedTile
     return new Response(JSON.stringify({ error: 'API indisponível offline' }), {
       status: 503,
       headers: { 'Content-Type': 'application/json', 'X-Offline': 'true' },
     })
+  }
+}
+
+async function networkFirstTileApi(request) {
+  const cache = await caches.open(CACHE_TILES)
+  try {
+    const response = await fetch(request)
+    if (response.ok) await cache.put(request, response.clone())
+    return response
+  } catch {
+    const cached = await cache.match(request)
+    return cached || new Response('', { status: 504 })
   }
 }
 
@@ -233,6 +234,11 @@ self.addEventListener('message', async event => {
   // Limpar cache de tiles
   if (type === 'CLEAR_TILES') {
     await caches.delete(CACHE_TILES)
+    port?.postMessage({ type: 'CLEARED' })
+  }
+
+  if (type === 'CLEAR_API_CACHE') {
+    await caches.delete(CACHE_API)
     port?.postMessage({ type: 'CLEARED' })
   }
 })

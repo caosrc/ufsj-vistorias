@@ -175,3 +175,42 @@ export async function removeOfflineOperation(id) {
 export async function removeOfflineOperations(ids) {
   await Promise.all(ids.map(removeOfflineOperation))
 }
+
+export async function clearOfflineStorage() {
+  const db = await openDatabase()
+  if (db) {
+    try {
+      await Promise.all([
+        runTransaction(db, CACHE_STORE, 'readwrite', store => store.clear()),
+        runTransaction(db, QUEUE_STORE, 'readwrite', store => store.clear()),
+      ])
+    } catch {
+      // Tenta também limpar o armazenamento alternativo abaixo.
+    }
+  }
+
+  try {
+    const legacyKeys = new Set([
+      QUEUE_KEY,
+      'ocorrencias',
+      'vistorias',
+      'imoveis',
+      'areasRisco',
+      'precipitacoes',
+      'monitoramento',
+      'vistoria_monitoramento_enrolled',
+    ])
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index)
+      if (key && (key.startsWith(CACHE_PREFIX) || legacyKeys.has(key))) {
+        localStorage.removeItem(key)
+      }
+    }
+  } catch {
+    // O app continua podendo sair; navegadores privados podem bloquear storage.
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.serviceWorker?.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_API_CACHE' })
+  }
+}
