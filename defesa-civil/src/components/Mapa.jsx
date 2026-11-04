@@ -147,7 +147,7 @@ export default function Mapa() {
   const [showClima,       setShowClima]       = useState(false)
   const [showLegenda,     setShowLegenda]     = useState(false)
   const [showAreasRisco,  setShowAreasRisco]  = useState(false)
-  const [showCamadas,     setShowCamadas]     = useState(true)
+  const [showMapOptions,  setShowMapOptions]  = useState(false)
   const [modoDesenho,     setModoDesenho]     = useState(null)
   const [salvandoArea,    setSalvandoArea]    = useState(false)
   const [nivelRisco,      setNivelRisco]      = useState('R2')
@@ -168,10 +168,7 @@ export default function Mapa() {
   const [areaEditando,    setAreaEditando]    = useState(null)
   const [overlays,        setOverlays]        = useState({
     areas: true, vistorias: true,
-    pluviometrico: false, idesisema: false, incendios: false,
   })
-  const [pluvioCarregando, setPluvioCarregando] = useState(false)
-  const [pluvioAcum,      setPluvioAcum]      = useState(null)
   const [precipitacao,    setPrecipitacao]    = useState(null)
   const [secaoBase,       setSecaoBase]       = useState(true)
   const [secaoOverlay,    setSecaoOverlay]    = useState(true)
@@ -195,10 +192,6 @@ export default function Mapa() {
     [areasRisco, previsoesAreas, cidade],
   )
   cityRef.current = cidade
-  const handlePluvioStatus = useCallback((loading, amount) => {
-    setPluvioCarregando(loading)
-    setPluvioAcum(amount)
-  }, [])
 
   // ── Inicializar mapa ────────────────────────────────────────
   useEffect(() => {
@@ -255,26 +248,11 @@ export default function Mapa() {
       const emptyGeo = { type: 'FeatureCollection', features: [] }
 
       map.addSource('areas-risco',         { type: 'geojson', data: emptyGeo })
-      map.addSource('pluvio-src',          { type: 'geojson', data: emptyGeo })
       map.addSource('draw-src',            { type: 'geojson', data: emptyGeo })
       map.addSource('draw-preview-src',    { type: 'geojson', data: emptyGeo })
       map.addSource('gps-src',             { type: 'geojson', data: emptyGeo })
       map.addSource('vistorias-pontos-src',{ type: 'geojson', data: emptyGeo, cluster: true, clusterMaxZoom: 14, clusterRadius: 50 })
       map.addSource('vistorias-poly-src',  { type: 'geojson', data: emptyGeo })
-
-      // WMS IDESISEMA — Curvas de Nível MG
-      map.addSource('idesisema-src', {
-        type: 'raster',
-        tiles: ['https://idesisema.meioambiente.mg.gov.br/geoserver/wms?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=semad_siam:curvas_nivel,semad_siam:hipsometria&FORMAT=image/png&TRANSPARENT=TRUE&WIDTH=256&HEIGHT=256&SRS=EPSG:3857&BBOX={bbox-epsg-3857}'],
-        tileSize: 256,
-      })
-
-      // WMS NASA FIRMS — Focos de Calor
-      map.addSource('firms-src', {
-        type: 'raster',
-        tiles: ['https://firms.modaps.eosdis.nasa.gov/mapserver/wms/?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=fires_viirs_snpp_sp,fires_viirs_noaa20_sp&FORMAT=image/png&TRANSPARENT=TRUE&WIDTH=256&HEIGHT=256&SRS=EPSG:3857&BBOX={bbox-epsg-3857}'],
-        tileSize: 256,
-      })
 
       // ── Camadas de dados ──────────────────────────────────
 
@@ -348,20 +326,6 @@ export default function Mapa() {
         layout: { visibility: 'visible' },
       })
 
-      // Pluviométrico
-      map.addLayer({
-        id: 'pluvio-layer', type: 'circle', source: 'pluvio-src',
-        paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 25, 14, 55],
-          'circle-color': ['get', 'cor'],
-          'circle-opacity': 0.35,
-          'circle-stroke-width': 1,
-          'circle-stroke-color': ['get', 'cor'],
-          'circle-stroke-opacity': 0.6,
-        },
-        layout: { visibility: 'none' },
-      })
-
       // GPS
       map.addLayer({
         id: 'gps-acc', type: 'circle', source: 'gps-src',
@@ -401,10 +365,6 @@ export default function Mapa() {
         id: 'draw-preview', type: 'line', source: 'draw-preview-src',
         paint: { 'line-color': '#38bdf8', 'line-width': 1.5, 'line-dasharray': [4,4], 'line-opacity': 0.6 },
       })
-
-      // WMS overlays (inicialmente invisíveis)
-      map.addLayer({ id: 'idesisema-layer', type: 'raster', source: 'idesisema-src', paint: { 'raster-opacity': 0.55 }, layout: { visibility: 'none' } })
-      map.addLayer({ id: 'firms-layer',     type: 'raster', source: 'firms-src',     paint: { 'raster-opacity': 0.85 }, layout: { visibility: 'none' } })
 
       // ── Eventos ───────────────────────────────────────────
       map.on('mousemove', e => setCoordAtual({ lat: e.lngLat.lat, lng: e.lngLat.lng }))
@@ -746,20 +706,7 @@ export default function Mapa() {
     v('vis-pontos',        overlays.vistorias)
     v('vis-poly-fill',     overlays.vistorias)
     v('vis-poly-line',     overlays.vistorias)
-    v('idesisema-layer',   overlays.idesisema)
-    v('firms-layer',       overlays.incendios)
-    v('pluvio-layer',      overlays.pluviometrico)
   }, [overlays])
-
-  // ── Pluviométrico: carregar dados ao ativar ─────────────────
-  useEffect(() => {
-    if (overlays.pluviometrico) {
-      ativarPluviometrico()
-    } else {
-      mapGl.current?.getSource('pluvio-src')?.setData({ type: 'FeatureCollection', features: [] })
-      setPluvioAcum(null)
-    }
-  }, [overlays.pluviometrico, cidade])
 
   useEffect(() => {
     const onSynced = () => carregarDados(mapGl.current)
@@ -826,50 +773,6 @@ export default function Mapa() {
     } catch (err) {
       console.warn('Erro ao carregar dados:', err)
     }
-  }
-
-  // ── Pluviométrico (grid 3×3, Open-Meteo 7 dias) ─────────────
-  async function ativarPluviometrico() {
-    const map = mapGl.current
-    if (!map) return
-    setPluvioCarregando(true)
-    setPluvioAcum(null)
-    try {
-      const [lng0, lat0] = CIDADES[cidade].center
-      const step = 0.025
-      const pts = []
-      for (let r = -1; r <= 1; r++)
-        for (let c = -1; c <= 1; c++)
-          pts.push({ lat: lat0 + r * step, lng: lng0 + c * step })
-
-      const lats = pts.map(p => p.lat.toFixed(5)).join(',')
-      const lngs = pts.map(p => p.lng.toFixed(5)).join(',')
-      const res = await fetch(`/api/pluvio-grid?lats=${lats}&lngs=${lngs}`, { signal: AbortSignal.timeout(15000) })
-      if (!res.ok) throw new Error('API error')
-      const data = await res.json()
-      const results = Array.isArray(data) ? data : [data]
-
-      const ESCALA = [
-        { min: 0, max: 10, cor: '#22c55e' }, { min: 10, max: 30, cor: '#84cc16' },
-        { min: 30, max: 60, cor: '#eab308' }, { min: 60, max: 100, cor: '#f97316' },
-        { min: 100, max: Infinity, cor: '#ef4444' },
-      ]
-      const getCor = mm => ESCALA.find(e => mm >= e.min && mm < e.max)?.cor || '#94a3b8'
-
-      let soma = 0
-      const features = results.map((r, i) => {
-        const acum = (r.daily?.precipitation_sum || []).reduce((a, b) => a + (b || 0), 0)
-        soma += acum
-        return {
-          type: 'Feature',
-          geometry: { type: 'Point', coordinates: [pts[i].lng, pts[i].lat] },
-          properties: { cor: getCor(acum), acum: acum.toFixed(1) },
-        }
-      })
-      map.getSource('pluvio-src')?.setData({ type: 'FeatureCollection', features })
-      setPluvioAcum((soma / results.length).toFixed(1))
-    } catch { setPluvioAcum('—') }
-    finally { setPluvioCarregando(false) }
   }
 
   // ── Desenho ─────────────────────────────────────────────────
@@ -1138,6 +1041,22 @@ export default function Mapa() {
         </div>
 
         <div className={styles.toolbarRight}>
+          <div className={styles.basemapSwitcher} role="group" aria-label="Escolher mapa base">
+            {CAMADAS_BASE.slice(0, 2).map(c => (
+              <button
+                key={c.id}
+                type="button"
+                className={`${styles.basemapBtn} ${camada === c.id ? styles.basemapBtnActive : ''}`}
+                aria-pressed={camada === c.id}
+                title={`Mapa base: ${c.label}`}
+                onClick={() => setCamada(c.id)}
+              >
+                <span aria-hidden="true">{c.icone}</span>
+                {c.label}
+              </button>
+            ))}
+          </div>
+
           {modoDesenho ? (
             <>
               <span className={styles.desenhoHint}>✏️ Clique para adicionar pontos</span>
@@ -1175,6 +1094,17 @@ export default function Mapa() {
             </>
           )}
 
+          <button
+            type="button"
+            className={`${styles.toolBtn} ${showMapOptions ? styles.toolBtnActive : ''}`}
+            aria-label="Outros mapas e sobreposições"
+            aria-expanded={showMapOptions}
+            title="Outros mapas e sobreposições"
+            onClick={() => setShowMapOptions(open => !open)}
+          >
+            <FiLayers size={14} />
+            <span>Mais</span>
+          </button>
 
           <button
             className={`${styles.toolBtn} ${gpsAtivo ? styles.toolBtnGps : ''}`}
@@ -1343,27 +1273,24 @@ export default function Mapa() {
         </div>
       )}
 
-      {/* Painel de Camadas */}
-      <div className={`${styles.layerPanel} ${!showCamadas ? styles.layerPanelCollapsed : ''}`}>
-        <div className={styles.layerPanelHeader} onClick={() => setShowCamadas(s => !s)}>
-          <FiLayers size={13} /><span>Camadas</span>
-          {showCamadas ? <FiChevronDown size={12} /> : <FiChevronRight size={12} />}
-        </div>
-
-        {showCamadas && (
-          <>
+      {/* Opções complementares do mapa; as bases Ruas e Satélite ficam na barra superior */}
+      {showMapOptions && (
+        <div className={styles.mapOptionsPanel}>
             <div className={styles.layerSection}>
               <div className={styles.layerSectionTitle} onClick={() => setSecaoBase(s => !s)}>
                 {secaoBase ? <FiChevronDown size={10} /> : <FiChevronRight size={10} />}
-                <span>Mapa Base</span>
+                <span>Outros mapas</span>
               </div>
               {secaoBase && (
                 <div className={styles.layerBaseGrid}>
-                  {CAMADAS_BASE.map(c => (
+                  {CAMADAS_BASE.slice(2).map(c => (
                     <button
                       key={c.id}
                       className={`${styles.layerBaseBtn} ${camada === c.id ? styles.layerBaseBtnActive : ''}`}
-                      onClick={() => setCamada(c.id)}
+                      onClick={() => {
+                        setCamada(c.id)
+                        setShowMapOptions(false)
+                      }}
                     >
                       <span className={styles.layerBaseIcone}>{c.icone}</span>
                       <span className={styles.layerBaseLabel}>{c.label}</span>
@@ -1381,10 +1308,6 @@ export default function Mapa() {
               {secaoOverlay && (
                 <div className={styles.overlayList}>
                   {[
-                    { key: 'idesisema',     icone: '🗻', nome: 'Curvas de Nível MG', sub: 'IDESISEMA/SEMAD · WMS 30m' },
-                    { key: 'incendios',     icone: '🔥', nome: 'Focos de Calor', sub: 'NASA FIRMS · WMS público' },
-                    { key: 'pluviometrico', icone: '🌧️', nome: 'Índice Pluviométrico',
-                      sub: overlays.pluviometrico ? (pluvioCarregando ? 'Carregando…' : pluvioAcum != null ? `Média 7d: ${pluvioAcum} mm` : '7 dias acumulado') : '' },
                     { key: 'areas',         icone: '⚠️', nome: 'Áreas de Risco', sub: '' },
                     { key: 'vistorias',     icone: '📋', nome: 'Vistorias', sub: 'por coordenada' },
                   ].map(({ key, icone, nome, sub }) => (
@@ -1407,9 +1330,8 @@ export default function Mapa() {
                 </div>
               )}
             </div>
-          </>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Legenda */}
       {showLegenda && (
@@ -1430,21 +1352,6 @@ export default function Mapa() {
               </div>
             ))}
           </div>
-          {overlays.pluviometrico && (
-            <div className={styles.legendaSecao}>
-              <div className={styles.legendaSecaoTitle}>Índice Pluviométrico — 7 dias</div>
-              {[
-                ['#22c55e','< 10 mm','Muito baixo'], ['#84cc16','10–30 mm','Baixo'],
-                ['#eab308','30–60 mm','Moderado'],   ['#f97316','60–100 mm','Alto'],
-                ['#ef4444','> 100 mm','Muito alto'],
-              ].map(([cor, label, sub]) => (
-                <div key={label} className={styles.legendaItem}>
-                  <span className={styles.legendaDot} style={{ background: cor }} />
-                  <span className={styles.legendaItemLabel}>{label}<span className={styles.legendaItemSub}>{sub}</span></span>
-                </div>
-              ))}
-            </div>
-          )}
           <div className={styles.legendaSecao}>
             <div className={styles.legendaSecaoTitle}>Vistorias — Clusters 3D</div>
             {[['#22c55e','1–2 vistorias'], ['#eab308','3–6 vistorias'], ['#ef4444','7+ vistorias']].map(([cor, label]) => (
@@ -1544,7 +1451,6 @@ export default function Mapa() {
             onCoordinate={setCoordAtual}
             onDrawPoint={({ lat, lng }) => adicionarPonto({ lat, lng }, null)}
             onVistoriaClick={setPainelVistoria}
-            onPluvioStatus={handlePluvioStatus}
           />
         )}
       </div>

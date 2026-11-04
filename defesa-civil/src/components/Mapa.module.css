@@ -26,6 +26,42 @@
 .toolbarBrand { display: none; align-items: center; gap: 5px; color: #123b80; font-size: 12px; }
 .toolbarBrand img { width: 25px; height: 25px; object-fit: contain; }
 
+.basemapSwitcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  background: #f1f5f9;
+  flex-shrink: 0;
+}
+
+.basemapBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.basemapBtn:hover { color: #1e293b; background: #fff; }
+
+.basemapBtnActive {
+  color: #1d4ed8;
+  background: #fff;
+  border-color: #bfdbfe;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
+}
+
 .select {
   background: #f8fafc;
   color: #1e293b;
@@ -267,38 +303,21 @@
 @keyframes mapaAlertaOnda { from { transform: scale(.82); opacity: .9; } to { transform: scale(1.35); opacity: 0; } }
 :global(.mapa-area-marker-leaflet) { border: 0 !important; background: transparent !important; }
 
-/* ── Painel de Camadas ──────────────────────────────────────── */
-.layerPanel {
+/* ── Opções complementares do mapa ──────────────────────────── */
+.mapOptionsPanel {
   position: absolute;
-  bottom: 46px; left: 14px;
-  z-index: 999;
-
+  top: 58px;
+  right: 14px;
+  z-index: 2001;
   background: rgba(255,255,255,0.97);
   backdrop-filter: blur(12px);
   border: 1px solid #e2e8f0;
   border-radius: 14px;
-  overflow: hidden;
+  overflow-y: auto;
   box-shadow: 0 8px 32px rgba(0,0,0,0.10);
-  width: 210px;
-  transition: all 0.2s;
+  width: 270px;
+  max-height: calc(100vh - 76px);
 }
-
-.layerPanelCollapsed {
-  width: auto;
-}
-
-.layerPanelHeader {
-  display: flex; align-items: center; gap: 8px;
-  padding: 10px 14px;
-  font-size: 12px; font-weight: 700; color: #64748b;
-  text-transform: uppercase; letter-spacing: 0.6px;
-  cursor: pointer;
-  border-bottom: 1px solid #f1f5f9;
-  transition: color 0.15s;
-  user-select: none;
-}
-.layerPanelHeader:hover { color: #1e293b; }
-.layerPanelHeader svg:last-child { margin-left: auto; }
 
 .layerSection { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
 .layerSection:last-child { border-bottom: none; }
@@ -541,22 +560,24 @@
 
 /* ── Responsividade mobile ──────────────────────────────────── */
 @media (max-width: 768px) {
-  /* Zoom buttons: abaixar para não sobrepor toolbar */
+  /* A barra superior passa a ocupar duas linhas no celular. */
   :global(.leaflet-top.leaflet-right) {
-    top: 54px !important;
+    top: 90px !important;
   }
 
   .toolbar {
     padding: 6px 8px;
-    gap: 6px;
-    flex-wrap: nowrap;
-    min-height: 46px;
+    gap: 4px 8px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    min-height: 0;
   }
 
   .toolbarLeft {
-    gap: 6px;
-    min-width: 0;
-    flex-shrink: 1;
+    flex: 1 1 100%;
+    justify-content: space-between;
+    min-width: 100%;
+    min-height: 32px;
   }
 
   .toolbarBrand {
@@ -565,12 +586,27 @@
   }
 
   .toolbarRight {
+    flex: 1 1 100%;
+    min-width: 0;
     gap: 4px;
-    flex-shrink: 0;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .toolbarRight::-webkit-scrollbar { display: none; }
+
+  .basemapSwitcher { gap: 1px; padding: 2px; }
+
+  .basemapBtn {
+    gap: 3px;
+    padding: 5px 6px;
+    font-size: 11px;
   }
 
   .modalArea {
-    top: 54px;
+    top: 90px;
     right: 8px;
     width: min(360px, calc(100vw - 16px));
     max-height: calc(100dvh - 112px);
@@ -616,32 +652,26 @@
   }
 
   .climaPanel {
-    top: 54px;
+    top: 90px;
     right: 8px;
     width: calc(100vw - 16px);
     max-width: 300px;
   }
 
   .legendaPanel {
-    top: 54px;
+    top: 90px;
     right: 8px;
     width: calc(100vw - 16px);
     max-width: 220px;
   }
 
-  /* CAMADAS: mover para topo no mobile */
-  .layerPanel {
+  .mapOptionsPanel {
     position: absolute;
-    top: 54px !important;
-    bottom: auto !important;
-    left: 8px !important;
-    right: auto;
-    width: auto;
-    max-width: calc(100vw - 16px);
-  }
-
-  .layerPanelCollapsed {
-    width: auto;
+    top: 90px;
+    right: 8px;
+    left: auto;
+    width: min(270px, calc(100vw - 16px));
+    max-height: calc(100dvh - 150px);
   }
 }
 

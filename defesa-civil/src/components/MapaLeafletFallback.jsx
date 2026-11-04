@@ -44,7 +44,6 @@ export default function MapaLeafletFallback({
   onCoordinate,
   onDrawPoint,
   onVistoriaClick,
-  onPluvioStatus,
 }) {
   const containerRef = useRef(null)
   const layersRef = useRef({})
@@ -101,19 +100,10 @@ export default function MapaLeafletFallback({
     const drawingLayer = L.layerGroup().addTo(map)
     const previewLayer = L.layerGroup().addTo(map)
     const gpsLayer = L.layerGroup().addTo(map)
-    const rainfallLayer = L.layerGroup()
-    const contoursLayer = L.tileLayer.wms('https://idesisema.meioambiente.mg.gov.br/geoserver/wms', {
-      layers: 'semad_siam:curvas_nivel,semad_siam:hipsometria',
-      format: 'image/png', transparent: true, opacity: 0.55, attribution: 'IDESISEMA/SEMAD',
-    })
-    const firesLayer = L.tileLayer.wms('https://firms.modaps.eosdis.nasa.gov/mapserver/wms/', {
-      layers: 'fires_viirs_snpp_sp,fires_viirs_noaa20_sp',
-      format: 'image/png', transparent: true, opacity: 0.85, attribution: 'NASA FIRMS',
-    })
 
     layersRef.current = {
       map, baseLayers, areaLayer, areaIconLayer, inspectionLayer,
-      drawingLayer, previewLayer, gpsLayer, rainfallLayer, contoursLayer, firesLayer,
+      drawingLayer, previewLayer, gpsLayer,
     }
     baseLayers.ruas.addTo(map)
 
@@ -171,7 +161,6 @@ export default function MapaLeafletFallback({
   useEffect(() => {
     const {
       map, areaLayer, inspectionLayer,
-      contoursLayer, firesLayer,
     } = layersRef.current
     if (!map) return
     const setLayer = (layer, enabled) => {
@@ -181,9 +170,6 @@ export default function MapaLeafletFallback({
     setLayer(areaLayer, overlays.areas)
     setLayer(layersRef.current.areaIconLayer, overlays.areas)
     setLayer(inspectionLayer, overlays.vistorias)
-    setLayer(contoursLayer, overlays.idesisema)
-    setLayer(firesLayer, overlays.incendios)
-    setLayer(layersRef.current.rainfallLayer, overlays.pluviometrico)
   }, [overlays])
 
   useEffect(() => {
@@ -336,50 +322,6 @@ export default function MapaLeafletFallback({
     layersRef.current.map?.setView([gpsPosition.lat, gpsPosition.lng],
       Math.max(layersRef.current.map.getZoom(), 16), { animate: true })
   }, [gpsPosition])
-
-  useEffect(() => {
-    const map = layersRef.current.map
-    if (!map || !overlays.pluviometrico) {
-      onPluvioStatus?.(false, null)
-      return
-    }
-    let cancelled = false
-    const layer = layersRef.current.rainfallLayer
-    layer.clearLayers()
-    onPluvioStatus?.(true, null)
-    const [lng0, lat0] = CIDADES[cidade].center
-    const points = []
-    for (let row = -1; row <= 1; row++) {
-      for (let col = -1; col <= 1; col++) {
-        points.push({ lat: lat0 + row * 0.025, lng: lng0 + col * 0.025 })
-      }
-    }
-    const query = new URLSearchParams({
-      lats: points.map(point => point.lat.toFixed(5)).join(','),
-      lngs: points.map(point => point.lng.toFixed(5)).join(','),
-    })
-    fetch(`/api/pluvio-grid?${query}`, { signal: AbortSignal.timeout(15000) })
-      .then(response => {
-        if (!response.ok) throw new Error('Falha ao obter precipitação')
-        return response.json()
-      })
-      .then(data => {
-        if (cancelled) return
-        const results = Array.isArray(data) ? data : [data]
-        let total = 0
-        results.forEach((result, index) => {
-          const amount = (result.daily?.precipitation_sum || []).reduce((sum, value) => sum + (value || 0), 0)
-          total += amount
-          const color = amount >= 100 ? '#ef4444' : amount >= 60 ? '#f97316' : amount >= 30 ? '#eab308' : '#22c55e'
-          L.circleMarker([points[index].lat, points[index].lng], {
-            radius: 22, color, weight: 1, fillColor: color, fillOpacity: 0.32,
-          }).bindTooltip(`${amount.toFixed(1)} mm em 7 dias`).addTo(layer)
-        })
-        onPluvioStatus?.(false, (total / Math.max(results.length, 1)).toFixed(1))
-      })
-      .catch(() => { if (!cancelled) onPluvioStatus?.(false, '—') })
-    return () => { cancelled = true }
-  }, [cidade, overlays.pluviometrico, onPluvioStatus])
 
   return (
     <div
