@@ -73,3 +73,4 @@ run = ["node", "server/index.js"]
 
 [userenv.shared]
 NODE_ENV = "development"
+SUPABASE_INITIAL_ADMIN_EMAIL = "socrates.resende@gmail.com"
