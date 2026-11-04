@@ -142,6 +142,14 @@
   color: #334155;
 }
 
+.acesso {
+  display: inline-block;
+  margin-top: 8px;
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 @media (max-width: 480px) {
   .card {
     padding: 32px 20px 28px;

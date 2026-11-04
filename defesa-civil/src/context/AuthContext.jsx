@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { supabase, supabaseDisponivel } from '../operacional/supabaseClient'
+import { syncPendingOperations } from '../services/api'
 
 const AuthContext = createContext(null)
 
@@ -18,6 +19,13 @@ export function AuthProvider({ children }) {
       if (!ativo) return
       setSession(nextSession)
       setCarregando(false)
+      if (nextSession) {
+        setTimeout(() => {
+          syncPendingOperations().catch((error) => {
+            console.error('Falha ao sincronizar alterações pendentes:', error)
+          })
+        }, 0)
+      }
     })
 
     supabase.auth.getSession()
@@ -25,6 +33,11 @@ export function AuthProvider({ children }) {
         if (!ativo) return
         setSession(error ? null : data.session)
         setCarregando(false)
+        if (!error && data.session) {
+          syncPendingOperations().catch((syncError) => {
+            console.error('Falha ao sincronizar alterações pendentes:', syncError)
+          })
+        }
       })
       .catch(() => {
         if (!ativo) return
@@ -39,22 +52,12 @@ export function AuthProvider({ children }) {
   }, [])
 
   const value = useMemo(() => ({
-    autenticado: supabaseDisponivel ? Boolean(session) : true,
+    autenticado: supabaseDisponivel && Boolean(session),
+    supabaseConfigurado: supabaseDisponivel,
     carregando,
     usuario: session?.user ?? null,
     login: async (email, senha) => {
-      if (!supabaseDisponivel) {
-        try {
-          const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, senha }),
-          })
-          return response.ok
-        } catch {
-          return false
-        }
-      }
+      if (!supabaseDisponivel) return false
       const { error } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password: senha,

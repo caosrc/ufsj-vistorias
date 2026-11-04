@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import styles from './Login.module.css'
 
 export default function Login() {
-  const { login } = useAuth()
+  const { login, supabaseConfigurado } = useAuth()
   const navigate   = useNavigate()
 
   const [email,      setEmail]      = useState('')
@@ -65,14 +65,19 @@ export default function Login() {
           </div>
 
           {erro && <div className={styles.erro}>{erro}</div>}
+          {!supabaseConfigurado && (
+            <div className={styles.erro}>A autenticação do Supabase não está configurada.</div>
+          )}
 
-          <button type='submit' className={styles.btn} disabled={carregando}>
+          <button type='submit' className={styles.btn} disabled={carregando || !supabaseConfigurado}>
             {carregando ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
 
         <div className={styles.rodape}>
           Sistema WebGIS de Monitoramento Geotécnico
+          <br />
+          <span className={styles.acesso}>Entre com uma conta criada pelo administrador no Supabase Auth.</span>
         </div>
       </div>
     </div>

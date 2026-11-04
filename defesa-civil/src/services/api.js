@@ -8,10 +8,35 @@ import {
   writeOfflineIdMapping,
   writeOfflineCache,
 } from './offlineStorage'
+import { supabase, supabaseDisponivel } from '../operacional/supabaseClient'
 
 const API_URL = import.meta.env.VITE_API_URL ?? ''
 export const API_BASE = `${API_URL}/api`
 const BASE = API_BASE
+
+export async function fetchApi(url, options = {}) {
+  if (!supabaseDisponivel) {
+    const error = new Error('A autenticação Supabase não está configurada.')
+    error.status = 401
+    throw error
+  }
+
+  const { data, error: sessionError } = await supabase.auth.getSession()
+  const token = data?.session?.access_token
+  if (sessionError || !token) {
+    const error = new Error('Entre novamente para acessar os dados.')
+    error.status = 401
+    throw error
+  }
+
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      Authorization: `Bearer ${token}`,
+    },
+  })
+}
 
 const RESOURCE_PATHS = {
   ocorrencias: '/ocorrencias',
@@ -569,7 +594,7 @@ async function queueMutation(method, path, body) {
 }
 
 async function sendMutation(method, path, body) {
-  const response = await fetch(`${BASE}${path}`, {
+  const response = await fetchApi(`${BASE}${path}`, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
@@ -625,7 +650,7 @@ async function req(method, path, body) {
     if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
       fetchOptions.signal = AbortSignal.timeout(8000)
     }
-    const response = await fetch(`${BASE}${requestPath}`, fetchOptions)
+    const response = await fetchApi(`${BASE}${requestPath}`, fetchOptions)
     if (response.headers.get('X-Offline') === 'true' || response.status >= 500) {
       throw new TypeError('API indisponível')
     }
@@ -657,7 +682,7 @@ export async function syncPendingOperations() {
       syncingOperationId = operation.id
       try {
         const path = await resolveMappedPath(operation.path)
-        const response = await fetch(`${BASE}${path}`, {
+        const response = await fetchApi(`${BASE}${path}`, {
           method: operation.method,
           headers: operation.body ? { 'Content-Type': 'application/json' } : {},
           body: operation.body ? JSON.stringify(operation.body) : undefined,

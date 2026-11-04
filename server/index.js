@@ -2,14 +2,105 @@ import express from 'express'
 import cors from 'cors'
 import pg from 'pg'
 import { createProxyMiddleware } from 'http-proxy-middleware'
+import { createHash } from 'node:crypto'
 
 const { Pool } = pg
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+const poolerUrlValue = process.env.SUPABASE_SESSION_POOLER_URL
+const databasePassword = process.env.SUPABASE_DB_PASSWORD
+if (!poolerUrlValue || !databasePassword) {
+  throw new Error('Configure os segredos SUPABASE_SESSION_POOLER_URL e SUPABASE_DB_PASSWORD.')
+}
+
+const poolerUrl = new URL(poolerUrlValue)
+if (!poolerUrl.hostname.endsWith('.pooler.supabase.com')) {
+  throw new Error('SUPABASE_SESSION_POOLER_URL precisa apontar para o Session Pooler do Supabase.')
+}
+const supabaseCa = process.env.SUPABASE_CA_CERT?.replace(/\\n/g, '\n')
+
+const supabaseUrl = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '')
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Configure SUPABASE_URL e SUPABASE_ANON_KEY para autenticar as chamadas da API.')
+}
+
+const pool = new Pool({
+  host: poolerUrl.hostname,
+  port: Number(poolerUrl.port || 5432),
+  user: decodeURIComponent(poolerUrl.username),
+  password: databasePassword,
+  database: decodeURIComponent(poolerUrl.pathname.slice(1)),
+  ssl: supabaseCa
+    ? { ca: supabaseCa, rejectUnauthorized: true }
+    : { rejectUnauthorized: false },
+  connectionTimeoutMillis: 10000,
+  max: 10,
+})
 
 const app = express()
 app.use(cors())
 app.use(express.json({ limit: '100mb' }))
 app.use(express.urlencoded({ extended: true, limit: '100mb' }))
+
+const verifiedSupabaseTokens = new Map()
+const SUPABASE_TOKEN_CACHE_MS = 20_000
+
+async function requireSupabaseUser(req, res, next) {
+  const match = req.get('authorization')?.match(/^Bearer\s+(.+)$/i)
+  if (!match) return res.status(401).json({ error: 'Faça login para acessar estes dados.' })
+
+  const token = match[1]
+  const tokenHash = createHash('sha256').update(token).digest('hex')
+  const cached = verifiedSupabaseTokens.get(tokenHash)
+  if (cached && cached.expiresAt > Date.now()) {
+    req.supabaseUserId = cached.userId
+    return next()
+  }
+
+  try {
+    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${token}`,
+      },
+      signal: AbortSignal.timeout(6000),
+    })
+    if (response.status === 401 || response.status === 403) {
+      verifiedSupabaseTokens.delete(tokenHash)
+      return res.status(401).json({ error: 'Sua sessão expirou. Entre novamente.' })
+    }
+    if (!response.ok) {
+      return res.status(503).json({ error: 'Não foi possível validar a sessão no Supabase.' })
+    }
+
+    const user = await response.json()
+    if (!user?.id) return res.status(401).json({ error: 'Sessão Supabase inválida.' })
+
+    if (verifiedSupabaseTokens.size >= 2000) {
+      const oldestKey = verifiedSupabaseTokens.keys().next().value
+      if (oldestKey) verifiedSupabaseTokens.delete(oldestKey)
+    }
+    verifiedSupabaseTokens.set(tokenHash, {
+      userId: user.id,
+      expiresAt: Date.now() + SUPABASE_TOKEN_CACHE_MS,
+    })
+    req.supabaseUserId = user.id
+    return next()
+  } catch {
+    return res.status(503).json({ error: 'Autenticação Supabase temporariamente indisponível.' })
+  }
+}
+
+app.use([
+  '/api/ocorrencias',
+  '/api/vistorias',
+  '/api/imoveis',
+  '/api/areas-risco',
+  '/api/tempo-areas-risco',
+  '/api/stats',
+  '/api/geojson',
+  '/api/monitoramento',
+  '/api/precipitacoes',
+], requireSupabaseUser)
 
 // ── Auth ──────────────────────────────────────────────────────
 function getUsuarios() {
@@ -31,34 +122,40 @@ app.post('/api/auth/login', (req, res) => {
   return res.status(401).json({ error: 'E-mail ou senha incorretos.' })
 })
 
-// ── Migração automática de colunas novas ─────────────────────
-;(async () => {
-  try {
-    await pool.query(`ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS area_m2 REAL`)
-    await pool.query(`ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS area_vertices TEXT`)
-    await pool.query(`ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS construcoes TEXT`)
-    await pool.query(`ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS altura_imovel REAL`)
-    await pool.query(`ALTER TABLE vistoria_monitoramento ADD COLUMN IF NOT EXISTS area_terreno TEXT`)
-    await pool.query(`ALTER TABLE vistoria_monitoramento ADD COLUMN IF NOT EXISTS vertices_casa TEXT`)
-    await pool.query(`ALTER TABLE vistoria_monitoramento ADD COLUMN IF NOT EXISTS altura_casa REAL`)
-    await pool.query(`ALTER TABLE vistoria_monitoramento ADD COLUMN IF NOT EXISTS trincas_casa TEXT`)
-    await pool.query(`ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS edificacao_planta TEXT`)
-    await pool.query(`ALTER TABLE vistoria_monitoramento ADD COLUMN IF NOT EXISTS edificacao_planta TEXT`)
-    await pool.query(`ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS edificacao_vertices TEXT`)
-    // Tabela de precipitações (CSV importado pelo Monitoramento)
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS precipitacoes (
-        id          SERIAL PRIMARY KEY,
-        filename    TEXT,
-        dados       TEXT NOT NULL,
-        updated_at  TIMESTAMP DEFAULT NOW()
-      )
-    `)
-  } catch (_) {}
-})()
+// ── Inicialização e migrações aditivas do Supabase ────────────
+try {
+  await pool.query('SELECT 1')
+  await pool.query(`ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS area_m2 REAL`)
+  await pool.query(`ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS area_vertices JSONB`)
+  await pool.query(`ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS construcoes JSONB`)
+  await pool.query(`ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS altura_imovel REAL`)
+  await pool.query(`ALTER TABLE vistoria_monitoramento ADD COLUMN IF NOT EXISTS area_terreno JSONB`)
+  await pool.query(`ALTER TABLE vistoria_monitoramento ADD COLUMN IF NOT EXISTS vertices_casa JSONB`)
+  await pool.query(`ALTER TABLE vistoria_monitoramento ADD COLUMN IF NOT EXISTS altura_casa REAL`)
+  await pool.query(`ALTER TABLE vistoria_monitoramento ADD COLUMN IF NOT EXISTS trincas_casa JSONB`)
+  await pool.query(`ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS edificacao_planta JSONB`)
+  await pool.query(`ALTER TABLE vistoria_monitoramento ADD COLUMN IF NOT EXISTS edificacao_planta JSONB`)
+  await pool.query(`ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS edificacao_vertices JSONB`)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS precipitacoes (
+      id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+      filename TEXT,
+      dados JSONB NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `)
+  console.log('Conectado ao Supabase e esquema da API verificado.')
+} catch (error) {
+  console.error('Falha ao conectar ou preparar o banco Supabase:', error.message)
+  process.exit(1)
+}
 
 const json = (arr) => arr ? JSON.stringify(arr) : null
-const parse = (str) => { try { return str ? JSON.parse(str) : [] } catch { return [] } }
+const parse = (value) => {
+  if (value == null || value === '') return []
+  if (typeof value !== 'string') return value
+  try { return JSON.parse(value) } catch { return [] }
+}
 
 // ── OCORRÊNCIAS ──────────────────────────────────────────────
 app.get('/api/ocorrencias', async (req, res) => {

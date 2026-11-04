@@ -3,3 +3,4 @@
 - [Terrarium DEM tiles — CORS e zoom máximo](terrarium-dem-tiles.md) — S3 não envia CORS headers; tiles Terrarium só existem até z=15 (não z=16); usar proxy `/api/dem-tile/:z/:x/:y` no Express.
 - [MapLibre-GL v5/v6 API](maplibre-v5-api.md) — `supported()` saiu no v5; no v6 com Vite, registre o worker com `?worker&url` e não use layer `sky`.
 - [Instalação de pacotes Node](node-package-install-resolution.md) — o instalador do workspace pode atualizar manifests e lockfiles ao resolver faixas semver; confira as mudanças após instalar.
+- [Supabase Session Pooler](supabase-session-pooler.md) — o endpoint direto é IPv6-only neste ambiente; o pooler requer senha separada e CA para validar o certificado.

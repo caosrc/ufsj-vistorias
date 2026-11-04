@@ -9,7 +9,7 @@ Sistema WebGIS operacional para monitoramento geotécnico das cidades de **Ouro 
 - Three.js (visualização 3D de terreno)
 - Chart.js (gráficos)
 - @turf/turf (análise geoespacial)
-- Express + PostgreSQL/PostGIS (API e preview na porta 5000)
+- Express + PostgreSQL do Supabase via Session Pooler (API e preview na porta 5000)
 - xlsx (exportação Excel)
 - jszip (exportação KMZ)
 - CSS Modules (dark mode)
@@ -31,22 +31,24 @@ Sistema WebGIS operacional para monitoramento geotécnico das cidades de **Ouro 
 - API de elevação: Terrarium/AWS tiles z16 bicúbico (primário) → OpenTopoData **Copernicus GLO-30** 30m (fallback) → Open-Meteo 90m
 
 ## Executar no Replit
-O workflow `Project` inicia o Express na porta 5000 e o Vite na porta interna 5173. O Express encaminha as páginas para o Vite e atende `/api/*` diretamente.
+Os workflows iniciam o Express na porta 5000 e o Vite na porta interna 5173. O Express encaminha as páginas para o Vite e atende `/api/*` diretamente.
 
 Para iniciar manualmente em dois terminais:
 ```bash
 cd server && node index.js
 cd defesa-civil && npm run dev -- --port 5173 --host 0.0.0.0
 ```
-O backend usa o PostgreSQL de desenvolvimento do Replit por `DATABASE_URL`. O esquema desse banco está em `server/schema.postgres.sql`; o arquivo `server/schema.sql` é exclusivo do Cloudflare D1 (SQLite) e não deve ser executado no PostgreSQL.
+O backend grava no PostgreSQL do Supabase pela URI de Session Pooler. Configure `SUPABASE_SESSION_POOLER_URL` e `SUPABASE_DB_PASSWORD` como segredos, e `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` e `VITE_USE_SUPABASE=true` como variáveis compartilhadas. A chave anon é pública e fica limitada por RLS; a senha PostgreSQL permanece somente no servidor. O pooler exige TLS; para validar também a identidade do servidor, configure o segredo opcional `SUPABASE_CA_CERT` com o certificado raiz baixado em Database Settings → SSL Configuration. Sem esse certificado, a conexão é criptografada, mas a verificação da cadeia TLS fica desativada porque o certificado atual não é confiado pelo Node neste ambiente.
 
-O esquema `server/schema.postgres.sql` já foi aplicado ao banco Development deste ambiente, que está vazio e pronto para receber registros. Em uma nova configuração, aplique esse arquivo uma vez antes de usar as rotas de ocorrências, vistorias e áreas de risco.
+O esquema Supabase em `defesa-civil/supabase/schema.sql` foi aplicado ao projeto conectado. Em outra configuração, aplique esse arquivo uma vez no SQL Editor do Supabase. Não execute `server/schema.postgres.sql` no banco Supabase: ele é o esquema legado da API PostgreSQL.
+
+O login usa Supabase Auth. Desative o cadastro público no projeto e crie ou convide somente usuários da equipe em **Authentication → Users**; as contas autenticadas compartilham os dados conforme as políticas RLS. A API valida o token de cada sessão antes de ler ou alterar dados. A fila IndexedDB continua guardando alterações offline neste dispositivo e sincroniza com o Supabase quando a conexão volta.
 
 ## Áreas de risco, ocorrências e uso offline
 
 O mapa principal permite desenhar e cadastrar áreas de risco. Para registrar uma ocorrência, use **Nova ocorrência** no mapa, clique no local e complete o formulário em **Ocorrências**. As telas usam a API Express e a fila local IndexedDB do app; sem acesso às tabelas do PostgreSQL, as novas alterações ficam neste dispositivo aguardando uma API disponível para sincronizar.
 
-Para usar o mapa sem conexão, abra o controle **Uso Offline** e baixe a área do mapa antes de sair da rede. O download usa as mesmas rotas de tiles do mapa principal. O código operacional legado em `defesa-civil/src/operacional/` não está conectado às rotas principais do app; não configure o Supabase para esta integração. O armazenamento definitivo poderá ser escolhido e conectado depois.
+Para usar o mapa sem conexão, abra o controle **Uso Offline** e baixe a área do mapa antes de sair da rede. O download usa as mesmas rotas de tiles do mapa principal. O módulo legado em `defesa-civil/src/operacional/` não é incluído nas rotas ativas; os dados das telas principais e de monitoramento são gravados pela API Express no Supabase.
 
 ## Estrutura Principal
 ```

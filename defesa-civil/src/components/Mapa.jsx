@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import * as maplibregl from 'maplibre-gl'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { api } from '../services/api'
+import { api, fetchApi } from '../services/api'
 import { CIDADES, CIDADE_PADRAO } from '../data/cidades'
 import {
   areasRiscoFeatureCollection,
@@ -568,7 +568,7 @@ export default function Mapa() {
       const previsoes = {}
       for (let start = 0; start < areasComCoordenadas.length; start += 50) {
         const lote = areasComCoordenadas.slice(start, start + 50)
-        const response = await fetch('/api/tempo-areas-risco', {
+        const response = await fetchApi('/api/tempo-areas-risco', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
