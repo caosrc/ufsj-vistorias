@@ -4,10 +4,10 @@ import { useAuth } from '../context/AuthContext'
 import styles from './Login.module.css'
 
 export default function Login() {
-  const { login, supabaseConfigurado } = useAuth()
+  const { login } = useAuth()
   const navigate   = useNavigate()
 
-  const [email,      setEmail]      = useState('')
+  const [nome,       setNome]       = useState('')
   const [senha,      setSenha]      = useState('')
   const [erro,       setErro]       = useState('')
   const [carregando, setCarregando] = useState(false)
@@ -17,13 +17,16 @@ export default function Login() {
     setErro('')
     setCarregando(true)
 
-    const ok = await login(email, senha)
-    if (ok) {
-      navigate('/', { replace: true })
-    } else {
-      setErro('E-mail ou senha incorretos. Verifique e tente novamente.')
+    try {
+      const ok = await login(nome, senha)
+      if (ok) {
+        navigate('/', { replace: true })
+      } else {
+        setErro('Nome ou senha incorretos. Verifique e tente novamente.')
+      }
+    } finally {
+      setCarregando(false)
     }
-    setCarregando(false)
   }
 
   return (
@@ -38,17 +41,20 @@ export default function Login() {
 
         <form className={styles.form} onSubmit={handleSubmit}>
           <div className={styles.campo}>
-            <label className={styles.label}>E-mail</label>
-            <input
-              type='email'
+            <label className={styles.label}>Nome</label>
+            <select
               className={styles.input}
-              placeholder='seu@email.com'
-              value={email}
-              onChange={e => { setEmail(e.target.value); setErro('') }}
+              value={nome}
+              onChange={e => { setNome(e.target.value); setErro('') }}
               required
-              autoComplete='email'
               autoFocus
-            />
+              autoComplete='username'
+            >
+              <option value='' disabled>Selecione seu nome</option>
+              <option value='Sócrates'>Sócrates</option>
+              <option value='Leandro'>Leandro</option>
+              <option value='João Victor'>João Victor</option>
+            </select>
           </div>
 
           <div className={styles.campo}>
@@ -65,11 +71,8 @@ export default function Login() {
           </div>
 
           {erro && <div className={styles.erro}>{erro}</div>}
-          {!supabaseConfigurado && (
-            <div className={styles.erro}>A autenticação do Supabase não está configurada.</div>
-          )}
 
-          <button type='submit' className={styles.btn} disabled={carregando || !supabaseConfigurado}>
+          <button type='submit' className={styles.btn} disabled={carregando}>
             {carregando ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
@@ -77,7 +80,7 @@ export default function Login() {
         <div className={styles.rodape}>
           Sistema WebGIS de Monitoramento Geotécnico
           <br />
-          <span className={styles.acesso}>Entre com uma conta criada pelo administrador no Supabase Auth.</span>
+          <span className={styles.acesso}>Acesso compartilhado da equipe de Defesa Civil.</span>
         </div>
       </div>
     </div>

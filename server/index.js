@@ -2,7 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import pg from 'pg'
 import { createProxyMiddleware } from 'http-proxy-middleware'
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 
 const { Pool } = pg
 const poolerUrlValue = process.env.SUPABASE_SESSION_POOLER_URL
@@ -17,11 +17,11 @@ if (!poolerUrl.hostname.endsWith('.pooler.supabase.com')) {
 }
 const supabaseCa = process.env.SUPABASE_CA_CERT?.replace(/\\n/g, '\n')
 
-const supabaseUrl = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '')
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Configure SUPABASE_URL e SUPABASE_ANON_KEY para autenticar as chamadas da API.')
+const appAccessPassword = process.env.APP_ACCESS_PASSWORD
+if (!appAccessPassword) {
+  throw new Error('Configure o segredo APP_ACCESS_PASSWORD para habilitar o acesso ao app.')
 }
+const appPasswordDigest = createHash('sha256').update(appAccessPassword).digest()
 
 const pool = new Pool({
   host: poolerUrl.hostname,
@@ -41,53 +41,55 @@ app.use(cors())
 app.use(express.json({ limit: '100mb' }))
 app.use(express.urlencoded({ extended: true, limit: '100mb' }))
 
-const verifiedSupabaseTokens = new Map()
-const SUPABASE_TOKEN_CACHE_MS = 20_000
+const APP_USER_NAMES = new Set(['Sócrates', 'Leandro', 'João Victor'])
+const appSessions = new Map()
+const loginAttempts = new Map()
+const APP_SESSION_TTL_MS = 12 * 60 * 60 * 1000
+const LOGIN_WINDOW_MS = 15 * 60 * 1000
+const LOGIN_MAX_FAILURES = 10
 
-async function requireSupabaseUser(req, res, next) {
-  const match = req.get('authorization')?.match(/^Bearer\s+(.+)$/i)
-  if (!match) return res.status(401).json({ error: 'Faça login para acessar estes dados.' })
+function senhaCorreta(senha) {
+  const digest = createHash('sha256').update(String(senha ?? '')).digest()
+  return timingSafeEqual(digest, appPasswordDigest)
+}
 
-  const token = match[1]
+function obterSessao(token) {
+  if (!token) return null
   const tokenHash = createHash('sha256').update(token).digest('hex')
-  const cached = verifiedSupabaseTokens.get(tokenHash)
-  if (cached && cached.expiresAt > Date.now()) {
-    req.supabaseUserId = cached.userId
-    return next()
+  const session = appSessions.get(tokenHash)
+  if (!session || session.expiresAt <= Date.now()) {
+    appSessions.delete(tokenHash)
+    return null
   }
+  return { tokenHash, session }
+}
 
-  try {
-    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${token}`,
-      },
-      signal: AbortSignal.timeout(6000),
-    })
-    if (response.status === 401 || response.status === 403) {
-      verifiedSupabaseTokens.delete(tokenHash)
-      return res.status(401).json({ error: 'Sua sessão expirou. Entre novamente.' })
-    }
-    if (!response.ok) {
-      return res.status(503).json({ error: 'Não foi possível validar a sessão no Supabase.' })
-    }
+function requireAppUser(req, res, next) {
+  const match = req.get('authorization')?.match(/^Bearer\s+(.+)$/i)
+  const found = obterSessao(match?.[1])
+  if (!found) return res.status(401).json({ error: 'Faça login para acessar estes dados.' })
+  req.appSessionTokenHash = found.tokenHash
+  req.appUser = found.session
+  return next()
+}
 
-    const user = await response.json()
-    if (!user?.id) return res.status(401).json({ error: 'Sessão Supabase inválida.' })
-
-    if (verifiedSupabaseTokens.size >= 2000) {
-      const oldestKey = verifiedSupabaseTokens.keys().next().value
-      if (oldestKey) verifiedSupabaseTokens.delete(oldestKey)
-    }
-    verifiedSupabaseTokens.set(tokenHash, {
-      userId: user.id,
-      expiresAt: Date.now() + SUPABASE_TOKEN_CACHE_MS,
-    })
-    req.supabaseUserId = user.id
-    return next()
-  } catch {
-    return res.status(503).json({ error: 'Autenticação Supabase temporariamente indisponível.' })
+function tentativaBloqueada(chave) {
+  const tentativa = loginAttempts.get(chave)
+  if (!tentativa || Date.now() - tentativa.inicio >= LOGIN_WINDOW_MS) {
+    loginAttempts.delete(chave)
+    return false
   }
+  return tentativa.falhas >= LOGIN_MAX_FAILURES
+}
+
+function registrarFalhaLogin(chave) {
+  const agora = Date.now()
+  const tentativa = loginAttempts.get(chave)
+  const atual = tentativa && agora - tentativa.inicio < LOGIN_WINDOW_MS
+    ? tentativa
+    : { inicio: agora, falhas: 0 }
+  atual.falhas += 1
+  loginAttempts.set(chave, atual)
 }
 
 app.use([
@@ -100,26 +102,51 @@ app.use([
   '/api/geojson',
   '/api/monitoramento',
   '/api/precipitacoes',
-], requireSupabaseUser)
+], requireAppUser)
 
 // ── Auth ──────────────────────────────────────────────────────
-function getUsuarios() {
-  try {
-    if (process.env.AUTH_USERS_JSON) {
-      return JSON.parse(process.env.AUTH_USERS_JSON)
-    }
-  } catch (_) {}
-  return []
-}
-
 app.post('/api/auth/login', (req, res) => {
-  const { email, senha } = req.body
-  if (!email || !senha) return res.status(400).json({ error: 'Credenciais inválidas' })
-  const emailNorm = email.trim().toLowerCase()
-  const usuarios = getUsuarios()
-  const ok = usuarios.some(u => u.email === emailNorm && u.senha === senha)
-  if (ok) return res.json({ ok: true })
-  return res.status(401).json({ error: 'E-mail ou senha incorretos.' })
+  const nome = String(req.body?.nome || '').normalize('NFC').trim()
+  const senha = req.body?.senha
+  const chave = req.ip || req.socket.remoteAddress || 'desconhecido'
+
+  if (tentativaBloqueada(chave)) {
+    res.set('Retry-After', String(Math.ceil(LOGIN_WINDOW_MS / 1000)))
+    return res.status(429).json({ error: 'Muitas tentativas. Aguarde antes de tentar novamente.' })
+  }
+
+  if (!APP_USER_NAMES.has(nome) || !senhaCorreta(senha)) {
+    registrarFalhaLogin(chave)
+    return res.status(401).json({ error: 'Nome ou senha incorretos.' })
+  }
+
+  loginAttempts.delete(chave)
+  const accessToken = randomBytes(32).toString('base64url')
+  const tokenHash = createHash('sha256').update(accessToken).digest('hex')
+  const expiresAt = Date.now() + APP_SESSION_TTL_MS
+  appSessions.set(tokenHash, { name: nome, expiresAt })
+  if (appSessions.size > 5000) {
+    for (const [key, session] of appSessions) {
+      if (session.expiresAt <= Date.now()) appSessions.delete(key)
+    }
+    if (appSessions.size > 5000) {
+      const oldestKey = appSessions.keys().next().value
+      if (oldestKey) appSessions.delete(oldestKey)
+    }
+  }
+
+  res.set('Cache-Control', 'no-store')
+  return res.json({ accessToken, expiresAt, user: { name: nome } })
+})
+
+app.get('/api/auth/session', requireAppUser, (req, res) => {
+  res.set('Cache-Control', 'no-store')
+  res.json({ user: { name: req.appUser.name }, expiresAt: req.appUser.expiresAt })
+})
+
+app.post('/api/auth/logout', requireAppUser, (req, res) => {
+  appSessions.delete(req.appSessionTokenHash)
+  res.status(204).end()
 })
 
 // ── Inicialização e migrações aditivas do Supabase ────────────

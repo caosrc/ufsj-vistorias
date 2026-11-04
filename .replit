@@ -52,6 +52,10 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
+localPort = 5001
+externalPort = 3002
+
+[[ports]]
 localPort = 5173
 externalPort = 5173
 
@@ -69,8 +73,3 @@ run = ["node", "server/index.js"]
 
 [userenv.shared]
 NODE_ENV = "development"
-VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvY2lyaHNlaGp1dnJiYWpjZ2dtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3MzI0MjQsImV4cCI6MjEwOTMwODQyNH0.VRz86V10oxVsJQLtSqQu144Qro_T5xZB0Dd8qKKgCg8"
-VITE_SUPABASE_URL = "https://bocirhsehjuvrbajcggm.supabase.co"
-VITE_USE_SUPABASE = "true"
-SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvY2lyaHNlaGp1dnJiYWpjZ2dtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3MzI0MjQsImV4cCI6MjEwOTMwODQyNH0.VRz86V10oxVsJQLtSqQu144Qro_T5xZB0Dd8qKKgCg8"
-SUPABASE_URL = "https://bocirhsehjuvrbajcggm.supabase.co"

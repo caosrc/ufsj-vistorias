@@ -38,11 +38,11 @@ Para iniciar manualmente em dois terminais:
 cd server && node index.js
 cd defesa-civil && npm run dev -- --port 5173 --host 0.0.0.0
 ```
-O backend grava no PostgreSQL do Supabase pela URI de Session Pooler. Configure `SUPABASE_SESSION_POOLER_URL` e `SUPABASE_DB_PASSWORD` como segredos, e `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` e `VITE_USE_SUPABASE=true` como variáveis compartilhadas. A chave anon é pública e fica limitada por RLS; a senha PostgreSQL permanece somente no servidor. O pooler exige TLS; para validar também a identidade do servidor, configure o segredo opcional `SUPABASE_CA_CERT` com o certificado raiz baixado em Database Settings → SSL Configuration. Sem esse certificado, a conexão é criptografada, mas a verificação da cadeia TLS fica desativada porque o certificado atual não é confiado pelo Node neste ambiente.
+O backend grava no PostgreSQL do Supabase pela URI de Session Pooler. Configure `SUPABASE_SESSION_POOLER_URL`, `SUPABASE_DB_PASSWORD` e `APP_ACCESS_PASSWORD` como segredos. O pooler exige TLS; para validar também a identidade do servidor, configure o segredo opcional `SUPABASE_CA_CERT` com o certificado raiz baixado em Database Settings → SSL Configuration. Sem esse certificado, a conexão é criptografada, mas a verificação da cadeia TLS fica desativada porque o certificado atual não é confiado pelo Node neste ambiente.
 
 O esquema Supabase em `defesa-civil/supabase/schema.sql` foi aplicado ao projeto conectado. Em outra configuração, aplique esse arquivo uma vez no SQL Editor do Supabase. Não execute `server/schema.postgres.sql` no banco Supabase: ele é o esquema legado da API PostgreSQL.
 
-O login usa Supabase Auth. Desative o cadastro público no projeto e crie ou convide somente usuários da equipe em **Authentication → Users**; as contas autenticadas compartilham os dados conforme as políticas RLS. A API valida o token de cada sessão antes de ler ou alterar dados. A fila IndexedDB continua guardando alterações offline neste dispositivo e sincroniza com o Supabase quando a conexão volta.
+O acesso ao app usa uma senha compartilhada gerenciada como segredo do servidor e uma escolha de nome entre Sócrates, Leandro e João Victor; não é necessário criar usuários no Supabase. A API emite sessões temporárias e valida cada sessão antes de ler ou alterar dados. A fila IndexedDB continua guardando alterações offline neste dispositivo e sincroniza com o Supabase após o login. Os três nomes usam a mesma senha e não permitem atribuir com segurança cada alteração a uma pessoa específica.
 
 ## Áreas de risco, ocorrências e uso offline
 

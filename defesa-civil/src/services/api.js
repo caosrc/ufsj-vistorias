@@ -8,34 +8,47 @@ import {
   writeOfflineIdMapping,
   writeOfflineCache,
 } from './offlineStorage'
-import { supabase, supabaseDisponivel } from '../operacional/supabaseClient'
 
 const API_URL = import.meta.env.VITE_API_URL ?? ''
 export const API_BASE = `${API_URL}/api`
 const BASE = API_BASE
+const ACCESS_TOKEN_KEY = 'geovistorias_access_token'
+export const AUTH_EXPIRED_EVENT = 'geovistorias:auth-expired'
+
+export function getAppAccessToken() {
+  try {
+    return typeof window === 'undefined' ? '' : window.sessionStorage.getItem(ACCESS_TOKEN_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+export function setAppAccessToken(token) {
+  if (typeof window === 'undefined') return
+  if (token) window.sessionStorage.setItem(ACCESS_TOKEN_KEY, token)
+  else window.sessionStorage.removeItem(ACCESS_TOKEN_KEY)
+}
 
 export async function fetchApi(url, options = {}) {
-  if (!supabaseDisponivel) {
-    const error = new Error('A autenticação Supabase não está configurada.')
-    error.status = 401
-    throw error
-  }
-
-  const { data, error: sessionError } = await supabase.auth.getSession()
-  const token = data?.session?.access_token
-  if (sessionError || !token) {
+  const token = getAppAccessToken()
+  if (!token) {
     const error = new Error('Entre novamente para acessar os dados.')
     error.status = 401
     throw error
   }
 
-  return fetch(url, {
+  const response = await fetch(url, {
     ...options,
     headers: {
       ...(options.headers || {}),
       Authorization: `Bearer ${token}`,
     },
   })
+  if (response.status === 401) {
+    setAppAccessToken(null)
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
+  }
+  return response
 }
 
 const RESOURCE_PATHS = {
